@@ -189,6 +189,27 @@ async fn enable_protection() -> Result<(), String> {
     }
 }
 
+/// Read-only survey of reclaimable junk: `[{id, files, bytes}]`.
+#[tauri::command]
+async fn junk_scan() -> Result<Value, String> {
+    let cats = tauri::async_runtime::spawn_blocking(vigil_win::junk::scan)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(Value::Array(
+        cats.iter()
+            .map(|c| serde_json::json!({ "id": c.id, "files": c.files, "bytes": c.bytes }))
+            .collect(),
+    ))
+}
+
+/// Delete the categories the user ticked and confirmed; returns bytes freed.
+#[tauri::command]
+async fn junk_clean(ids: Vec<String>) -> Result<u64, String> {
+    tauri::async_runtime::spawn_blocking(move || vigil_win::junk::clean(&ids))
+        .await
+        .map_err(|e| e.to_string())
+}
+
 /// Show the number of pending decisions in the tray tooltip.
 #[tauri::command]
 fn set_tray_pending(app: AppHandle, tooltip: String) -> Result<(), String> {
@@ -277,7 +298,9 @@ pub fn run() {
             rpc,
             set_tray_labels,
             set_tray_pending,
-            enable_protection
+            enable_protection,
+            junk_scan,
+            junk_clean
         ])
         .run(tauri::generate_context!())
         .expect("failed to start Vigil UI");

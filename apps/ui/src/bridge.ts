@@ -51,6 +51,26 @@ export async function enableProtection(): Promise<boolean> {
   }
 }
 
+export interface JunkCategory {
+  id: string;
+  files: number;
+  bytes: number;
+}
+
+/** Survey reclaimable junk (read-only). Empty outside the desktop shell. */
+export async function junkScan(): Promise<JunkCategory[]> {
+  if (!inTauri) return [];
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke<JunkCategory[]>('junk_scan');
+}
+
+/** Delete the approved categories; resolves to the bytes freed. */
+export async function junkClean(ids: string[]): Promise<number> {
+  if (!inTauri) return 0;
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke<number>('junk_clean', { ids });
+}
+
 export async function hidePopup(): Promise<void> {
   if (!inTauri) return;
   const { getCurrentWindow } = await import('@tauri-apps/api/window');

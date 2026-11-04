@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { getBridge } from '../bridge';
+import { getBridge, junkClean, junkScan, type JunkCategory } from '../bridge';
 import type { AiConfig, AiMode, AiSource } from '../types';
 import { LANGUAGES, setLang, type Lang } from '../i18n';
 import { useVigil } from '../store';
@@ -204,6 +204,69 @@ function DataCard() {
   );
 }
 
+const size = (n: number) =>
+  n >= 1 << 30 ? `${(n / (1 << 30)).toFixed(1)} GB` : `${(n / (1 << 20)).toFixed(1)} MB`;
+
+function JunkCard() {
+  const { t } = useTranslation();
+  const [cats, setCats] = useState<JunkCategory[] | null>(null);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState(false);
+  const [freed, setFreed] = useState<number | null>(null);
+  const total = (cats ?? []).filter((c) => picked.has(c.id)).reduce((a, c) => a + c.bytes, 0);
+
+  const scan = async () => {
+    setBusy(true);
+    setFreed(null);
+    const found = (await junkScan().catch(() => [])).filter((c) => c.files > 0);
+    setCats(found);
+    setPicked(new Set(found.filter((c) => c.id !== 'web_cache').map((c) => c.id)));
+    setBusy(false);
+  };
+  const clean = async () => {
+    if (!globalThis.confirm(t('settings.junk.confirm'))) return;
+    setBusy(true);
+    setFreed(await junkClean([...picked]).catch(() => 0));
+    setCats(null);
+    setBusy(false);
+  };
+  const toggle = (id: string) =>
+    setPicked((p) => {
+      const next = new Set(p);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+
+  return (
+    <section className="card">
+      <h2>{t('settings.junk.title')}</h2>
+      <p className="muted">{t('settings.junk.note')}</p>
+      <button type="button" className="btn" disabled={busy} onClick={() => void scan()}>
+        {busy ? t('settings.junk.scanning') : t('settings.junk.scan')}
+      </button>
+      {cats?.length === 0 && <p>{t('settings.junk.empty')}</p>}
+      {freed !== null && <p role="status">{t('settings.junk.freed', { size: size(freed) })}</p>}
+      {cats && cats.length > 0 && (
+        <>
+          <ul className="plain">
+            {cats.map((c) => (
+              <li key={c.id}>
+                <label>
+                  <input type="checkbox" checked={picked.has(c.id)} onChange={() => toggle(c.id)} />{' '}
+                  {t(`settings.junk.${c.id}`)} — {size(c.bytes)} ({t('settings.junk.files', { count: c.files })})
+                </label>
+              </li>
+            ))}
+          </ul>
+          <button type="button" className="btn" disabled={busy || picked.size === 0} onClick={() => void clean()}>
+            {t('settings.junk.clean', { size: size(total) })}
+          </button>
+        </>
+      )}
+    </section>
+  );
+}
+
 export function Settings() {
   const { t, i18n } = useTranslation();
   const { snapshot } = useVigil();
@@ -244,6 +307,7 @@ export function Settings() {
         </select>
       </section>
       <AiCard />
+      <JunkCard />
       <DataCard />
       <section className="card">
         <h2>{t('settings.about')}</h2>

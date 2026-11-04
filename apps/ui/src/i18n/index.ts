@@ -15,9 +15,9 @@ function initial(): Lang {
     const saved = localStorage.getItem('vigil.lang');
     if (saved === 'en' || saved === 'vi') return saved;
   } catch {
-    /* storage unavailable: fall through to the OS language */
+    /* storage unavailable: fall through to English */
   }
-  return navigator.language.toLowerCase().startsWith('vi') ? 'vi' : 'en';
+  return 'en';
 }
 
 void i18n.use(initReactI18next).init({
