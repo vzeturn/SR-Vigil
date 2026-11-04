@@ -1,0 +1,7 @@
+{
+  "name": "vigil-catalogue",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test test/build.test.js" },
+  "engines": { "node": ">=20" }
+}

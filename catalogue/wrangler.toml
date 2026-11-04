@@ -1,0 +1,12 @@
+name = "vigil-catalogue"
+account_id = "9e6167261f0c8f36dc41de20f0821c88"
+main = "src/index.js"
+compatibility_date = "2026-01-01"
+preview_urls = false
+
+[triggers]
+crons = ["17 3 * * *"]
+
+[[kv_namespaces]]
+binding = "CATALOGUE"
+id = "cdb4bb7bdab44fd8837e7531f5fe786b"

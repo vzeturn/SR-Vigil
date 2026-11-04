@@ -1,0 +1,5 @@
+# Public keys that may sign the version catalogue snapshot (docs/16). Add a new [[key]] before rotating the signing key; keep the old one until clients have updated.
+
+[[key]]
+kid = "k1"
+public = "QmMEb+yzBGjJc9c6UkPGR0H1sgE4gU+0UlH/lxxL+lw="
