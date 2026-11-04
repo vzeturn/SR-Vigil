@@ -26,7 +26,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
-use windows::Win32::Foundation::{FILETIME, FWP_E_ALREADY_EXISTS, FWP_E_FILTER_NOT_FOUND, HANDLE};
+use windows::Win32::Foundation::{
+    FILETIME, FWP_E_ALREADY_EXISTS, FWP_E_FILTER_NOT_FOUND, FWP_E_PROVIDER_NOT_FOUND,
+    FWP_E_SUBLAYER_NOT_FOUND, HANDLE,
+};
 use windows::Win32::NetworkManagement::WindowsFilteringPlatform::{
     FWP_ACTION_BLOCK, FWP_ACTION_PERMIT, FWP_ACTION_TYPE, FWP_BYTE_BLOB, FWP_BYTE_BLOB_TYPE,
     FWP_CONDITION_FLAG_IS_LOOPBACK, FWP_CONDITION_VALUE0, FWP_CONDITION_VALUE0_0,
@@ -40,8 +43,9 @@ use windows::Win32::NetworkManagement::WindowsFilteringPlatform::{
     FWPM_SUBLAYER_FLAG_PERSISTENT, FWPM_SUBLAYER0, FwpmEngineClose0, FwpmEngineOpen0,
     FwpmEngineSetOption0, FwpmFilterAdd0, FwpmFilterCreateEnumHandle0, FwpmFilterDeleteByKey0,
     FwpmFilterDestroyEnumHandle0, FwpmFilterEnum0, FwpmFreeMemory0, FwpmGetAppIdFromFileName0,
-    FwpmNetEventSubscribe0, FwpmNetEventUnsubscribe0, FwpmProviderAdd0, FwpmSubLayerAdd0,
-    FwpmTransactionAbort0, FwpmTransactionBegin0, FwpmTransactionCommit0,
+    FwpmNetEventSubscribe0, FwpmNetEventUnsubscribe0, FwpmProviderAdd0, FwpmProviderDeleteByKey0,
+    FwpmSubLayerAdd0, FwpmSubLayerDeleteByKey0, FwpmTransactionAbort0, FwpmTransactionBegin0,
+    FwpmTransactionCommit0,
 };
 use windows::Win32::Security::PSECURITY_DESCRIPTOR;
 use windows::Win32::Storage::FileSystem::QueryDosDeviceW;
@@ -450,6 +454,28 @@ impl Engine {
 
     pub fn remove_all_persistent(&self) -> Result<usize> {
         self.remove_all(Scope::Persistent)
+    }
+
+    /// Uninstall: removes every persistent filter, then the persistent sublayer and provider so
+    /// nothing of Vigil remains in `netsh wfp show filters`. Missing objects are not an error.
+    pub fn remove_persistent_objects(&self) -> Result<usize> {
+        let removed = self.remove_all(Scope::Persistent)?;
+        self.transaction(|_| {
+            let sub = ids::SUBLAYER_PERSISTENT;
+            let prov = ids::PROVIDER_PERSISTENT;
+            // SAFETY: valid handle; key pointers are valid for the call.
+            check_tolerating(
+                unsafe { FwpmSubLayerDeleteByKey0(self.handle, &raw const sub) },
+                FWP_E_SUBLAYER_NOT_FOUND,
+            )?;
+            // SAFETY: as above.
+            check_tolerating(
+                unsafe { FwpmProviderDeleteByKey0(self.handle, &raw const prov) },
+                FWP_E_PROVIDER_NOT_FOUND,
+            )?;
+            Ok(())
+        })?;
+        Ok(removed)
     }
 
     fn remove_all(&self, scope: Scope) -> Result<usize> {
