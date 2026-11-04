@@ -210,6 +210,124 @@ async fn junk_clean(ids: Vec<String>) -> Result<u64, String> {
         .map_err(|e| e.to_string())
 }
 
+/// Insight payload for a (possibly partial) scan: counts, posture score, score histogram, the
+/// most common reasons, and every non-safe process.
+fn scan_payload(scan: &vigil_win::scan::Scan) -> Value {
+    let name = vigil_win::scan::verdict_name;
+    let count = |v: &str| scan.rows.iter().filter(|r| name(r.eval.verdict) == v).count();
+    let (safe, unknown, malicious) = (count("safe"), count("unknown"), count("malicious"));
+    let total = scan.rows.len().max(1);
+    // Posture: share of trusted processes (unknown counts half), minus 30 per malicious one.
+    let weighted = (safe * 2 + unknown) * 50 / total;
+    let posture = weighted.saturating_sub(malicious * 30).min(100);
+    let mut buckets = [0usize; 4];
+    for r in &scan.rows {
+        let i = match r.eval.score {
+            0..=29 => 0,
+            30..=49 => 1,
+            50..=79 => 2,
+            _ => 3,
+        };
+        buckets[i] += 1;
+    }
+    let mut reasons: std::collections::HashMap<String, (String, String, &str, usize)> =
+        Default::default();
+    let findings: Vec<Value> = scan
+        .rows
+        .iter()
+        .filter(|r| name(r.eval.verdict) != "safe")
+        .map(|r| {
+            let why = scan.reasons(r);
+            for w in &why {
+                reasons
+                    .entry(w.id.clone())
+                    .or_insert((w.name.clone(), w.description.clone(), w.kind, 0))
+                    .3 += 1;
+            }
+            serde_json::json!({
+                "pid": r.pid, "name": r.name, "image": r.image,
+                "start": r.start_time.map(|t| t.to_string()),
+                "score": r.eval.score, "verdict": name(r.eval.verdict),
+                "spoof": r.spoof().name(),
+                "known": r.known().map(|(label, what)| serde_json::json!({"label": label, "what": what})),
+                "advice": r.advice().name(), "impact": r.impact(),
+                "ramMb": r.ram_bytes / (1024 * 1024), "cpu": r.cpu_percent, "threads": r.threads,
+                "identity": {
+                    "signature": format!("{:?}", r.signer.state),
+                    "publisher": r.signer.org,
+                    "chain": r.signer.chain_names,
+                    "msRoot": r.signer.ms_root, "osSigned": r.signer.os_signed,
+                    "company": r.version.company, "product": r.version.product,
+                    "original": r.version.original_filename,
+                },
+                "reasons": why.iter().map(|w| serde_json::json!({
+                    "id": w.id, "name": w.name, "kind": w.kind,
+                    "description": w.description, "delta": w.delta
+                })).collect::<Vec<_>>(),
+            })
+        })
+        .take(200)
+        .collect();
+    let mut top: Vec<_> = reasons.into_iter().collect();
+    top.sort_by(|a, b| b.1.3.cmp(&a.1.3).then(a.0.cmp(&b.0)));
+    serde_json::json!({
+        "safe": safe, "unknown": unknown, "malicious": malicious,
+        "total": scan.rows.len(), "skipped": scan.skipped, "posture": posture,
+        "buckets": buckets,
+        "topReasons": top.iter().take(6).map(|(id, (name, d, kind, n))| serde_json::json!({
+            "id": id, "name": name, "kind": kind, "description": d, "count": n
+        })).collect::<Vec<_>>(),
+        "findings": findings,
+    })
+}
+
+/// Service-less, unelevated survey of running processes for the watching-only view. Partial
+/// results stream as `vigil://scan` events (`{done, total, scan}`) while it runs.
+#[tauri::command]
+async fn local_scan(app: AppHandle) -> Result<Value, String> {
+    let scan = tauri::async_runtime::spawn_blocking(move || {
+        vigil_win::scan::run_with(|partial, done, total| {
+            let _ = app.emit(
+                "vigil://scan",
+                serde_json::json!({ "done": done, "total": total, "scan": scan_payload(partial) }),
+            );
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    Ok(scan_payload(&scan))
+}
+
+/// Terminate one non-safe process the user picked in the watching-only view. The target is
+/// re-classified first: it must still be the same instance, not in the never-kill set and not safe.
+#[tauri::command]
+async fn local_kill(pid: u32, start: String, image: String) -> Result<String, String> {
+    let start: u64 = start.parse().map_err(|_| "bad_start".to_owned())?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let scan = vigil_win::scan::run()?;
+        let row = scan
+            .rows
+            .iter()
+            .find(|r| r.pid == pid && r.start_time == Some(start) && r.image == image)
+            .ok_or("gone")?;
+        if row.eval.never_kill {
+            return Err("protected_target".to_owned());
+        }
+        if vigil_win::scan::verdict_name(row.eval.verdict) == "safe" {
+            return Err("now_safe".to_owned());
+        }
+        Ok(match vigil_win::kill::terminate(pid, start) {
+            vigil_win::kill::Outcome::Terminated => "terminated",
+            vigil_win::kill::Outcome::Gone => "gone",
+            vigil_win::kill::Outcome::AccessDenied => "access_denied",
+            vigil_win::kill::Outcome::Failed => "failed",
+        }
+        .to_owned())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// Show the number of pending decisions in the tray tooltip.
 #[tauri::command]
 fn set_tray_pending(app: AppHandle, tooltip: String) -> Result<(), String> {
@@ -296,11 +414,13 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             rpc,
+            local_kill,
             set_tray_labels,
             set_tray_pending,
             enable_protection,
             junk_scan,
-            junk_clean
+            junk_clean,
+            local_scan
         ])
         .run(tauri::generate_context!())
         .expect("failed to start Vigil UI");

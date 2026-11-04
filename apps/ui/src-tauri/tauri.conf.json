@@ -14,10 +14,10 @@
       {
         "label": "main",
         "title": "Vigil",
-        "width": 1280,
-        "height": 800,
-        "minWidth": 960,
-        "minHeight": 600
+        "width": 1040,
+        "height": 680,
+        "minWidth": 880,
+        "minHeight": 560
       },
       {
         "label": "popup",

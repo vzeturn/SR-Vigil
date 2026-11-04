@@ -1,0 +1,150 @@
+/*
+ * Vigil design tokens, modelled on Microsoft Fluent 2 (Windows 11).
+ * Tier 1 = primitives (raw values, only here). Tier 2 = semantic roles (what components use).
+ * Theme: dark by default; `data-theme="light|dark"` forces one, otherwise the OS preference wins.
+ * Spec: docs/14-design-system.md
+ */
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/jetbrains-mono';
+
+/* ---------- Tier 1: primitives ---------- */
+:root {
+  /* neutral, light end */
+  --n-0: #ffffff;
+  --n-98: #fafafa;
+  --n-96: #f5f5f5;
+  --n-94: #f0f0f0;
+  --n-92: #ebebeb;
+  --n-88: #e0e0e0;
+  --n-82: #d1d1d1;
+  --n-38: #616161;
+  --n-26: #424242;
+  --n-14: #242424;
+  /* neutral, dark end */
+  --d-08: #141414;
+  --d-12: #1f1f1f;
+  --d-16: #292929;
+  --d-20: #333333;
+  --d-24: #3d3d3d;
+  --d-30: #4d4d4d;
+  --d-68: #adadad;
+  --d-84: #d6d6d6;
+  --d-100: #ffffff;
+  /* brand blue */
+  --b-80: #0f6cbd;
+  --b-70: #115ea3;
+  --b-60: #0f548c;
+  --b-tint-light: #ebf3fc;
+  --b-dark: #479ef5;
+  --b-dark-hover: #62abf5;
+  --b-dark-press: #2886de;
+  --b-tint-dark: #082338;
+  --on-b-dark: #0a0a0a;
+  /* status foreground / tint */
+  --green-light: #107c10;
+  --green-dark: #54b054;
+  --green-tint-light: #f1faf1;
+  --green-tint-dark: #052505;
+  --orange-light: #bc4b09;
+  --orange-dark: #faa06b;
+  --orange-tint-light: #fdf6f3;
+  --orange-tint-dark: #4a1e04;
+  --red-light: #b10e1c;
+  --red-dark: #dc626d;
+  --red-tint-light: #fdf3f4;
+  --red-tint-dark: #3b0509;
+
+  /* spacing (4/8 scale) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  /* shape */
+  --radius-sm: 2px;
+  --radius-control: 4px;
+  --radius-card: 8px;
+  --radius-dialog: 12px;
+  --radius-chip: 999px;
+
+  /* type ramp (size / line height) */
+  --font-sans: 'Segoe UI Variable Text', 'Segoe UI', 'Inter Variable', system-ui, sans-serif;
+  --font-display: 'Segoe UI Variable Display', 'Segoe UI Variable Text', 'Segoe UI', 'Inter Variable', system-ui, sans-serif;
+  --font-mono: 'Cascadia Mono', 'JetBrains Mono Variable', ui-monospace, monospace;
+  --fs-caption: 12px;
+  --fs-body: 14px;
+  --fs-subtitle: 16px;
+  --fs-title: 20px;
+  --fs-display: 28px;
+  --lh-caption: 16px;
+  --lh-body: 20px;
+  --lh-subtitle: 22px;
+  --lh-title: 28px;
+  --lh-display: 36px;
+
+  /* motion (Fluent: fast 100, normal 150, gentle 200; decelerate curve) */
+  --dur-fast: 100ms;
+  --dur-normal: 150ms;
+  --dur-gentle: 200ms;
+  --ease: cubic-bezier(0.33, 0, 0.67, 1);
+  --motion: var(--dur-normal) var(--ease);
+
+  /* elevation */
+  --elev-2: 0 0 2px rgb(0 0 0 / 0.12), 0 1px 2px rgb(0 0 0 / 0.14);
+  --elev-8: 0 0 2px rgb(0 0 0 / 0.12), 0 4px 8px rgb(0 0 0 / 0.14);
+  --elev-28: 0 0 8px rgb(0 0 0 / 0.12), 0 14px 28px rgb(0 0 0 / 0.24);
+}
+
+/* ---------- Tier 2: semantic roles ---------- */
+:root {
+  color-scheme: dark;
+}
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    color-scheme: light;
+  }
+}
+
+:root {
+  /* surfaces: base = window backdrop (Mica), layer = content panel, card = raised card */
+  --bg: light-dark(var(--n-96), var(--d-12));
+  --bg-layer: light-dark(var(--n-0), var(--d-16));
+  --surface: light-dark(var(--n-0), var(--d-20));
+  --surface-hover: light-dark(var(--n-96), var(--d-24));
+  --surface-strong: light-dark(var(--n-94), var(--d-24));
+  --surface-selected: light-dark(var(--n-92), var(--d-30));
+  --border: light-dark(var(--n-88), var(--d-24));
+  --border-strong: light-dark(var(--n-82), var(--d-30));
+  /* text */
+  --text: light-dark(var(--n-14), var(--d-100));
+  --text-dim: light-dark(var(--n-38), var(--d-68));
+  /* brand */
+  --accent: light-dark(var(--b-80), var(--b-dark));
+  --accent-hover: light-dark(var(--b-70), var(--b-dark-hover));
+  --accent-press: light-dark(var(--b-60), var(--b-dark-press));
+  --accent-subtle: light-dark(var(--b-tint-light), var(--b-tint-dark));
+  --on-accent: light-dark(var(--n-0), var(--on-b-dark));
+  /* verdict / status */
+  --safe: light-dark(var(--green-light), var(--green-dark));
+  --safe-subtle: light-dark(var(--green-tint-light), var(--green-tint-dark));
+  --unknown: light-dark(var(--orange-light), var(--orange-dark));
+  --unknown-subtle: light-dark(var(--orange-tint-light), var(--orange-tint-dark));
+  --malicious: light-dark(var(--red-light), var(--red-dark));
+  --malicious-subtle: light-dark(var(--red-tint-light), var(--red-tint-dark));
+  /* focus + elevation */
+  --focus: light-dark(var(--n-14), var(--d-100));
+  --shadow: var(--elev-2);
+  --shadow-raised: var(--elev-8);
+  --shadow-dialog: var(--elev-28);
+  --scrim: light-dark(rgb(0 0 0 / 0.3), rgb(0 0 0 / 0.5));
+}

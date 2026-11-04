@@ -1,4 +1,4 @@
-import type { Link, PendingItem, Snapshot } from './types';
+import type { Link, PendingItem, Snapshot, Verdict } from './types';
 
 /** The only door to the service. In a browser (dev, tests) a mock stands in for the Tauri shell. */
 export interface Bridge {
@@ -69,6 +69,108 @@ export async function junkClean(ids: string[]): Promise<number> {
   if (!inTauri) return 0;
   const { invoke } = await import('@tauri-apps/api/core');
   return invoke<number>('junk_clean', { ids });
+}
+
+export interface LocalFinding {
+  pid: number;
+  name: string;
+  image: string;
+  score: number;
+  verdict: Verdict;
+  /** Creation time as a decimal string (exceeds JS safe integers); pins the PID to one instance. */
+  start: string | null;
+  reasons: LocalReason[];
+  spoof: Spoof;
+  known: { label: string; what: string } | null;
+  advice: Advice;
+  impact: Impact;
+  ramMb: number;
+  cpu: number;
+  threads: number;
+  identity: Identity;
+}
+
+export type Advice = "keep" | "watch" | "end";
+export type Impact = "low" | "medium" | "high";
+export type Spoof = "clear" | "doubtful" | "likely";
+
+/** Who signed the file and what the file says about itself. */
+export interface Identity {
+  signature: string;
+  publisher: string | null;
+  chain: string[];
+  msRoot: boolean;
+  osSigned: boolean;
+  company: string;
+  product: string;
+  original: string;
+}
+
+export type ReasonKind = "signal" | "hard_rule" | "hard_allow" | "guard";
+
+export interface LocalReason {
+  id: string;
+  name: string;
+  kind: ReasonKind;
+  description: string;
+  delta: number | null;
+}
+
+export interface LocalScan {
+  safe: number;
+  unknown: number;
+  malicious: number;
+  total: number;
+  skipped: number;
+  /** 0-100: trusted share (unknown counts half) minus 30 per malicious process. */
+  posture: number;
+  /** Process counts by score band: 0-29, 30-49, 50-79, 80-100. */
+  buckets: [number, number, number, number];
+  topReasons: (Omit<LocalReason, "delta"> & { count: number })[];
+  findings: LocalFinding[];
+}
+
+/** Service-less survey of running processes; unavailable outside the desktop shell. */
+export async function localScan(): Promise<LocalScan> {
+  if (!inTauri) {
+    return {
+      safe: 0,
+      unknown: 0,
+      malicious: 0,
+      total: 0,
+      skipped: 0,
+      posture: 0,
+      buckets: [0, 0, 0, 0],
+      topReasons: [],
+      findings: [],
+    };
+  }
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<LocalScan>("local_scan");
+}
+
+export interface ScanProgress {
+  done: number;
+  total: number;
+  scan: LocalScan;
+}
+
+/** Subscribe to partial scan results as they are classified; returns an unsubscribe function. */
+export async function onScanProgress(cb: (p: ScanProgress) => void): Promise<() => void> {
+  if (!inTauri) return () => undefined;
+  const { listen } = await import("@tauri-apps/api/event");
+  return listen<ScanProgress>("vigil://scan", (e) => cb(e.payload));
+}
+
+/** End one process the user chose; resolves to terminated | gone | access_denied | failed. */
+export async function localKill(f: LocalFinding): Promise<string> {
+  if (!inTauri || !f.start) return "failed";
+  const { invoke } = await import("@tauri-apps/api/core");
+  try {
+    return await invoke<string>("local_kill", { pid: f.pid, start: f.start, image: f.image });
+  } catch (e) {
+    return String(e);
+  }
 }
 
 export async function hidePopup(): Promise<void> {

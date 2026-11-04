@@ -1,7 +1,18 @@
-import { Activity, Bell, Network, ScrollText, Settings as Cog, ShieldCheck, ListChecks, Power, type LucideIcon } from 'lucide-react';
+import {
+  Activity,
+  Bell,
+  ListChecks,
+  Network,
+  Power,
+  ScrollText,
+  Settings as Cog,
+  ShieldCheck,
+  type LucideIcon,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { enableProtection, syncTrayLabels, syncTrayPending } from './bridge';
+import { LiveScan } from './components/LiveScan';
 import { Audit } from './pages/Audit';
 import { Connections } from './pages/Connections';
 import { Overview } from './pages/Overview';
@@ -81,7 +92,10 @@ function Shell() {
       <nav className="sidebar" aria-label={t('app.name')}>
         <div className="brand">
           <ShieldCheck size={20} aria-hidden="true" />
-          {t('app.name')}
+          <span>
+            {t('app.name')}
+            <small>{t('app.tagline')}</small>
+          </span>
         </div>
         {(Object.keys(PAGES) as PageId[]).map((id) => {
           const Icon = PAGES[id].icon;
@@ -101,18 +115,35 @@ function Shell() {
         })}
       </nav>
       <main className="main">
-        <h1>{t(`nav.${page}`)}</h1>
+        <div className="page-head">
+          <h1>{t(`nav.${page}`)}</h1>
+          <span className={`status-pill${link.up ? ' up' : ''}`} role="status">
+            {link.up ? t('link.protected') : t('link.watching')}
+          </span>
+        </div>
         {!link.up && (
-          <div className="card banner" role="status">
-            <strong>{t('link.offlineTitle')}</strong>
-            {t('link.offlineBody')}
-            <button type="button" className="btn" disabled={enabling} onClick={() => void enable()}>
-              {enabling ? t('link.enabling') : t('link.enable')}
-            </button>
-            {enableFailed && <span role="alert">{t('link.enableFailed')}</span>}
-          </div>
+          <section className="hero" aria-labelledby="hero-title">
+            <div className="hero-icon">
+              <ShieldCheck size={28} aria-hidden="true" />
+            </div>
+            <div>
+              <h2 id="hero-title">{t('link.offlineTitle')}</h2>
+              <p>{t('link.offlineBody')}</p>
+            </div>
+            <div className="hero-actions">
+              <button type="button" className="btn primary" disabled={enabling} onClick={() => void enable()}>
+                {enabling ? t('link.enabling') : t('link.enable')}
+              </button>
+              {enableFailed && (
+                <span className="hero-error" role="alert">
+                  {t('link.enableFailed')}
+                </span>
+              )}
+            </div>
+          </section>
         )}
-        <View />
+        {!link.up && page !== 'settings' && <LiveScan onCleanup={() => setPage('settings')} />}
+        {(link.up || page === 'settings') && <View />}
       </main>
     </div>
   );
