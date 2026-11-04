@@ -153,6 +153,16 @@ Design: [docs/15-behaviour-and-reputation.md](15-behaviour-and-reputation.md).
 - [ ] Connections page: per-connection reputation chip and owning-process score.
 - [ ] AI payload `behaviour_events`, prompt update, proxy allowlist and spec regeneration.
 
+## M12 — Version freshness (proposed, awaiting approval)
+
+Design: [docs/16-version-freshness.md](16-version-freshness.md).
+
+- [ ] Add version fields to `rules/known_software.toml`; signals VER-001/002/003 with fixtures and mutation checks.
+- [ ] Cloudflare cron Worker that builds and signs the catalogue snapshot (winget-pkgs, OSV, CISA KEV).
+- [ ] Client fetch, Ed25519 verification with `kid` rotation, cache in `%ProgramData%\Vigil`, opt-in setting.
+- [ ] Detail view "installed X, latest Y" with a vendor download link.
+- [ ] Catalogue schema carries winget id, installer hash and end-of-support so a later user-approved clean-update flow (M13, needs its own design) can build on it.
+
 ## Backlog (post-v1, tracked)
 
 - Inbound blocking option (FR-017): `ALE_AUTH_RECV_ACCEPT` filters, off by default.
