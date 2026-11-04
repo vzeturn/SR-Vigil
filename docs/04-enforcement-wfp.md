@@ -16,6 +16,12 @@
 | Transactions | All multi-filter changes inside `FwpmTransactionBegin0/Commit0`; idempotent by filter key (GUID derived from `sha256(identity_key)`), so retries cannot duplicate filters. |
 | Net events | Enable `FWPM_ENGINE_COLLECT_NET_EVENTS`; subscribe with `FwpmNetEventSubscribe0` for `CLASSIFY_DROP` to learn about blocked first connections (app path, remote addr/port, filter id) and create Pending items. |
 
+### Verified WFP behaviour (M3 implementation notes)
+- `FwpmEngineSetOption0(FWPM_ENGINE_COLLECT_NET_EVENTS)` fails from a dynamic session with `FWP_E_DYNAMIC_SESSION_IN_PROGRESS` (0x8032000B). `Engine::open_dynamic` sets this global option through a short-lived non-dynamic handle.
+- Provider/sublayer/filter adds return `FWP_E_ALREADY_EXISTS` on repeat; treated as success (idempotent). Deleting a missing filter (`FWP_E_FILTER_NOT_FOUND`) is also success.
+- Filter weights are `FWP_UINT8` (0-15) so the table above maps directly. Each identity has one filter per IP family (v4/v6); keys derive from `sha256("vigil.wfp.v1", kind, family, identity_key)[..16]`.
+- Net-event `app_id` is an NT device path; `DropEvent.app_path` is mapped to a Win32 path via `QueryDosDeviceW` when possible. The subscription context is intentionally leaked (one small allocation per subscription) because unsubscribe does not document that in-flight callbacks have finished.
+
 ### Fail-open vs persistent
 - Catch-all and permits: **dynamic** → if `VigilSvc` crashes/stops, all of them vanish and the machine keeps its network. The service restarts via SCM recovery and rebuilds them from the store within seconds.
 - Explicit `block`/`kill`/malicious denies: **persistent** → survive stop/reboot, so a stopped service does not re-enable known-bad apps.

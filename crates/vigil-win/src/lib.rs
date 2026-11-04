@@ -12,6 +12,7 @@ pub mod pipe;
 pub mod process;
 pub mod trust;
 pub mod version;
+pub mod wfp;
 
 /// Errors from the Windows layer.
 #[derive(Debug, thiserror::Error)]

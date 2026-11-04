@@ -6,6 +6,10 @@ rust-version.workspace = true
 publish.workspace = true
 license.workspace = true
 
+[features]
+# Live Windows tests; need an elevated shell. Dynamic WFP sessions only.
+integration = []
+
 [lints]
 workspace = true
 
@@ -36,4 +40,6 @@ features = [
   "Win32_System_Pipes",
   "Win32_NetworkManagement_IpHelper",
   "Win32_Networking_WinSock",
+  "Win32_NetworkManagement_WindowsFilteringPlatform",
+  "Win32_System_Rpc",
 ]
