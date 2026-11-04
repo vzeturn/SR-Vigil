@@ -13,7 +13,7 @@ You are implementing **Vigil**, a Windows endpoint tool that classifies every pr
 7. **Secrets.** The Anthropic API key is stored only in the service, encrypted with DPAPI (machine scope + entropy). It is never returned over IPC, never logged, never sent to the UI. Use `secrecy::SecretString` and `zeroize`.
 8. **`unsafe` is allowed only in `vigil-win`**, each block with a `// SAFETY:` comment, wrapped in a safe API. Other crates use `#![forbid(unsafe_code)]`.
 9. **No placeholder text** in shipped code, docs, UI strings or configs. If something is deliberately deferred, write it as a tracked item in `docs/10-roadmap-milestones.md`.
-10. **No network calls except** the Anthropic API (when enabled), the project's optional shared AI endpoint (`proxy/`, only when the user picks "shared" and the build sets `VIGIL_PROXY_URL`) and optional VirusTotal (when enabled). No telemetry, no auto-update in v1.
+10. **No network calls except** the Anthropic API (when enabled), the project's optional shared AI endpoint (`proxy/`, only when the user picks "shared" and the build sets `VIGIL_PROXY_URL`) optional VirusTotal (when enabled) and the optional destination-reputation service (when enabled, see `docs/15`). No telemetry, no auto-update in v1.
 
 ## Fixed constants (single source of truth: `crates/vigil-core/src/consts.rs`, mirrored in `docs/03` and `schemas/`)
 

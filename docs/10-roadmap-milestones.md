@@ -142,6 +142,17 @@ Standing rule for every milestone: `cargo fmt --check`, `cargo clippy -D warning
 
 **Status (M6, in progress):** done: MSI (`installer/`, `docs/13`), uninstall cleanup (`vigil-svc --cleanup`), DLL search-path lock-down, data-dir ACL repair, FR-018, FR-017 visibility (listening sockets shown as inbound; blocking stays off, tracked below), T14 (MOD-001), axe-core accessibility test on every page in en and vi, `cargo deny` gate green, SBOM and release workflow, static CRT. Done: one-click "Enable protection" (single UAC prompt installs the service; the UI stays unelevated). Open: BEH-005 collection, geo map, Lighthouse, contrast and keyboard run-through on a real WebView, performance pass, and every VM-only acceptance box above.
 
+## M11 — Behaviour and destination reputation
+
+Design: [docs/15-behaviour-and-reputation.md](15-behaviour-and-reputation.md).
+
+- [ ] Offline `rules/reputation.toml` (bad domains/IPs, risky TLDs, DGA heuristic) and NET-001/002.
+- [ ] ETW collectors: Kernel-Process, Kernel-File, Kernel-Network, DNS-Client (bounded channels, reconciler on loss).
+- [ ] Rules NET-003/004, FIL-001/002, PRC-001, RES-001, TRU-001 with fixtures and mutation checks.
+- [ ] Resolve the research items in docs/15 §4 (Safe Browsing licence and API choice, SmartScreen availability) before adding any online lookup.
+- [ ] Connections page: per-connection reputation chip and owning-process score.
+- [ ] AI payload `behaviour_events`, prompt update, proxy allowlist and spec regeneration.
+
 ## Backlog (post-v1, tracked)
 
 - Inbound blocking option (FR-017): `ALE_AUTH_RECV_ACCEPT` filters, off by default.
