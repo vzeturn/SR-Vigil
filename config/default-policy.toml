@@ -1,0 +1,88 @@
+# Vigil default policy. Overridable by %ProgramData%\Vigil\config.toml (validated; invalid file is rejected
+# with an audit entry and the previous configuration stays active). Runtime changes go through settings.set.
+
+[general]
+default_mode               = "observe"   # observe | learning | enforce
+learning_minimum_hours     = 24          # required before enforce unless the admin overrides
+allow_standard_user_decisions = false    # viewers can never decide when false
+strict_client              = false       # true in release builds: only Vigil-signed UI/CLI may connect
+log_level                  = "info"
+
+[decisions]
+default_scope              = "1h"        # once | 1h | 24h | forever
+once_inactivity_minutes    = 10
+timeout_default_action     = "block"     # unresolved Pending stays blocked
+kill_tree_for_malicious    = true
+kill_tree_for_user_kill    = false
+
+[popup]
+max_per_5s                 = 1
+queue_cap                  = 1000
+play_sound                 = false
+
+[enforcement]
+loopback_exempt            = true
+bootstrap_check_required   = true
+respawn_watch              = true
+service_disable_requires_approval = true
+
+[network]
+risky_ports = [1337, 4444, 5555, 6666, 6667, 6697, 9001, 9030, 12345, 31337]
+risky_tlds  = ["zip", "mov", "top", "xyz", "tk", "ml", "ga", "cf", "gq", "click", "icu", "cyou", "su"]
+
+[network.beacon_ignore]
+ports = [123]
+host_suffixes = ["time.windows.com", "windowsupdate.com", "update.microsoft.com", "delivery.mp.microsoft.com"]
+ignore_private_destinations = true
+
+[beaconing]
+window_minutes   = 30
+min_samples      = 6
+max_cv           = 0.15
+min_interval_sec = 5
+
+[evaluation]
+hash_cache_ttl_days        = 30
+safe_reverify_days         = 7
+revocation_recheck_hours   = 24
+max_parallel_verifications = 4
+
+[ai]
+enabled            = false
+mode               = "off"                 # off | advisor | auto
+model              = "claude-haiku-5-5"    # verify current model IDs at docs.claude.com
+escalation_model   = "claude-sonnet-5-5"
+escalate_below     = 0.75
+auto_threshold     = 0.90
+auto_allow_min_rule_score = 40
+auto_kill          = false
+auto_kill_threshold = 0.95
+auto_kill_max_rule_score = 49
+send_cmdline       = false
+timeout_seconds    = 8
+max_tokens         = 400
+daily_call_budget  = 500
+unseen_calls_per_minute = 10
+cache_ttl_days_decisive = 7
+cache_ttl_hours_unknown = 24
+auto_not_before_learning_hours = 24
+
+[virustotal]
+enabled            = false
+daily_lookup_budget = 500
+
+[retention]
+connections_days   = 30
+connection_aggregates_days = 365
+evaluations_per_executable = 20
+audit_days         = 365
+ai_opinions_days   = 90
+log_days           = 14
+
+[privacy]
+store_cmdline      = false                 # false: hash only
+export_anonymize_paths_default = false
+
+[never_kill_extra]
+# Additional image basenames that must never be killed or denied (admin additions, merged with system_processes.toml).
+names = []

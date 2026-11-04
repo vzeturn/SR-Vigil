@@ -1,0 +1,282 @@
+# Vigil default rule pack. Mirrors docs/03-trust-scoring.md (a contract test enforces this).
+# Load order: this file, then %ProgramData%\Vigil\rules.d\*.toml (overrides by id).
+# Unknown predicate keys make the pack invalid; the previous pack stays active.
+
+[pack]
+rule_pack_version = "1.0.0"
+baseline          = 50
+safe_min          = 80
+malicious_max     = 29
+
+# ---------------------------------------------------------------- trust signals
+# SIG-001/002/003 share an exclusive group: only the highest `priority` that matches applies.
+
+[[rule]]
+id = "SIG-001"
+name = "os_signed_canonical"
+kind = "signal"
+description = "Valid signature chaining to a Microsoft root, file located in a system path"
+when = { signature = "valid", signer_ms_root = true, path_class = "system" }
+score = 45
+exclusive_group = "signer_trust"
+priority = 3
+
+[[rule]]
+id = "SIG-002"
+name = "pinned_publisher_valid"
+kind = "signal"
+description = "Valid signature from a pinned publisher"
+when = { signature = "valid", signer_pinned = true }
+score = 40
+exclusive_group = "signer_trust"
+priority = 2
+
+[[rule]]
+id = "SIG-003"
+name = "valid_unpinned_signer"
+kind = "signal"
+description = "Valid signature from a publisher that is not pinned"
+when = { signature = "valid" }
+score = 25
+exclusive_group = "signer_trust"
+priority = 1
+
+[[rule]]
+id = "SIG-004"
+name = "company_matches_signer"
+kind = "signal"
+description = "VersionInfo CompanyName is consistent with the signer organisation"
+when = { signature = "valid", company_matches_signer = true }
+score = 8
+
+[[rule]]
+id = "LOC-001"
+name = "path_program_files_or_system"
+kind = "signal"
+description = "Installed under a system or Program Files location"
+when = { path_class = ["system", "program_files"] }
+score = 5
+
+[[rule]]
+id = "REP-001"
+name = "vt_clean_established"
+kind = "signal"
+description = "VirusTotal: no detections and first seen at least 30 days ago"
+when = { vt_detections_lte = 0, vt_first_seen_days_gte = 30 }
+score = 10
+
+# ---------------------------------------------------------------- risk signals
+
+[[rule]]
+id = "SIG-010"
+name = "unsigned_user_writable"
+kind = "signal"
+description = "Unsigned executable in a user-writable path"
+when = { signature = "unsigned", path_class = "user_writable" }
+score = -15
+
+[[rule]]
+id = "SIG-011"
+name = "unsigned_other"
+kind = "signal"
+description = "Unsigned executable outside user-writable paths"
+when = { signature = "unsigned", path_class = ["system", "program_files", "network_share", "removable", "other"] }
+score = -5
+
+[[rule]]
+id = "SIG-012"
+name = "expired_no_timestamp"
+kind = "signal"
+description = "Signing certificate expired and no trusted countersignature timestamp"
+when = { signature = "expired" }
+score = -15
+
+[[rule]]
+id = "SIG-013"
+name = "untrusted_root_or_self_signed"
+kind = "signal"
+description = "Signature present but the root is not trusted or the certificate is self-signed"
+when = { signature = "untrusted_root" }
+score = -20
+
+[[rule]]
+id = "SIG-014"
+name = "publisher_company_mismatch"
+kind = "signal"
+description = "VersionInfo CompanyName conflicts with the signer organisation"
+when = { signature = "valid", company_conflicts_signer = true }
+score = -25
+
+[[rule]]
+id = "SIG-015"
+name = "os_binary_out_of_place"
+kind = "signal"
+description = "Windows-signed OS binary located in a user-writable, removable or network path"
+when = { os_signed = true, path_class = ["user_writable", "removable", "network_share"] }
+score = -30
+
+[[rule]]
+id = "SIG-020"
+name = "typosquat_name"
+kind = "signal"
+description = "Image name imitates a canonical or popular executable name"
+when = { typosquat = true }
+score = -50
+
+[[rule]]
+id = "LOC-010"
+name = "network_share_or_removable"
+kind = "signal"
+description = "Executable runs from a UNC share or removable media"
+when = { path_class = ["network_share", "removable"] }
+score = -15
+
+[[rule]]
+id = "BEH-001"
+name = "lolbin_outbound"
+kind = "signal"
+description = "Abuse-prone OS tool connecting to a public destination (see rules/lolbins.toml for context allows)"
+when = { lolbin = true, has_outbound = true, dest_public = true }
+score = -25
+cap = 70
+
+[[rule]]
+id = "BEH-002"
+name = "beaconing"
+kind = "signal"
+description = "Periodic connections to the same destination"
+when = { beaconing = true }
+score = -30
+
+[[rule]]
+id = "BEH-003"
+name = "public_dest_no_dns"
+kind = "signal"
+description = "Connection to a public IP without a preceding DNS resolution"
+when = { public_dest_no_dns = true }
+score = -10
+
+[[rule]]
+id = "BEH-004"
+name = "risky_port_or_tld"
+kind = "signal"
+description = "Destination port or TLD is in the configured risky lists"
+when = { risky_port_or_tld = true }
+score = -10
+
+[[rule]]
+id = "BEH-005"
+name = "unbacked_exec_memory"
+kind = "signal"
+description = "Executable private memory not backed by an image file (optional, M6)"
+when = { unbacked_exec_memory = true }
+score = -40
+
+[[rule]]
+id = "REP-010"
+name = "vt_low_detections"
+kind = "signal"
+description = "VirusTotal reports 1 to 4 detections"
+when = { vt_detections_gte = 1, vt_detections_lte = 4 }
+score = -20
+
+[[rule]]
+id = "REP-011"
+name = "vt_high_detections"
+kind = "signal"
+description = "VirusTotal reports 5 to 9 detections"
+when = { vt_detections_gte = 5, vt_detections_lte = 9 }
+score = -60
+
+# ---------------------------------------------------------------- hard rules (terminal)
+
+[[rule]]
+id = "HR-001"
+name = "signature_tampered"
+kind = "hard_rule"
+description = "Signature present but digest mismatch or not trusted for a catalog-listed file"
+when = { signature = "invalid" }
+verdict = "malicious"
+terminal = true
+
+[[rule]]
+id = "HR-002"
+name = "masquerade_path"
+kind = "hard_rule"
+description = "Name belongs to a protected system process but the file is not at a canonical path"
+when = { name_in_canonical_set = true, at_canonical_path = false }
+verdict = "malicious"
+terminal = true
+
+[[rule]]
+id = "HR-003"
+name = "masquerade_parent"
+kind = "hard_rule"
+description = "Protected system process started by an unexpected parent"
+when = { name_in_canonical_set = true, parent_check_applies = true, parent_ok = false }
+verdict = "malicious"
+terminal = true
+
+[[rule]]
+id = "HR-004"
+name = "cert_revoked"
+kind = "hard_rule"
+description = "Signer or a chain certificate is revoked"
+when = { signature = "revoked" }
+verdict = "malicious"
+terminal = true
+
+[[rule]]
+id = "HR-005"
+name = "vt_consensus_malicious"
+kind = "hard_rule"
+description = "VirusTotal reports 10 or more detections"
+when = { vt_detections_gte = 10 }
+verdict = "malicious"
+terminal = true
+
+[[rule]]
+id = "HR-006"
+name = "user_denylist"
+kind = "hard_rule"
+description = "Hash is on the user deny list"
+when = { user_denylisted = true }
+verdict = "malicious"
+terminal = true
+
+[[rule]]
+id = "HR-007"
+name = "publisher_impersonation"
+kind = "hard_rule"
+description = "Metadata claims a pinned publisher but the signer is not that publisher"
+when = { claims_pinned_publisher = true, signer_pinned = false }
+verdict = "malicious"
+terminal = true
+
+# ---------------------------------------------------------------- hard allows and guards
+
+[[rule]]
+id = "HA-001"
+name = "vigil_self"
+kind = "hard_allow"
+description = "Vigil's own binary verified against the self-pin recorded at install"
+when = { vigil_self = true }
+verdict = "safe"
+terminal = true
+
+[[rule]]
+id = "HA-002"
+name = "user_allow_identity"
+kind = "hard_allow"
+description = "Unexpired user allow decision for this identity (evaluated only when no hard rule fired)"
+when = { user_allowed = true }
+verdict = "safe"
+terminal = true
+
+[[rule]]
+id = "SG-001"
+name = "never_kill_set"
+kind = "guard"
+description = "Core OS identity: never killed or denied unless HR-001, HR-002 or HR-003 fired"
+when = { never_kill_set = true }
+guard = "never_kill"

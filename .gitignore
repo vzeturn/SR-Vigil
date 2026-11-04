@@ -1,0 +1,5 @@
+/target
+**/node_modules
+/apps/ui/dist
+*.log
+.env

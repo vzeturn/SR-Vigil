@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vigil.local/schemas/ai-verdict.schema.json",
+  "title": "submit_verdict tool input",
+  "description": "Input schema of the forced submit_verdict tool. When sent to the Anthropic API, strip $schema, $id and title and send the remaining object as input_schema.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["verdict", "confidence", "recommended_action", "reasons"],
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": ["safe", "unknown", "malicious"],
+      "description": "Overall assessment of the executable's network activity."
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Confidence in the verdict from 0 to 1."
+    },
+    "recommended_action": {
+      "type": "string",
+      "enum": ["allow", "block", "ask_user", "kill"],
+      "description": "Suggested action; ask_user when evidence is thin or conflicting."
+    },
+    "reasons": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 6,
+      "items": { "type": "string", "minLength": 1, "maxLength": 200 },
+      "description": "Short factual reasons in English."
+    },
+    "indicators": {
+      "type": "array",
+      "maxItems": 10,
+      "items": { "type": "string", "pattern": "^[A-Z]{2,3}-[0-9]{3}$" },
+      "description": "Rule signal ids the assessment relied on."
+    }
+  }
+}

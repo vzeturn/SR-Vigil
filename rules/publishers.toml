@@ -1,0 +1,84 @@
+# Built-in trusted publishers.
+#
+# match_mode:
+#   "subject_and_root" - subject organisation equals `subject_org` (or an alias after normalisation)
+#                        AND the chain ends in one of `required_roots`.
+#   "thumbprint"       - subject organisation matches AND the chain contains a certificate whose
+#                        thumbprint is recorded in %ProgramData%\Vigil\publishers.lock.
+#
+# `vigilctl trust bootstrap` (also run by the installer) reads each `bootstrap_from` reference file that
+# exists on the machine, verifies it with WinVerifyTrust, and records the observed leaf and intermediate
+# thumbprints into publishers.lock. An entry in "thumbprint" mode with no lock data is inactive until the
+# admin pins the publisher from the UI or `vigilctl trust pin`. A wrong or outdated `subject_org` can only
+# fail safe: the signer is then treated as unpinned (SIG-003) instead of pinned (SIG-002).
+
+[[publisher]]
+id = "microsoft"
+subject_org = "Microsoft Corporation"
+aliases = ["Microsoft", "Microsoft Windows", "Microsoft Windows Publisher"]
+match_mode = "subject_and_root"
+required_roots = ["Microsoft Root Certificate Authority 2010", "Microsoft Root Certificate Authority 2011"]
+bootstrap_from = ["%SystemRoot%\\System32\\svchost.exe", "%ProgramFiles(x86)%\\Microsoft\\Edge\\Application\\msedge.exe"]
+
+[[publisher]]
+id = "google"
+subject_org = "Google LLC"
+aliases = ["Google Inc", "Google"]
+match_mode = "thumbprint"
+bootstrap_from = ["%ProgramFiles%\\Google\\Chrome\\Application\\chrome.exe", "%ProgramFiles(x86)%\\Google\\Update\\GoogleUpdate.exe"]
+
+[[publisher]]
+id = "mozilla"
+subject_org = "Mozilla Corporation"
+aliases = ["Mozilla"]
+match_mode = "thumbprint"
+bootstrap_from = ["%ProgramFiles%\\Mozilla Firefox\\firefox.exe"]
+
+[[publisher]]
+id = "adobe"
+subject_org = "Adobe Inc."
+aliases = ["Adobe Systems Incorporated", "Adobe"]
+match_mode = "thumbprint"
+bootstrap_from = ["%ProgramFiles%\\Adobe\\Acrobat DC\\Acrobat\\Acrobat.exe", "%ProgramFiles(x86)%\\Common Files\\Adobe\\OOBE\\PDApp\\core\\Adobe Desktop Service.exe"]
+
+[[publisher]]
+id = "zoom"
+subject_org = "Zoom Video Communications, Inc."
+aliases = ["Zoom"]
+match_mode = "thumbprint"
+bootstrap_from = ["%ProgramFiles%\\Zoom\\bin\\Zoom.exe", "%APPDATA%\\Zoom\\bin\\Zoom.exe"]
+
+[[publisher]]
+id = "cisco"
+subject_org = "Cisco Systems, Inc."
+aliases = ["Cisco"]
+match_mode = "thumbprint"
+bootstrap_from = ["%ProgramFiles(x86)%\\Cisco\\Cisco Secure Client\\vpnagent.exe"]
+
+[[publisher]]
+id = "intel"
+subject_org = "Intel Corporation"
+aliases = ["Intel"]
+match_mode = "thumbprint"
+bootstrap_from = ["%ProgramFiles%\\Intel\\Intel(R) Management Engine Components\\LMS\\LMS.exe"]
+
+[[publisher]]
+id = "nvidia"
+subject_org = "NVIDIA Corporation"
+aliases = ["NVIDIA"]
+match_mode = "thumbprint"
+bootstrap_from = ["%ProgramFiles%\\NVIDIA Corporation\\NVSMI\\nvidia-smi.exe"]
+
+[[publisher]]
+id = "amd"
+subject_org = "Advanced Micro Devices, Inc."
+aliases = ["AMD"]
+match_mode = "thumbprint"
+bootstrap_from = ["%ProgramFiles%\\AMD\\CNext\\CNext\\RadeonSoftware.exe"]
+
+[[publisher]]
+id = "dell"
+subject_org = "Dell Inc."
+aliases = ["Dell Technologies", "Dell"]
+match_mode = "thumbprint"
+bootstrap_from = ["%ProgramFiles%\\Dell\\SupportAssistAgent\\bin\\SupportAssistAgent.exe"]

@@ -1,0 +1,148 @@
+# Canonical Windows system processes used for masquerade detection (HR-002, HR-003, SIG-020) and the
+# never-kill guard (SG-001).
+#
+# Fields
+#   name              image basename, compared case-insensitively after normalisation
+#   canonical_paths   allowed full paths; environment variables expanded from the real system;
+#                     `*` matches exactly one path segment
+#   parent            expected parent image basename (omit when the parent is not stable)
+#   parent_alternates additional acceptable parent basenames
+#   parent_check      true only when the real parent is stable and still alive; otherwise HR-003 is not applied
+#   never_kill        SG-001: never kill/deny unless HR-001/002/003 fired
+#   network_critical  must stay permitted for the bootstrap check before arming enforce
+
+# Pseudo-processes with no image file; never evaluated by path and never killable.
+[pseudo]
+names = ["System", "System Idle Process", "Registry", "Memory Compression", "Secure System"]
+
+[[process]]
+name = "smss.exe"
+canonical_paths = ["%SystemRoot%\\System32\\smss.exe"]
+parent_check = false
+never_kill = true
+
+[[process]]
+name = "csrss.exe"
+canonical_paths = ["%SystemRoot%\\System32\\csrss.exe"]
+parent_check = false
+never_kill = true
+
+[[process]]
+name = "wininit.exe"
+canonical_paths = ["%SystemRoot%\\System32\\wininit.exe"]
+parent_check = false
+never_kill = true
+
+[[process]]
+name = "winlogon.exe"
+canonical_paths = ["%SystemRoot%\\System32\\winlogon.exe"]
+parent_check = false
+never_kill = true
+
+[[process]]
+name = "services.exe"
+canonical_paths = ["%SystemRoot%\\System32\\services.exe"]
+parent = "wininit.exe"
+parent_check = true
+never_kill = true
+network_critical = true
+
+[[process]]
+name = "lsass.exe"
+canonical_paths = ["%SystemRoot%\\System32\\lsass.exe"]
+parent = "wininit.exe"
+parent_check = true
+never_kill = true
+network_critical = true
+
+[[process]]
+name = "svchost.exe"
+canonical_paths = ["%SystemRoot%\\System32\\svchost.exe", "%SystemRoot%\\SysWOW64\\svchost.exe"]
+parent = "services.exe"
+parent_check = true
+never_kill = true
+network_critical = true
+
+[[process]]
+name = "spoolsv.exe"
+canonical_paths = ["%SystemRoot%\\System32\\spoolsv.exe"]
+parent = "services.exe"
+parent_check = true
+
+[[process]]
+name = "taskhostw.exe"
+canonical_paths = ["%SystemRoot%\\System32\\taskhostw.exe"]
+parent_check = false
+
+[[process]]
+name = "dllhost.exe"
+canonical_paths = ["%SystemRoot%\\System32\\dllhost.exe", "%SystemRoot%\\SysWOW64\\dllhost.exe"]
+parent_check = false
+
+[[process]]
+name = "conhost.exe"
+canonical_paths = ["%SystemRoot%\\System32\\conhost.exe"]
+parent_check = false
+
+[[process]]
+name = "dwm.exe"
+canonical_paths = ["%SystemRoot%\\System32\\dwm.exe"]
+parent_check = false
+never_kill = true
+
+[[process]]
+name = "fontdrvhost.exe"
+canonical_paths = ["%SystemRoot%\\System32\\fontdrvhost.exe"]
+parent_check = false
+
+[[process]]
+name = "sihost.exe"
+canonical_paths = ["%SystemRoot%\\System32\\sihost.exe"]
+parent_check = false
+
+[[process]]
+name = "ctfmon.exe"
+canonical_paths = ["%SystemRoot%\\System32\\ctfmon.exe"]
+parent_check = false
+
+[[process]]
+name = "RuntimeBroker.exe"
+canonical_paths = ["%SystemRoot%\\System32\\RuntimeBroker.exe"]
+parent_check = false
+
+[[process]]
+name = "SearchIndexer.exe"
+canonical_paths = ["%SystemRoot%\\System32\\SearchIndexer.exe"]
+parent_check = false
+
+[[process]]
+name = "audiodg.exe"
+canonical_paths = ["%SystemRoot%\\System32\\audiodg.exe"]
+parent_check = false
+
+[[process]]
+name = "WmiPrvSE.exe"
+canonical_paths = ["%SystemRoot%\\System32\\wbem\\WmiPrvSE.exe", "%SystemRoot%\\SysWOW64\\wbem\\WmiPrvSE.exe"]
+parent_check = false
+
+[[process]]
+name = "explorer.exe"
+canonical_paths = ["%SystemRoot%\\explorer.exe"]
+parent_check = false
+
+[[process]]
+name = "SecurityHealthService.exe"
+canonical_paths = ["%SystemRoot%\\System32\\SecurityHealthService.exe"]
+parent_check = false
+
+[[process]]
+name = "MsMpEng.exe"
+canonical_paths = ["%ProgramData%\\Microsoft\\Windows Defender\\Platform\\*\\MsMpEng.exe", "%ProgramFiles%\\Windows Defender\\MsMpEng.exe"]
+parent_check = false
+never_kill = true
+network_critical = true
+
+[[process]]
+name = "NisSrv.exe"
+canonical_paths = ["%ProgramData%\\Microsoft\\Windows Defender\\Platform\\*\\NisSrv.exe", "%ProgramFiles%\\Windows Defender\\NisSrv.exe"]
+parent_check = false

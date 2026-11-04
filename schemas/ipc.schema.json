@@ -1,0 +1,2477 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vigil.local/schemas/ipc.schema.json",
+  "title": "Vigil IPC protocol",
+  "description": "Protocol version 1. Types live in $defs. x-methods maps each JSON-RPC method to its minimum role, params and result schemas; x-events maps notification methods to their params schema. Contract tests validate sample payloads against these.",
+  "x-protocol": 1,
+  "x-max-frame-bytes": 1048576,
+  "x-error-codes": {
+    "-32700": "parse_error",
+    "-32600": "invalid_request",
+    "-32601": "method_not_found",
+    "-32602": "invalid_params",
+    "-32603": "internal_error",
+    "-32001": "unauthorized",
+    "-32002": "invalid_state",
+    "-32003": "not_found",
+    "-32004": "conflict",
+    "-32005": "rate_limited",
+    "-32006": "ai_unavailable",
+    "-32007": "protected_target",
+    "-32008": "enforcement_off"
+  },
+  "$defs": {
+    "Verdict": {
+      "type": "string",
+      "enum": [
+        "safe",
+        "unknown",
+        "malicious"
+      ]
+    },
+    "SignatureStatus": {
+      "type": "string",
+      "enum": [
+        "valid_embedded",
+        "valid_catalog",
+        "unsigned",
+        "invalid",
+        "expired",
+        "revoked",
+        "untrusted_root"
+      ]
+    },
+    "PathClass": {
+      "type": "string",
+      "enum": [
+        "system",
+        "program_files",
+        "user_writable",
+        "network_share",
+        "removable",
+        "other"
+      ]
+    },
+    "Mode": {
+      "type": "string",
+      "enum": [
+        "observe",
+        "learning",
+        "enforce"
+      ]
+    },
+    "Role": {
+      "type": "string",
+      "enum": [
+        "admin",
+        "viewer"
+      ]
+    },
+    "Action": {
+      "type": "string",
+      "enum": [
+        "allow",
+        "block",
+        "kill"
+      ]
+    },
+    "Scope": {
+      "type": "string",
+      "enum": [
+        "once",
+        "1h",
+        "24h",
+        "forever"
+      ]
+    },
+    "ApplyTo": {
+      "type": "string",
+      "enum": [
+        "file",
+        "publisher"
+      ]
+    },
+    "EvalSource": {
+      "type": "string",
+      "enum": [
+        "rules",
+        "ai",
+        "user",
+        "cache"
+      ]
+    },
+    "Health": {
+      "type": "string",
+      "enum": [
+        "healthy",
+        "degraded",
+        "failed"
+      ]
+    },
+    "Topic": {
+      "type": "string",
+      "enum": [
+        "processes",
+        "connections",
+        "verdicts",
+        "pending",
+        "enforcement",
+        "alerts",
+        "health"
+      ]
+    },
+    "Severity": {
+      "type": "string",
+      "enum": [
+        "info",
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "AiMode": {
+      "type": "string",
+      "enum": [
+        "off",
+        "advisor",
+        "auto"
+      ]
+    },
+    "DestClass": {
+      "type": "string",
+      "enum": [
+        "private",
+        "public",
+        "loopback"
+      ]
+    },
+    "Sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "SignalId": {
+      "type": "string",
+      "pattern": "^[A-Z]{2,3}-[0-9]{3}$"
+    },
+    "Signal": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/SignalId"
+        },
+        "name": {
+          "type": "string"
+        },
+        "delta": {
+          "type": "integer"
+        },
+        "detail": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "delta"
+      ]
+    },
+    "Identity": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "sha256": {
+          "$ref": "#/$defs/Sha256"
+        },
+        "path": {
+          "type": "string"
+        },
+        "signer_thumbprint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "publisher": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "company": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "product": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "original_filename": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "signature_status": {
+          "$ref": "#/$defs/SignatureStatus"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "sha256",
+        "path",
+        "signature_status"
+      ]
+    },
+    "Evaluation": {
+      "type": "object",
+      "properties": {
+        "score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "verdict": {
+          "$ref": "#/$defs/Verdict"
+        },
+        "signals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Signal"
+          }
+        },
+        "hard_rule": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^HR-[0-9]{3}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rule_pack_version": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/EvalSource"
+        },
+        "evaluated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "score",
+        "verdict",
+        "signals",
+        "rule_pack_version",
+        "source",
+        "evaluated_at"
+      ]
+    },
+    "ProcessInfo": {
+      "type": "object",
+      "properties": {
+        "pid": {
+          "type": "integer"
+        },
+        "start_time": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "ppid": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "user_sid": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "session_id": {
+          "type": "integer"
+        },
+        "integrity": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cmdline_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "identity_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "verdict": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Verdict"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "score": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hosted_services": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "pid",
+        "start_time",
+        "name"
+      ]
+    },
+    "ConnectionInfo": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "pid": {
+          "type": "integer"
+        },
+        "process_start_time": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "identity_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "proto": {
+          "type": "string",
+          "enum": [
+            "tcp",
+            "udp"
+          ]
+        },
+        "direction": {
+          "type": "string",
+          "enum": [
+            "outbound",
+            "inbound"
+          ]
+        },
+        "local_addr": {
+          "type": "string"
+        },
+        "local_port": {
+          "type": "integer"
+        },
+        "remote_addr": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "remote_port": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "dns_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "state": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "verdict": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Verdict"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "blocked": {
+          "type": "boolean"
+        },
+        "first_seen": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "last_seen": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "pid",
+        "proto",
+        "direction",
+        "local_addr",
+        "local_port",
+        "blocked",
+        "first_seen",
+        "last_seen"
+      ]
+    },
+    "Destination": {
+      "type": "object",
+      "properties": {
+        "addr": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer"
+        },
+        "dns_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "dest_class": {
+          "$ref": "#/$defs/DestClass"
+        },
+        "country": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "addr",
+        "port",
+        "dest_class"
+      ]
+    },
+    "AiOpinion": {
+      "type": "object",
+      "properties": {
+        "verdict": {
+          "$ref": "#/$defs/Verdict"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "recommended_action": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "block",
+            "ask_user",
+            "kill"
+          ]
+        },
+        "reasons": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 6,
+          "items": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        "indicators": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "$ref": "#/$defs/SignalId"
+          }
+        },
+        "model": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "cached": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "verdict",
+        "confidence",
+        "recommended_action",
+        "reasons",
+        "model",
+        "created_at",
+        "cached"
+      ]
+    },
+    "PendingItem": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "identity": {
+          "$ref": "#/$defs/Identity"
+        },
+        "evaluation": {
+          "$ref": "#/$defs/Evaluation"
+        },
+        "process": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProcessInfo"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "destination": {
+          "$ref": "#/$defs/Destination"
+        },
+        "ai_opinion": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AiOpinion"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "identity",
+        "evaluation",
+        "destination",
+        "created_at"
+      ]
+    },
+    "Decision": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "identity_id": {
+          "type": "string"
+        },
+        "action": {
+          "$ref": "#/$defs/Action"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "apply_to": {
+          "$ref": "#/$defs/ApplyTo"
+        },
+        "expires_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "by": {
+          "type": "string",
+          "enum": [
+            "user",
+            "ai",
+            "rule"
+          ]
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "revoked_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "identity_id",
+        "action",
+        "scope",
+        "apply_to",
+        "by",
+        "created_at"
+      ]
+    },
+    "ActionResult": {
+      "type": "object",
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "error_code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "ok"
+      ]
+    },
+    "DecisionResult": {
+      "type": "object",
+      "properties": {
+        "decision": {
+          "$ref": "#/$defs/Decision"
+        },
+        "applied": {
+          "type": "boolean"
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "decision",
+        "applied"
+      ]
+    },
+    "Counts": {
+      "type": "object",
+      "properties": {
+        "safe": {
+          "type": "integer"
+        },
+        "unknown": {
+          "type": "integer"
+        },
+        "malicious": {
+          "type": "integer"
+        },
+        "pending": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "safe",
+        "unknown",
+        "malicious",
+        "pending"
+      ]
+    },
+    "Status": {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "type": "integer"
+        },
+        "service_version": {
+          "type": "string"
+        },
+        "mode": {
+          "$ref": "#/$defs/Mode"
+        },
+        "health": {
+          "$ref": "#/$defs/Health"
+        },
+        "health_detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "filters_armed": {
+          "type": "boolean"
+        },
+        "counts": {
+          "$ref": "#/$defs/Counts"
+        },
+        "rule_pack_version": {
+          "type": "string"
+        },
+        "ai": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "mode": {
+              "$ref": "#/$defs/AiMode"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "enabled",
+            "mode"
+          ]
+        },
+        "learning_started_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "protocol",
+        "service_version",
+        "mode",
+        "health",
+        "filters_armed",
+        "counts",
+        "rule_pack_version",
+        "ai"
+      ]
+    },
+    "Rule": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "signal",
+            "hard_rule",
+            "hard_allow",
+            "guard"
+          ]
+        },
+        "description": {
+          "type": "string"
+        },
+        "when": {
+          "type": "object"
+        },
+        "score": {
+          "type": "integer"
+        },
+        "cap": {
+          "type": "integer"
+        },
+        "verdict": {
+          "$ref": "#/$defs/Verdict"
+        },
+        "terminal": {
+          "type": "boolean"
+        },
+        "exclusive_group": {
+          "type": "string"
+        },
+        "priority": {
+          "type": "integer"
+        },
+        "guard": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "builtin",
+            "override"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "kind",
+        "when",
+        "source"
+      ]
+    },
+    "TrustedPublisher": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "subject_org": {
+          "type": "string"
+        },
+        "thumbprint": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "builtin",
+            "user"
+          ]
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "subject_org",
+        "thumbprint",
+        "source",
+        "created_at"
+      ]
+    },
+    "PersistenceItem": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "run_key",
+            "service",
+            "scheduled_task",
+            "startup_folder",
+            "wmi_subscription",
+            "ifeo",
+            "appinit",
+            "winlogon",
+            "shell_ext"
+          ]
+        },
+        "location": {
+          "type": "string"
+        },
+        "image_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "command": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "found",
+            "disabled",
+            "deleted",
+            "restored"
+          ]
+        },
+        "risk_note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "first_seen": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "location",
+        "status",
+        "first_seen"
+      ]
+    },
+    "AuditEntry": {
+      "type": "object",
+      "properties": {
+        "seq": {
+          "type": "integer"
+        },
+        "ts": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "actor": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "details": {
+          "type": "object"
+        },
+        "hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "seq",
+        "ts",
+        "actor",
+        "kind",
+        "details",
+        "hash"
+      ]
+    },
+    "AiConfig": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "mode": {
+          "$ref": "#/$defs/AiMode"
+        },
+        "model": {
+          "type": "string"
+        },
+        "escalation_model": {
+          "type": "string"
+        },
+        "has_key": {
+          "type": "boolean"
+        },
+        "auto_threshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "escalate_below": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "auto_kill": {
+          "type": "boolean"
+        },
+        "send_cmdline": {
+          "type": "boolean"
+        },
+        "daily_call_budget": {
+          "type": "integer"
+        },
+        "calls_today": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "mode",
+        "model",
+        "escalation_model",
+        "has_key",
+        "auto_threshold",
+        "escalate_below",
+        "auto_kill",
+        "send_cmdline",
+        "daily_call_budget",
+        "calls_today"
+      ]
+    },
+    "ProcessDetail": {
+      "type": "object",
+      "properties": {
+        "process": {
+          "$ref": "#/$defs/ProcessInfo"
+        },
+        "identity": {
+          "$ref": "#/$defs/Identity"
+        },
+        "evaluation": {
+          "$ref": "#/$defs/Evaluation"
+        },
+        "parent_chain": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProcessInfo"
+          }
+        },
+        "connections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConnectionInfo"
+          }
+        },
+        "ai_opinion": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AiOpinion"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "process",
+        "identity",
+        "evaluation",
+        "parent_chain",
+        "connections"
+      ]
+    },
+    "IdentityDetail": {
+      "type": "object",
+      "properties": {
+        "identity": {
+          "$ref": "#/$defs/Identity"
+        },
+        "evaluation": {
+          "$ref": "#/$defs/Evaluation"
+        },
+        "history": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Evaluation"
+          }
+        },
+        "decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Decision"
+          }
+        },
+        "ai_opinion": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AiOpinion"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "identity",
+        "evaluation",
+        "history",
+        "decisions"
+      ]
+    },
+    "Filter": {
+      "type": "object",
+      "properties": {
+        "verdict": {
+          "$ref": "#/$defs/Verdict"
+        },
+        "signed": {
+          "type": "boolean"
+        },
+        "path_class": {
+          "$ref": "#/$defs/PathClass"
+        },
+        "has_connections": {
+          "type": "boolean"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Page": {
+      "type": "object",
+      "properties": {
+        "cursor": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        }
+      },
+      "additionalProperties": false
+    },
+    "RpcError": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer"
+        },
+        "message": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "message"
+      ]
+    },
+    "Request": {
+      "type": "object",
+      "properties": {
+        "jsonrpc": {
+          "const": "2.0"
+        },
+        "id": {
+          "type": [
+            "integer",
+            "string"
+          ]
+        },
+        "method": {
+          "type": "string"
+        },
+        "params": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "jsonrpc",
+        "id",
+        "method"
+      ]
+    },
+    "Response": {
+      "type": "object",
+      "properties": {
+        "jsonrpc": {
+          "const": "2.0"
+        },
+        "id": {
+          "type": [
+            "integer",
+            "string",
+            "null"
+          ]
+        },
+        "result": {},
+        "error": {
+          "$ref": "#/$defs/RpcError"
+        }
+      },
+      "required": [
+        "jsonrpc",
+        "id"
+      ],
+      "oneOf": [
+        {
+          "required": [
+            "result"
+          ]
+        },
+        {
+          "required": [
+            "error"
+          ]
+        }
+      ],
+      "additionalProperties": false
+    },
+    "Notification": {
+      "type": "object",
+      "properties": {
+        "jsonrpc": {
+          "const": "2.0"
+        },
+        "method": {
+          "type": "string",
+          "pattern": "^event\\."
+        },
+        "params": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "jsonrpc",
+        "method"
+      ]
+    }
+  },
+  "x-methods": {
+    "hello": {
+      "role": "viewer",
+      "params": {
+        "type": "object",
+        "properties": {
+          "client": {
+            "type": "string"
+          },
+          "client_version": {
+            "type": "string"
+          },
+          "protocol": {
+            "type": "integer"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "client",
+          "client_version",
+          "protocol"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "protocol": {
+            "type": "integer"
+          },
+          "service_version": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/$defs/Role"
+          },
+          "mode": {
+            "$ref": "#/$defs/Mode"
+          },
+          "health": {
+            "$ref": "#/$defs/Health"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "protocol",
+          "service_version",
+          "role",
+          "mode",
+          "health"
+        ]
+      }
+    },
+    "status.get": {
+      "role": "viewer",
+      "params": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "result": {
+        "$ref": "#/$defs/Status"
+      }
+    },
+    "mode.set": {
+      "role": "admin",
+      "params": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "$ref": "#/$defs/Mode"
+          },
+          "override_learning_minimum": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "mode"
+        ]
+      },
+      "result": {
+        "$ref": "#/$defs/Status"
+      }
+    },
+    "process.list": {
+      "role": "viewer",
+      "params": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "filter": {
+            "$ref": "#/$defs/Filter"
+          }
+        },
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/ProcessInfo"
+            }
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ]
+      }
+    },
+    "process.get": {
+      "role": "viewer",
+      "params": {
+        "type": "object",
+        "properties": {
+          "pid": {
+            "type": "integer"
+          },
+          "start_time": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "pid",
+          "start_time"
+        ]
+      },
+      "result": {
+        "$ref": "#/$defs/ProcessDetail"
+      }
+    },
+    "process.kill": {
+      "role": "admin",
+      "params": {
+        "type": "object",
+        "properties": {
+          "pid": {
+            "type": "integer"
+          },
+          "start_time": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "tree": {
+            "type": "boolean"
+          },
+          "block": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "pid",
+          "start_time"
+        ]
+      },
+      "result": {
+        "$ref": "#/$defs/ActionResult"
+      }
+    },
+    "connection.list": {
+      "role": "viewer",
+      "params": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "filter": {
+            "$ref": "#/$defs/Filter"
+          }
+        },
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/ConnectionInfo"
+            }
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ]
+      }
+    },
+    "pending.list": {
+      "role": "viewer",
+      "params": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/PendingItem"
+            }
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ]
+      }
+    },
+    "decision.submit": {
+      "role": "admin",
+      "params": {
+        "type": "object",
+        "properties": {
+          "pending_id": {
+            "type": "string"
+          },
+          "identity_id": {
+            "type": "string"
+          },
+          "action": {
+            "$ref": "#/$defs/Action"
+          },
+          "scope": {
+            "$ref": "#/$defs/Scope"
+          },
+          "apply_to": {
+            "$ref": "#/$defs/ApplyTo"
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "action",
+          "scope",
+          "apply_to"
+        ],
+        "anyOf": [
+          {
+            "required": [
+              "pending_id"
+            ]
+          },
+          {
+            "required": [
+              "identity_id"
+            ]
+          }
+        ],
+        "additionalProperties": false
+      },
+      "result": {
+        "$ref": "#/$defs/DecisionResult"
+      }
+    },
+    "decision.list": {
+      "role": "viewer",
+      "params": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/Decision"
+            }
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ]
+      }
+    },
+    "decision.revoke": {
+      "role": "admin",
+      "params": {
+        "type": "object",
+        "properties": {
+          "decision_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "decision_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    "identity.get": {
+      "role": "viewer",
+      "params": {
+        "type": "object",
+        "properties": {
+          "identity_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "identity_id"
+        ]
+      },
+      "result": {
+        "$ref": "#/$defs/IdentityDetail"
+      }
+    },
+    "rule.list": {
+      "role": "viewer",
+      "params": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "rule_pack_version": {
+            "type": "string"
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/Rule"
+            }
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "rule_pack_version",
+          "rules"
+        ]
+      }
+    },
+    "rule.upsert": {
+      "role": "admin",
+      "params": {
+        "type": "object",
+        "properties": {
+          "rule": {
+            "$ref": "#/$defs/Rule"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "rule"
+        ]
+      },
+      "result": {
+        "$ref": "#/$defs/Rule"
+      }
+    },
+    "rule.delete": {
+      "role": "admin",
+      "params": {
+        "type": "object",
+        "properties": {
+          "rule_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "rule_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    "trust.list": {
+      "role": "viewer",
+      "params": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "publishers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/TrustedPublisher"
+            }
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "publishers"
+        ]
+      }
+    },
+    "trust.pin": {
+      "role": "admin",
+      "params": {
+        "type": "object",
+        "properties": {
+          "signer_thumbprint": {
+            "type": "string"
+          },
+          "subject_org": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "signer_thumbprint",
+          "subject_org"
+        ]
+      },
+      "result": {
+        "$ref": "#/$defs/TrustedPublisher"
+      }
+    },
+    "trust.revoke": {
+      "role": "admin",
+      "params": {
+        "type": "object",
+        "properties": {
+          "publisher_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "publisher_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    "persistence.scan": {
+      "role": "admin",
+      "params": {
+        "type": "object",
+        "properties": {
+          "target_image_path": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "findings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/PersistenceItem"
+            }
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "findings"
+        ]
+      }
+    },
+    "persistence.apply": {
+      "role": "admin",
+      "params": {
+        "type": "object",
+        "properties": {
+          "item_id": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "disable",
+              "restore",
+              "delete"
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "item_id",
+          "action"
+        ]
+      },
+      "result": {
+        "$ref": "#/$defs/ActionResult"
+      }
+    },
+    "ai.config.get": {
+      "role": "viewer",
+      "params": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "result": {
+        "$ref": "#/$defs/AiConfig"
+      }
+    },
+    "ai.config.set": {
+      "role": "admin",
+      "params": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "mode": {
+            "$ref": "#/$defs/AiMode"
+          },
+          "model": {
+            "type": "string"
+          },
+          "escalation_model": {
+            "type": "string"
+          },
+          "api_key": {
+            "type": "string",
+            "writeOnly": true
+          },
+          "auto_threshold": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "escalate_below": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "auto_kill": {
+            "type": "boolean"
+          },
+          "send_cmdline": {
+            "type": "boolean"
+          },
+          "daily_call_budget": {
+            "type": "integer"
+          },
+          "acknowledge_data_categories": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "result": {
+        "$ref": "#/$defs/AiConfig"
+      }
+    },
+    "ai.test": {
+      "role": "admin",
+      "params": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "latency_ms": {
+            "type": "integer"
+          },
+          "model": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "ok",
+          "latency_ms",
+          "model"
+        ]
+      }
+    },
+    "ai.explain": {
+      "role": "admin",
+      "params": {
+        "type": "object",
+        "properties": {
+          "identity_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "identity_id"
+        ]
+      },
+      "result": {
+        "$ref": "#/$defs/AiOpinion"
+      }
+    },
+    "audit.query": {
+      "role": "viewer",
+      "params": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "since": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "until": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "kind": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/AuditEntry"
+            }
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "chain_ok": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "chain_ok"
+        ]
+      }
+    },
+    "audit.export": {
+      "role": "admin",
+      "params": {
+        "type": "object",
+        "properties": {
+          "format": {
+            "type": "string",
+            "enum": [
+              "json",
+              "csv"
+            ]
+          },
+          "since": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "until": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "anonymize_paths": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "format"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "path"
+        ]
+      }
+    },
+    "settings.get": {
+      "role": "viewer",
+      "params": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object"
+      }
+    },
+    "settings.set": {
+      "role": "admin",
+      "params": {
+        "type": "object",
+        "properties": {
+          "settings": {
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "settings"
+        ]
+      },
+      "result": {
+        "type": "object"
+      }
+    },
+    "enforcement.panic": {
+      "role": "admin",
+      "params": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "result": {
+        "$ref": "#/$defs/Status"
+      }
+    },
+    "subscribe": {
+      "role": "viewer",
+      "params": {
+        "type": "object",
+        "properties": {
+          "topics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/Topic"
+            }
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "topics"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "subscribed": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/Topic"
+            }
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "subscribed"
+        ]
+      }
+    },
+    "unsubscribe": {
+      "role": "viewer",
+      "params": {
+        "type": "object",
+        "properties": {
+          "topics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/Topic"
+            }
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "topics"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    }
+  },
+  "x-events": {
+    "event.process_started": {
+      "$ref": "#/$defs/ProcessInfo"
+    },
+    "event.process_exited": {
+      "type": "object",
+      "properties": {
+        "pid": {
+          "type": "integer"
+        },
+        "start_time": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "exit_time": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "pid",
+        "start_time",
+        "exit_time"
+      ]
+    },
+    "event.connection_opened": {
+      "$ref": "#/$defs/ConnectionInfo"
+    },
+    "event.connection_closed": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "last_seen": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "last_seen"
+      ]
+    },
+    "event.verdict_changed": {
+      "type": "object",
+      "properties": {
+        "identity_id": {
+          "type": "string"
+        },
+        "old": {
+          "$ref": "#/$defs/Verdict"
+        },
+        "new": {
+          "$ref": "#/$defs/Verdict"
+        },
+        "score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "signals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Signal"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "identity_id",
+        "old",
+        "new",
+        "score",
+        "signals"
+      ]
+    },
+    "event.pending_created": {
+      "$ref": "#/$defs/PendingItem"
+    },
+    "event.pending_resolved": {
+      "type": "object",
+      "properties": {
+        "pending_id": {
+          "type": "string"
+        },
+        "action": {
+          "$ref": "#/$defs/Action"
+        },
+        "by": {
+          "type": "string",
+          "enum": [
+            "user",
+            "ai",
+            "rule"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "pending_id",
+        "action",
+        "by"
+      ]
+    },
+    "event.enforcement_changed": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "$ref": "#/$defs/Mode"
+        },
+        "filters_armed": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "filters_armed",
+        "reason"
+      ]
+    },
+    "event.alert": {
+      "type": "object",
+      "properties": {
+        "severity": {
+          "$ref": "#/$defs/Severity"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "message_key": {
+          "type": "string"
+        },
+        "identity_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "data": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "severity",
+        "kind",
+        "message_key"
+      ]
+    },
+    "event.health": {
+      "type": "object",
+      "properties": {
+        "state": {
+          "$ref": "#/$defs/Health"
+        },
+        "details": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ts": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "ts"
+      ]
+    },
+    "event.batch": {
+      "type": "object",
+      "properties": {
+        "events": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "method": {
+                "type": "string",
+                "pattern": "^event\\."
+              },
+              "params": {
+                "type": "object"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "method",
+              "params"
+            ]
+          },
+          "maxItems": 200
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "events"
+      ]
+    }
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/Request"
+    },
+    {
+      "$ref": "#/$defs/Response"
+    },
+    {
+      "$ref": "#/$defs/Notification"
+    }
+  ]
+}

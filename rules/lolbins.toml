@@ -1,0 +1,31 @@
+# Abuse-prone, normally legitimate Windows binaries (BEH-001). Names are compared case-insensitively.
+# An outbound connection to a public destination from one of these caps the final score at 70 (never auto-Safe)
+# unless a context_allow entry below matches the *verified* parent chain.
+
+[lolbins]
+names = [
+  "powershell.exe", "pwsh.exe", "cmd.exe", "wscript.exe", "cscript.exe", "mshta.exe",
+  "rundll32.exe", "regsvr32.exe", "certutil.exe", "bitsadmin.exe", "msiexec.exe",
+  "installutil.exe", "regasm.exe", "regsvcs.exe", "msbuild.exe", "cmstp.exe", "wmic.exe",
+  "curl.exe", "ftp.exe", "finger.exe", "esentutl.exe", "expand.exe", "forfiles.exe",
+  "odbcconf.exe", "presentationhost.exe", "mavinject.exe", "ieexec.exe", "msdt.exe",
+  "pcalua.exe", "bash.exe", "wsl.exe", "scriptrunner.exe", "syncappvpublishingserver.exe",
+]
+
+# Parents considered administrative tooling. The match requires the parent identity itself to evaluate Safe
+# and to be an ancestor within `max_depth` levels. When it matches, BEH-001 does not apply to `applies_to`.
+[[context_allow]]
+id = "intune"
+description = "Microsoft Intune Management Extension running scripts and installers"
+parent_images = ["IntuneManagementExtension.exe", "AgentExecutor.exe"]
+applies_to = ["powershell.exe", "pwsh.exe", "cmd.exe", "msiexec.exe"]
+max_depth = 3
+requires_parent_verdict = "safe"
+
+[[context_allow]]
+id = "sccm"
+description = "Microsoft Configuration Manager client"
+parent_images = ["CcmExec.exe", "ccmsetup.exe", "scclient.exe"]
+applies_to = ["powershell.exe", "pwsh.exe", "cmd.exe", "msiexec.exe", "wscript.exe", "cscript.exe"]
+max_depth = 3
+requires_parent_verdict = "safe"
