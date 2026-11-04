@@ -87,6 +87,14 @@ impl<T: PartialEq + Copy> OneOrMany<T> {
         }
     }
 
+    /// True when any alternative satisfies `f`.
+    pub fn any(&self, f: impl Fn(T) -> bool) -> bool {
+        match self {
+            Self::One(v) => f(*v),
+            Self::Many(vs) => vs.iter().any(|v| f(*v)),
+        }
+    }
+
     fn is_empty(&self) -> bool {
         matches!(self, Self::Many(vs) if vs.is_empty())
     }
