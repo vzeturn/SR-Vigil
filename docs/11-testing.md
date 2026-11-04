@@ -83,3 +83,23 @@ Non-loopback endpoint for network tests: the runner's own LAN/IP address with a 
 ## 8. Definition of done (per PR)
 
 Requirement IDs referenced · tests added/updated · docs updated · audit events defined for new actions · no `unsafe` outside `vigil-win` · no placeholder text · CI green.
+
+## 9. Manual VM steps: WFP failure and lockout (T-FAIL-01, T-FAIL-02, T-LOCK-01)
+
+Use a disposable VM snapshot, elevated shell, service installed, `vigilctl status` healthy. Never run these on a production host. Automated WFP tests (`cargo test -p vigil-win --features integration -- --test-threads=1`) only use dynamic sessions and a deny scoped to a throwaway exe; they never install a catch-all.
+
+**T-FAIL-01 (crash in `enforce`)**
+1. `vigilctl mode enforce` (after learning), then block `C:\Tools\badtest.exe` from the Pending screen (Block, forever).
+2. Confirm catch-all is armed: `netsh wfp show filters file=f.xml` and search `Vigil Catch` / provider `Vigil.Dynamic`; an unknown test exe cannot connect.
+3. `taskkill /f /im vigil-svc.exe` (or stop via SCM with recovery disabled).
+4. Expected within 1 s: `ping 1.1.1.1` and a browser work (dynamic filters gone); `netsh wfp show filters` still lists the deny under `Vigil.Persistent`; `badtest.exe` stays blocked.
+5. Re-enable recovery; the service restarts and runs `rebuild_then_arm`; permits appear before the catch-all.
+
+**T-FAIL-02 (panic)**
+1. In `enforce` with several permits and denies, run `Measure-Command { vigilctl panic }`.
+2. Expected: command returns and `netsh wfp show filters` lists no `Vigil.Dynamic` or `Vigil.Persistent` filters in under 1 s; mode is `observe`; audit row written; UI banner shown; re-arming needs an explicit admin action.
+
+**T-LOCK-01 (no self-lockout)**
+1. Fresh VM, install, run `learning` for the configured minimum (or override), then switch to `enforce`.
+2. Verify: DNS resolution (`nslookup example.com`), DHCP renew (`ipconfig /renew`), time sync (`w32tm /resync`), Windows Update scan, Defender update, and the Vigil UI all work with no Pending storm.
+3. Reboot; repeat step 2 after login (permits rebuilt before catch-all).

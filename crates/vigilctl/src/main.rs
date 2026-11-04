@@ -4,6 +4,8 @@
 use clap::{Parser, Subcommand};
 
 #[cfg(windows)]
+mod control;
+#[cfg(windows)]
 mod scan;
 #[cfg(windows)]
 mod service;
@@ -31,6 +33,16 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
+    /// Remove every Vigil filter and return to observe mode (needs an elevated shell).
+    Panic,
+    /// Set the enforcement mode (needs an elevated shell).
+    Mode {
+        #[arg(value_parser = ["observe", "learning", "enforce"])]
+        mode: String,
+        /// Enter enforce before the minimum learning time has passed.
+        #[arg(long = "override")]
+        override_minimum: bool,
+    },
     /// Register or control the Windows service (needs an elevated shell).
     #[command(subcommand)]
     Service(ServiceCmd),
@@ -53,6 +65,11 @@ fn main() -> anyhow::Result<()> {
     match Cli::parse().command {
         Command::Scan { json } => scan::run(json),
         Command::Status { json } => status::run(json),
+        Command::Panic => control::panic(),
+        Command::Mode {
+            mode,
+            override_minimum,
+        } => control::mode(&mode, override_minimum),
         Command::Service(ServiceCmd::Install) => service::install(),
         Command::Service(ServiceCmd::Uninstall) => service::uninstall(),
         Command::Service(ServiceCmd::Start) => service::start(),
