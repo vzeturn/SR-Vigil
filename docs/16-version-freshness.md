@@ -68,7 +68,9 @@ Planned flow (not in M12): Vigil shows the advice, the user approves, then the u
 
 ## 6b. Status
 
-Implemented in core (M12 step 1): `FileVersion` read on Windows, `latest` / `min_supported` / `vulnerable_below` optional fields in `rules/known_software.toml`, signals VER-001/002/003, tests. The embedded catalogue carries no release data yet (none is invented by hand); it arrives with the signed snapshot.
+Done: `FileVersion` read on Windows; VER-001/002/003 and tests; the `vigil-catalogue` Worker (daily cron, winget-pkgs source, Ed25519-signed envelope in KV, `GET /v1/catalogue`); client verification with embedded keys by `kid` (`rules/catalogue_keys.toml`), rollback protection, on-disk cache re-verified at start; opt-in `catalogue.enabled` setting and Settings toggle. Without the setting, or on any verification failure, the embedded catalogue is used.
+
+Open (tracked in docs/10 M12): detail view "installed X, latest Y" with a vendor link (needs the version fields on the IPC process payload and the schema); OSV/KEV automation for `vulnerable_below`.
 
 ## 7. Decisions (delegated to engineering best practice, 2026-11-04)
 
