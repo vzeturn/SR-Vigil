@@ -3,7 +3,9 @@
 //! SQLite persistence: connection setup, schema migrations and repositories.
 
 pub mod audit;
+pub mod blocks;
 pub mod decisions;
+pub mod persistence;
 pub mod repo;
 
 use rusqlite::Connection;
