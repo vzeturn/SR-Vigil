@@ -19,6 +19,7 @@ export function Gauge({ value, label, tone }: GaugeProps) {
         <circle className="gauge-track" cx="60" cy="60" r={R} />
         <circle className="gauge-fill" cx="60" cy="60" r={R} strokeDasharray={`${(C * v) / 100} ${C}`} />
       </svg>
+      <span key={`${tone}-${Math.round(v)}`} className="gauge-ripple" aria-hidden="true" />
       <strong className="gauge-value">
         <Num value={v} />
       </strong>

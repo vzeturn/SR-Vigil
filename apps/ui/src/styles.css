@@ -15,6 +15,10 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+:root[data-surface='mica'] body {
+  background: color-mix(in srgb, var(--bg) 60%, transparent);
+}
+
 :focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
@@ -214,6 +218,7 @@ body {
   border-top: 1px solid var(--border);
 }
 .tick-gauge {
+  grid-column: span 2;
   flex-direction: row;
   align-items: center;
   gap: var(--space-2);
@@ -265,6 +270,31 @@ body {
 }
 .gauge.tone-malicious .gauge-fill {
   stroke: var(--malicious);
+}
+.gauge-ripple {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid var(--safe);
+  opacity: 0;
+  pointer-events: none;
+  animation: gauge-ripple 300ms var(--ease) 1;
+}
+.gauge.tone-unknown .gauge-ripple {
+  border-color: var(--unknown);
+}
+.gauge.tone-malicious .gauge-ripple {
+  border-color: var(--malicious);
+}
+@keyframes gauge-ripple {
+  from {
+    opacity: 0.55;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.35);
+  }
 }
 .gauge-value {
   position: absolute;

@@ -62,6 +62,7 @@ Motion: 180 ms ease-out for state changes, spring (stiffness 260, damping 26) fo
 - Row expands inline to show signals. Context menu: Kill, Kill tree, Block, Allow…, Open file location, Copy hash, Look up hash (VirusTotal link).
 - `svchost.exe` rows show hosted service names as child nodes.
 - Data: `process.list`, `process.get`, events.
+- **Live scan board** (default view): one row per running process with a score shown as `x.x/10`; hovering the score lists each issue on its own line. No icon strip on the row. The expanded details hold the identity grid (publisher, signature, path, parent), spoof evidence, impact and advice, the recognised-software label (`KNOW-001`) and **End** (terminate, never-kill set excluded) and **Dismiss** (hide this finding; reversible, audited). Nothing is deleted or disabled without approval.
 
 ### 4.3 Connections
 - Table + optional force graph (process → destination). Columns: Process · Proto · Local · Remote (DNS name, country flag) · State · Verdict · Bytes (if available) · First/last seen. Filter by verdict, direction, blocked-only.
