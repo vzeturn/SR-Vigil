@@ -1,7 +1,7 @@
 import { Activity, Bell, Network, ScrollText, Settings as Cog, ShieldCheck, ListChecks, Power, type LucideIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { syncTrayLabels, syncTrayPending } from './bridge';
+import { enableProtection, syncTrayLabels, syncTrayPending } from './bridge';
 import { Audit } from './pages/Audit';
 import { Connections } from './pages/Connections';
 import { Overview } from './pages/Overview';
@@ -38,6 +38,13 @@ function Shell() {
   const { link, snapshot } = useVigil();
   const pendingCount = snapshot?.status.counts.pending ?? 0;
   const [page, setPage] = useState<PageId>('overview');
+  const [enabling, setEnabling] = useState(false);
+  const [enableFailed, setEnableFailed] = useState(false);
+  const enable = async () => {
+    setEnabling(true);
+    setEnableFailed(!(await enableProtection()));
+    setEnabling(false);
+  };
   useEffect(() => {
     syncTrayLabels({
       open: t('tray.open'),
@@ -84,6 +91,10 @@ function Shell() {
           <div className="card banner" role="status">
             <strong>{t('link.offlineTitle')}</strong>
             {t('link.offlineBody')}
+            <button type="button" className="btn" disabled={enabling} onClick={() => void enable()}>
+              {enabling ? t('link.enabling') : t('link.enable')}
+            </button>
+            {enableFailed && <span role="alert">{t('link.enableFailed')}</span>}
           </div>
         )}
         <View />

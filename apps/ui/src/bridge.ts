@@ -39,6 +39,18 @@ export async function syncTrayPending(tooltip: string): Promise<void> {
 }
 
 /** Hide the popup window (Esc / Later): the item stays pending and blocked. No-op outside Tauri. */
+/** Installs the service via one UAC prompt (desktop shell only; resolves false when declined). */
+export async function enableProtection(): Promise<boolean> {
+  if (!('__TAURI_INTERNALS__' in window)) return false;
+  const { invoke } = await import('@tauri-apps/api/core');
+  try {
+    await invoke('enable_protection');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function hidePopup(): Promise<void> {
   if (!inTauri) return;
   const { getCurrentWindow } = await import('@tauri-apps/api/window');

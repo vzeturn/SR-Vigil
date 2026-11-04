@@ -140,7 +140,7 @@ Standing rule for every milestone: `cargo fmt --check`, `cargo clippy -D warning
 
 ---
 
-**Status (M6, in progress):** done: MSI (`installer/`, `docs/13`), uninstall cleanup (`vigil-svc --cleanup`), DLL search-path lock-down, data-dir ACL repair, FR-018, FR-017 visibility (listening sockets shown as inbound; blocking stays off, tracked below), T14 (MOD-001), axe-core accessibility test on every page in en and vi, `cargo deny` gate green, SBOM and release workflow, static CRT. Open: BEH-005 collection, geo map, Lighthouse, contrast and keyboard run-through on a real WebView, performance pass, standard-user "enable protection" flow, and every VM-only acceptance box above.
+**Status (M6, in progress):** done: MSI (`installer/`, `docs/13`), uninstall cleanup (`vigil-svc --cleanup`), DLL search-path lock-down, data-dir ACL repair, FR-018, FR-017 visibility (listening sockets shown as inbound; blocking stays off, tracked below), T14 (MOD-001), axe-core accessibility test on every page in en and vi, `cargo deny` gate green, SBOM and release workflow, static CRT. Done: one-click "Enable protection" (single UAC prompt installs the service; the UI stays unelevated). Open: BEH-005 collection, geo map, Lighthouse, contrast and keyboard run-through on a real WebView, performance pass, and every VM-only acceptance box above.
 
 ## Backlog (post-v1, tracked)
 

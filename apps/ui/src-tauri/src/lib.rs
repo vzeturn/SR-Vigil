@@ -94,6 +94,41 @@ fn set_tray_labels(app: AppHandle, labels: Labels) -> Result<(), String> {
     tray.set_menu(Some(menu)).map_err(|e| e.to_string())
 }
 
+/// One-click "enable protection": installs the service through a single UAC prompt. The UI itself
+/// stays unelevated. The path comes from our own install folder and travels in an environment
+/// variable, never interpolated into the PowerShell text.
+#[tauri::command]
+async fn enable_protection() -> Result<(), String> {
+    use std::os::windows::process::CommandExt;
+    const NO_WINDOW: u32 = 0x0800_0000;
+    let ctl = std::env::current_exe()
+        .map_err(|e| e.to_string())?
+        .with_file_name("vigilctl.exe");
+    if !ctl.is_file() {
+        return Err("vigilctl_missing".into());
+    }
+    let status = tauri::async_runtime::spawn_blocking(move || {
+        std::process::Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            "$p = Start-Process -FilePath $env:VIGIL_CTL -ArgumentList 'service','install' -Verb RunAs -Wait -PassThru -WindowStyle Hidden; exit $p.ExitCode",
+        ])
+        .env("VIGIL_CTL", &ctl)
+        .creation_flags(NO_WINDOW)
+        .status()
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err("elevation_declined".into())
+    }
+}
+
 /// Show the number of pending decisions in the tray tooltip.
 #[tauri::command]
 fn set_tray_pending(app: AppHandle, tooltip: String) -> Result<(), String> {
@@ -164,7 +199,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             rpc,
             set_tray_labels,
-            set_tray_pending
+            set_tray_pending,
+            enable_protection
         ])
         .run(tauri::generate_context!())
         .expect("failed to start Vigil UI");

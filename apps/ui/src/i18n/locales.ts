@@ -17,7 +17,10 @@ export const en = {
   link: {
     offlineTitle: 'Vigil service is not running',
     offlineBody:
-      'Start it from an administrator shell with "vigilctl service install", or run "vigil-svc --console" for this session. Nothing is blocked while it is off.',
+      'Vigil is only watching for now. Turn on protection to start the background service; Windows will ask for permission once. Nothing is blocked while it is off.',
+    enable: 'Enable protection',
+    enabling: 'Waiting for permission…',
+    enableFailed: 'Not enabled. Permission was declined or the service could not start.',
     viewer: 'Read-only: administrator rights are needed to change the mode.',
   },
   kpi: {
@@ -244,7 +247,10 @@ export const vi: Messages = {
   link: {
     offlineTitle: 'Dịch vụ Vigil chưa chạy',
     offlineBody:
-      'Khởi động bằng cửa sổ quản trị: "vigilctl service install", hoặc chạy "vigil-svc --console" cho phiên này. Khi dịch vụ tắt, không có gì bị chặn.',
+      'Hiện Vigil chỉ đang theo dõi. Bật bảo vệ để chạy dịch vụ nền; Windows sẽ hỏi quyền một lần. Khi tắt, không có gì bị chặn.',
+    enable: 'Bật bảo vệ',
+    enabling: 'Đang chờ cấp quyền…',
+    enableFailed: 'Chưa bật được. Quyền bị từ chối hoặc dịch vụ không khởi động.',
     viewer: 'Chỉ xem: cần quyền quản trị để đổi chế độ.',
   },
   kpi: {
