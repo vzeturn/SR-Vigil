@@ -12,11 +12,11 @@
 
 ## 2. Authentication and roles
 
-After connect the server calls `GetNamedPipeClientProcessId`, impersonates (`ImpersonateNamedPipeClient`) to read the token, and assigns:
+After connect the server calls `GetNamedPipeClientProcessId`, opens the client process token, reads its elevation (`TokenElevation`) and assigns the role (any error resolves to `viewer`):
 
 | Role | Condition | Allowed |
 |---|---|---|
-| `admin` | token in `BUILTIN\Administrators` and elevated | all methods |
+| `admin` | client process token is elevated | all methods |
 | `viewer` | other authenticated users | every method marked **R** in §4 (read, list, query, subscribe); mutating methods return `-32001`, unless `allow_standard_user_decisions = true` permits `decision.submit` |
 
 The server also records the client image path and signer in the audit log on connect and refuses connections from images not signed by the Vigil self-pin when `strict_client = true` (default `false` in dev, `true` in release builds).
@@ -113,3 +113,10 @@ Notifications for the `processes` and `connections` topics are **batched** into 
 - Additive changes (new optional fields, new methods/events) do not bump `protocol`.
 - Removing/renaming/retyping bumps `protocol`; the server supports `N` and `N-1` for one minor release.
 - Contract tests in `vigil-ipc` validate golden payloads for every method and event against the schema.
+
+
+## Implementation notes (v1)
+
+- `process.get` requires both `pid` and `start_time`; it returns `invalid_state` until the process has been evaluated once.
+- After the first evaluation of a process the service re-emits `event.process_started` as an upsert; `event.verdict_changed` fires only when a previous verdict existed and differs.
+- `event.connection_closed` carries `{id, last_seen}` only.

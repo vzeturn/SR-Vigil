@@ -35,6 +35,8 @@ Standing rule for every milestone: `cargo fmt --check`, `cargo clippy -D warning
 
 **Deliver**
 - `vigil-win`: ETW sessions (`ferrisetw`) for Kernel-Process, Kernel-Network, DNS-Client; snapshot reconciler; `QueryFullProcessImageNameW`; command line via `NtQueryInformationProcess`/PEB read; parent chain with start-time check.
+  - Status: M2 ships the unprivileged slice only (process snapshot + `GetExtendedTcpTable` polling, 500 ms). ETW collection (instant events, DNS names) is deferred to M3 and needs elevation.
+  - `trust.list` returns `thumbprint: ""` for org-pinned builtin publishers.
 - Hashing + `WinVerifyTrust` wrapper (embedded + catalog), signer extraction, VersionInfo.
 - `vigil-core`: facts → signals → score → verdict for all rules in `docs/03` (BEH-005 excluded), masquerade/typosquat logic, beaconing detector, path classifier.
 - `vigil-store`: schema, repositories.
