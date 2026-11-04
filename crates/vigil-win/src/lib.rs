@@ -6,6 +6,7 @@
 
 pub mod dpapi;
 pub mod etw;
+pub mod harden;
 pub mod hash;
 pub mod kill;
 pub mod net;

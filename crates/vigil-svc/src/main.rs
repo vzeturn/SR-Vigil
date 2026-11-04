@@ -37,6 +37,7 @@ mod win {
 
     /// Run observer and pipe server until either ends or `stop` resolves.
     async fn run(stop: impl Future<Output = ()>) -> anyhow::Result<()> {
+        let drifted = harden();
         let (shared, pack) = host::build_state()?;
         shared.attach_control(Arc::new(vigil_svc::winctl::WinControl::default()));
         shared.attach_ai(Arc::new(vigil_svc::ai::LiveBackend::new(Arc::new(
@@ -48,6 +49,14 @@ mod win {
                 tracing::warn!(error = %e, "filter engine unavailable; running without enforcement");
                 shared.attach_engine(None);
             }
+        }
+        if drifted {
+            shared.audit(
+                "service",
+                vigil_core::audit::AuditKind::ConfigChange,
+                None,
+                &serde_json::json!({"data_dir_acl": "re-applied"}),
+            );
         }
         tokio::spawn(Arc::clone(&shared).pump_drops());
         tokio::spawn(Arc::clone(&shared).maintain());
@@ -93,6 +102,26 @@ mod win {
         }
     }
 
+    /// Self-protection at service start (docs/08 §5): lock the DLL search path and make sure the
+    /// data directory is SYSTEM/Administrators only, auditing any drift that had to be repaired.
+    fn harden() -> bool {
+        if let Err(e) = vigil_win::harden::restrict_dll_search() {
+            tracing::warn!(error = %e, "could not restrict DLL search path");
+        }
+        let Some(dir) =
+            std::env::var_os("PROGRAMDATA").map(|p| std::path::PathBuf::from(p).join("Vigil"))
+        else {
+            return false;
+        };
+        match vigil_win::harden::ensure_data_dir_acl(&dir) {
+            Ok(drifted) => drifted,
+            Err(e) => {
+                tracing::error!(error = %e, "could not verify the data directory ACL");
+                false
+            }
+        }
+    }
+
     fn service() -> anyhow::Result<()> {
         init_logging();
         let (tx, rx) = tokio::sync::oneshot::channel::<()>();
@@ -130,9 +159,21 @@ mod win {
     }
 }
 
+/// `vigil-svc --cleanup` (run by the MSI on uninstall): remove every persistent WFP object.
+#[cfg(windows)]
+fn cleanup() -> anyhow::Result<()> {
+    let engine = vigil_win::wfp::Engine::open_persistent()?;
+    let removed = engine.remove_persistent_objects()?;
+    println!("removed {removed} persistent filter(s)");
+    Ok(())
+}
+
 #[cfg(windows)]
 fn main() -> anyhow::Result<()> {
-    if std::env::args().any(|a| a == "--console") {
+    let arg = std::env::args().nth(1);
+    if arg.as_deref() == Some("--cleanup") {
+        cleanup()
+    } else if arg.as_deref() == Some("--console") {
         win::console()
     } else {
         win::dispatch()
