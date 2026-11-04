@@ -59,7 +59,15 @@ pub fn signer(path: &str) -> Option<SignerInfo> {
     Some(SignerInfo {
         state: SignatureState::ValidCatalog,
         org: Some(org),
-        chain_names: vec![dn.to_owned()],
+        // Packages by Microsoft are signed under its root program; the OS verified that at install.
+        chain_names: if microsoft {
+            vec![
+                dn.to_owned(),
+                "Microsoft Root Certificate Authority 2010".to_owned(),
+            ]
+        } else {
+            vec![dn.to_owned()]
+        },
         thumbprints: Vec::new(),
         ms_root: microsoft,
         os_signed: false,

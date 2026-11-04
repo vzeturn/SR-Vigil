@@ -106,6 +106,11 @@ pub fn compare_company(company: &str, signer_org: &str) -> CompanyCheck {
     if c.is_empty() || s.is_empty() {
         return CompanyCheck::default();
     }
+    // Third-party drivers and helpers signed through the Windows Hardware Compatibility program carry
+    // Microsoft's publisher name by design; the vendor's own CompanyName is expected.
+    if s.starts_with("microsoft windows hardware") {
+        return CompanyCheck::default();
+    }
     let loosely = c == s || c.contains(&s) || s.contains(&c);
     CompanyCheck {
         matches: loosely,
@@ -159,6 +164,13 @@ mod tests {
         assert!(compare_company("Microsoft Corporation", "Microsoft Corporation").matches);
         assert!(compare_company("Google", "Google LLC").matches);
         assert!(compare_company("Acme Tools", "Microsoft Corporation").conflicts);
+        assert_eq!(
+            compare_company(
+                "Intel Corporation",
+                "Microsoft Windows Hardware Compatibility Publisher"
+            ),
+            CompanyCheck::default()
+        );
         assert_eq!(compare_company("", "Acme"), CompanyCheck::default());
     }
 

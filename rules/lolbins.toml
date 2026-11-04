@@ -10,6 +10,11 @@ names = [
   "curl.exe", "ftp.exe", "finger.exe", "esentutl.exe", "expand.exe", "forfiles.exe",
   "odbcconf.exe", "presentationhost.exe", "mavinject.exe", "ieexec.exe", "msdt.exe",
   "pcalua.exe", "bash.exe", "wsl.exe", "scriptrunner.exe", "syncappvpublishingserver.exe",
+  "tar.exe", "certreq.exe", "makecab.exe", "extrac32.exe", "replace.exe", "print.exe", "hh.exe",
+  "infdefaultinstall.exe", "diskshadow.exe", "dnscmd.exe", "csc.exe", "vbc.exe", "jsc.exe",
+  "msxsl.exe", "xwizard.exe", "rpcping.exe", "ssh.exe", "scp.exe", "sftp.exe", "netsh.exe",
+  "schtasks.exe", "sc.exe", "reg.exe", "regini.exe", "control.exe", "wuauclt.exe", "cdb.exe",
+  "dnx.exe", "rcsi.exe", "te.exe", "microsoft.workflow.compiler.exe", "fsi.exe", "ntdsutil.exe",
 ]
 
 # Parents considered administrative tooling. The match requires the parent identity itself to evaluate Safe

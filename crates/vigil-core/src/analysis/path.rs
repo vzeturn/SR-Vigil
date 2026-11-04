@@ -68,10 +68,24 @@ pub fn classify(path: &str, env: &PathEnv) -> PathClass {
     if env.program_files.iter().any(|r| under(path, r)) || path.contains("\\windowsapps\\") {
         return PathClass::ProgramFiles;
     }
+    if defender_platform(path) {
+        return PathClass::ProgramFiles;
+    }
     if env.user_writable.iter().any(|r| under(path, r)) || user_profile_writable(path) {
         return PathClass::UserWritable;
     }
     PathClass::Other
+}
+
+/// Microsoft Defender keeps its engine under `ProgramData\Microsoft\Windows Defender\Platform`, a
+/// SYSTEM/TrustedInstaller-only location although it sits below the writable `ProgramData` root.
+fn defender_platform(path: &str) -> bool {
+    const ROOT: &str = r"\programdata\microsoft\windows defender";
+    path.get(2..).is_some_and(|r| {
+        r.strip_prefix(ROOT).is_some_and(|t| {
+            t.starts_with(r"\platform\") || t.starts_with(r" advanced threat protection\platform\")
+        })
+    })
 }
 
 /// `X:\users\<name>\{appdata,downloads,desktop}\…` and `X:\users\public\…`.
@@ -136,6 +150,13 @@ pub fn basename(path: &str) -> &str {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn defender_platform_is_not_user_writable() {
+        let e = env();
+        let p = normalize(r"C:\ProgramData\Microsoft\Windows Defender\Platform\4.18\MsMpEng.exe");
+        assert_ne!(classify(&p, &e), PathClass::UserWritable);
+    }
 
     fn env() -> PathEnv {
         PathEnv {

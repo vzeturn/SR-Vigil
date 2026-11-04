@@ -196,6 +196,15 @@ pub fn run() {
             tauri::async_runtime::spawn(bridge::run(app.handle().clone(), rx));
             Ok(())
         })
+        // Closing the main window keeps Vigil running in the tray; "Quit" in the tray menu exits.
+        .on_window_event(|w, e| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = e {
+                if w.label() == "main" {
+                    api.prevent_close();
+                    let _ = w.hide();
+                }
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             rpc,
             set_tray_labels,
