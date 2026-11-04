@@ -81,3 +81,7 @@ Found a vulnerability? Please follow [SECURITY.md](SECURITY.md) and do not open 
 ## Contributing
 
 Read [CLAUDE.md](CLAUDE.md) for the non-negotiable constraints and conventions, then the relevant doc under `docs/`. Commits use `area: imperative summary`. `fmt`, `clippy -D warnings` and tests must pass. Never commit secrets, API keys, certificates or machine data — the `.gitignore` is deliberately strict.
+
+## License
+
+Dual-licensed under either of [Apache License 2.0](LICENSE-APACHE) or [MIT license](LICENSE-MIT), at your option. Unless you state otherwise, any contribution you intentionally submit for inclusion in Vigil is dual-licensed as above, without additional terms.
