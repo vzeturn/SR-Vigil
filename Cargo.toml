@@ -8,6 +8,7 @@ members = [
   "crates/vigil-win",
   "crates/vigil-svc",
   "crates/vigilctl",
+  "xtask",
 ]
 
 [workspace.package]
