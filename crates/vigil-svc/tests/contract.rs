@@ -31,6 +31,7 @@ fn shared() -> Arc<Shared> {
         ],
         rule_pack_version: "1.0.0".into(),
         network_critical: Vec::new(),
+        never_kill: Vec::new(),
     });
     s.put_process(ProcRow {
         pid: 4242,

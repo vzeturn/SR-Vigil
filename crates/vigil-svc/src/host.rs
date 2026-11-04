@@ -105,6 +105,24 @@ fn network_critical() -> anyhow::Result<Vec<String>> {
         .collect())
 }
 
+/// Image names SG-001 protects: `never_kill` entries plus pseudo-processes.
+fn never_kill_names() -> anyhow::Result<Vec<String>> {
+    let doc = toml_to_json(SYSTEM_PROCESSES)?;
+    let str_of = |v: &serde_json::Value| v.as_str().map(str::to_owned);
+    let pseudo = doc["pseudo"]["names"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(str_of);
+    let listed = doc["process"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|p| p["never_kill"].as_bool() == Some(true))
+        .filter_map(|p| str_of(&p["name"]));
+    Ok(listed.chain(pseudo).collect())
+}
+
 /// Build the shared state from the on-disk store and embedded rules.
 pub fn build_state() -> anyhow::Result<(Arc<Shared>, Arc<vigil_core::rules::RulePack>)> {
     let dir = data_dir()?;
@@ -117,6 +135,7 @@ pub fn build_state() -> anyhow::Result<(Arc<Shared>, Arc<vigil_core::rules::Rule
         trust: builtin_trust()?,
         rule_pack_version: pack.meta.rule_pack_version.clone(),
         network_critical: network_critical()?,
+        never_kill: never_kill_names()?,
     });
     tracing::info!(dir = %dir.display(), "data directory ready");
     Ok((Arc::new(shared), pack))

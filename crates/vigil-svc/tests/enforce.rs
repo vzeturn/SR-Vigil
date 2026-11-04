@@ -47,6 +47,7 @@ fn setup() -> (Arc<Shared>, Arc<Fake>, i64) {
         trust: vec![],
         rule_pack_version: "1".into(),
         network_critical: vec![],
+        never_kill: vec![],
     });
     let id = s
         .with_store(|c| {
@@ -92,6 +93,7 @@ fn enforce_needs_an_engine_and_learning_time() {
         trust: vec![],
         rule_pack_version: "1".into(),
         network_critical: vec![],
+        never_kill: vec![],
     });
     assert_eq!(
         s.set_mode("enforce", true).unwrap_err().code,

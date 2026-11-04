@@ -78,6 +78,7 @@ impl ConnHandler {
                     .and_then(Value::as_str)
                     .ok_or_else(|| invalid("start_time is required"))?,
             ),
+            "process.kill" => s.kill_process(params, "user"),
             "connection.list" => s.list_connections(params),
             "rule.list" => Ok(s.rules()),
             "trust.list" => Ok(s.trust()),

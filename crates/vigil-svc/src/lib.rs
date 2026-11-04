@@ -6,11 +6,14 @@ pub mod decide;
 pub mod enforce;
 pub mod events;
 pub mod handler;
+pub mod kill;
 pub mod state;
 
 #[cfg(windows)]
 pub mod host;
 #[cfg(windows)]
 pub mod observer;
+#[cfg(windows)]
+pub mod winctl;
 #[cfg(windows)]
 pub mod winfilter;

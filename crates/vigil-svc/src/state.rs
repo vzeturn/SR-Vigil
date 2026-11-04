@@ -98,6 +98,8 @@ pub struct Options {
     pub rule_pack_version: String,
     /// Canonical path patterns of processes that must stay permitted (`network_critical`).
     pub network_critical: Vec<String>,
+    /// Image names SG-001 protects (`never_kill` entries and pseudo-processes).
+    pub never_kill: Vec<String>,
 }
 
 /// Everything shared between the observer and the connection handlers.
@@ -109,6 +111,8 @@ pub struct Shared {
     trust: Vec<Value>,
     rule_pack_version: String,
     network_critical: Vec<String>,
+    pub(crate) never_kill: vigil_core::kill::NeverKill,
+    pub(crate) control: Mutex<Option<Arc<dyn crate::kill::ProcessControl>>>,
     engine: Mutex<Option<Arc<dyn FilterEngine>>>,
     last_applied: Mutex<Option<(Desired, bool)>>,
     armed: AtomicBool,
@@ -223,6 +227,8 @@ impl Shared {
             trust: opts.trust,
             rule_pack_version: opts.rule_pack_version,
             network_critical: opts.network_critical,
+            never_kill: vigil_core::kill::NeverKill::new(opts.never_kill),
+            control: Mutex::new(None),
             engine: Mutex::new(None),
             last_applied: Mutex::new(None),
             armed: AtomicBool::new(false),
@@ -504,6 +510,23 @@ impl Shared {
         changed
     }
 
+    pub(crate) fn process_row(&self, pid: u32, start_time: &str) -> Option<ProcRow> {
+        lock(&self.inner)
+            .processes
+            .get(&pid)
+            .filter(|p| p.start_time == start_time)
+            .cloned()
+    }
+
+    pub(crate) fn rows_with_verdict(&self, verdict: &str) -> Vec<ProcRow> {
+        lock(&self.inner)
+            .processes
+            .values()
+            .filter(|p| p.verdict.as_deref() == Some(verdict))
+            .cloned()
+            .collect()
+    }
+
     pub fn list_processes(&self, params: &Value) -> Result<Value, RpcError> {
         let filter = params.get("filter").cloned().unwrap_or(Value::Null);
         let g = lock(&self.inner);
@@ -671,6 +694,7 @@ mod tests {
             trust: vec![],
             rule_pack_version: "t".into(),
             network_critical: Vec::new(),
+            never_kill: Vec::new(),
         })
     }
 

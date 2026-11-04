@@ -1,0 +1,302 @@
+//! Kill, anti-respawn and enforce-mode auto-kill (docs/04 §3-§4).
+//!
+//! Platform access goes through [`ProcessControl`] so the policy is testable with a fake.
+
+use std::sync::Arc;
+
+use serde_json::{Value, json};
+use vigil_core::analysis::path::basename;
+use vigil_core::audit::AuditKind;
+use vigil_core::kill::{Node, Refusal, tree_order};
+use vigil_ipc::proto::{INVALID_PARAMS, NOT_FOUND, RpcError};
+use vigil_store::{blocks, repo};
+
+use crate::state::{ProcRow, Shared, now};
+
+/// Names of Vigil's own binaries; these are never killed (HA-001).
+const SELF_IMAGES: [&str; 4] = ["vigil-svc.exe", "vigil.exe", "vigilctl.exe", "vigil-ui.exe"];
+
+/// A live process as the kill logic sees it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Snap {
+    pub pid: u32,
+    pub ppid: u32,
+    /// Creation time, 100 ns ticks since 1601.
+    pub started: u64,
+    /// RFC 3339 form of `started` (the identity clients pass back).
+    pub start_time: String,
+    pub image: Option<String>,
+}
+
+/// Result of one terminate attempt.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KillOutcome {
+    Terminated,
+    Gone,
+    AccessDenied,
+    Failed,
+}
+
+/// Platform process operations.
+pub trait ProcessControl: Send + Sync {
+    fn list(&self) -> Vec<Snap>;
+    /// Terminate `pid` only if its start time still equals `started`.
+    fn terminate(&self, pid: u32, started: u64) -> KillOutcome;
+    fn sha256(&self, path: &str) -> Option<String>;
+}
+
+fn action(ok: bool, code: Option<&str>, detail: &str) -> Value {
+    json!({ "ok": ok, "error_code": code, "detail": detail })
+}
+
+fn is_self(snap: &Snap) -> bool {
+    snap.pid == std::process::id()
+        || snap.image.as_deref().is_some_and(|i| {
+            SELF_IMAGES
+                .iter()
+                .any(|n| basename(i).eq_ignore_ascii_case(n))
+        })
+}
+
+impl Shared {
+    pub fn attach_control(&self, c: Arc<dyn ProcessControl>) {
+        *self
+            .control
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(c);
+    }
+
+    fn control(&self) -> Option<Arc<dyn ProcessControl>> {
+        self.control
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
+    }
+
+    /// Hard rule that fired for this identity, if any.
+    fn hard_rule_of(&self, identity: Option<&str>) -> Option<String> {
+        let id: i64 = identity?.parse().ok()?;
+        self.with_store(|c| repo::latest_evaluation(c, id))?
+            .ok()??
+            .hard_rule
+    }
+
+    /// SG-001 and self-protection for one live process.
+    fn refusal(&self, snap: &Snap, hard_rule: Option<&str>) -> Option<Refusal> {
+        if is_self(snap) {
+            return Some(Refusal::SelfProcess);
+        }
+        let name = snap.image.as_deref().unwrap_or("");
+        self.never_kill.check(name, hard_rule).err()
+    }
+
+    /// `process.kill`: kill (optionally the tree), then persist a deny and a respawn watch.
+    pub fn kill_process(&self, params: &Value, actor: &str) -> Result<Value, RpcError> {
+        let bad = |m: &str| RpcError::new(INVALID_PARAMS, m);
+        let pid = params
+            .get("pid")
+            .and_then(Value::as_u64)
+            .and_then(|p| u32::try_from(p).ok())
+            .ok_or_else(|| bad("pid is required"))?;
+        let start = params
+            .get("start_time")
+            .and_then(Value::as_str)
+            .ok_or_else(|| bad("start_time is required"))?;
+        let tree = params.get("tree").and_then(Value::as_bool).unwrap_or(false);
+        let block = params.get("block").and_then(Value::as_bool).unwrap_or(true);
+        let ctl = self.control().ok_or_else(|| {
+            RpcError::new(
+                vigil_ipc::proto::INVALID_STATE,
+                "process control unavailable",
+            )
+        })?;
+        let snaps = ctl.list();
+        let root = snaps
+            .iter()
+            .find(|s| s.pid == pid && s.start_time == start)
+            .ok_or_else(|| RpcError::new(NOT_FOUND, "no such process"))?;
+        let row = self.process_row(pid, start);
+        let identity = row.as_ref().and_then(|r| r.identity_id.clone());
+        let hard = self.hard_rule_of(identity.as_deref());
+        let image = root.image.clone().unwrap_or_default();
+
+        if let Some(why) = self.refusal(root, hard.as_deref()) {
+            self.audit(
+                actor,
+                AuditKind::Kill,
+                Some(&image),
+                &json!({ "pid": pid, "result": "refused", "reason": format!("{why:?}") }),
+            );
+            return Ok(action(
+                false,
+                Some("protected_target"),
+                "process is protected",
+            ));
+        }
+
+        let nodes: Vec<Node> = snaps
+            .iter()
+            .map(|s| Node {
+                pid: s.pid,
+                ppid: s.ppid,
+                started: s.started,
+            })
+            .collect();
+        let order = if tree {
+            tree_order(pid, &nodes)
+        } else {
+            vec![pid]
+        };
+        self.audit(
+            actor,
+            AuditKind::Kill,
+            Some(&image),
+            &json!({ "pid": pid, "tree": tree, "block": block, "targets": order, "phase": "before" }),
+        );
+        let mut denied = false;
+        let mut failed = false;
+        for p in &order {
+            let Some(s) = snaps.iter().find(|s| s.pid == *p) else {
+                continue;
+            };
+            // A tree member that is itself protected is skipped, never killed.
+            if *p != pid && self.refusal(s, None).is_some() {
+                continue;
+            }
+            match ctl.terminate(*p, s.started) {
+                KillOutcome::Terminated | KillOutcome::Gone => {}
+                KillOutcome::AccessDenied => denied = true,
+                KillOutcome::Failed => failed = true,
+            }
+        }
+        if block {
+            self.deny_identity(identity.as_deref(), &image, ctl.as_ref());
+        }
+        self.audit(
+            actor,
+            AuditKind::Kill,
+            Some(&image),
+            &json!({ "pid": pid, "phase": "after", "access_denied": denied, "failed": failed }),
+        );
+        Ok(if denied {
+            action(
+                false,
+                Some("protected_target"),
+                "access denied; deny rule added",
+            )
+        } else if failed {
+            action(false, Some("internal"), "terminate failed")
+        } else {
+            action(true, None, "terminated")
+        })
+    }
+
+    /// Persistent deny (`kill`, forever) plus a respawn-watch record for this image.
+    fn deny_identity(&self, identity: Option<&str>, path: &str, ctl: &dyn ProcessControl) {
+        let id: Option<i64> = identity.and_then(|i| i.parse().ok());
+        let sha = id
+            .and_then(|i| {
+                self.with_store(|c| repo::executable_by_id(c, i))
+                    .and_then(Result::ok)
+                    .flatten()
+                    .map(|e| e.sha256)
+            })
+            .or_else(|| ctl.sha256(path));
+        if let Some(sha) = sha {
+            let ts = now();
+            let _ = self.with_store(|c| blocks::upsert(c, id, &sha, path, "kill", &ts));
+        }
+        if id.is_some() {
+            let r = self.submit_decision(&json!({
+                "identity_id": identity, "action": "kill", "scope": "forever",
+                "apply_to": "file", "note": "process.kill",
+            }));
+            if let Err(e) = r {
+                tracing::warn!(error = %e.message, "could not record kill decision");
+            }
+        }
+    }
+
+    /// Kill any running copy of a blocked image (matched by path or hash). Returns kill count.
+    pub fn respawn_scan(&self) -> usize {
+        let Some(ctl) = self.control() else { return 0 };
+        let has_blocks = self
+            .with_store(|c| blocks::active(c).map(|b| !b.is_empty()))
+            .and_then(Result::ok)
+            .unwrap_or(false);
+        if !has_blocks {
+            return 0;
+        }
+        let mut killed = 0;
+        for s in ctl.list() {
+            let Some(image) = s.image.clone() else {
+                continue;
+            };
+            if is_self(&s) {
+                continue;
+            }
+            let hit = self
+                .with_store(|c| {
+                    let by_path = blocks::find(c, &image, None)?;
+                    if by_path.is_some() {
+                        return Ok(by_path);
+                    }
+                    blocks::find(c, &image, ctl.sha256(&image).as_deref())
+                })
+                .and_then(|r: Result<_, vigil_store::StoreError>| r.ok())
+                .flatten();
+            let Some(b) = hit else { continue };
+            if self.never_kill.check(&image, None).is_err() {
+                continue;
+            }
+            if ctl.terminate(s.pid, s.started) == KillOutcome::Terminated {
+                killed += 1;
+                let _ = self.with_store(|c| blocks::count_respawn_kill(c, b.id));
+                self.audit(
+                    "service",
+                    AuditKind::RespawnKill,
+                    Some(&image),
+                    &json!({ "pid": s.pid, "block_id": b.id }),
+                );
+            }
+        }
+        killed
+    }
+
+    /// In `enforce`, kill processes whose *rule-based* verdict is Malicious (never AI-only).
+    pub fn auto_kill_malicious(&self) -> usize {
+        if self.mode_and_health().0 != "enforce" {
+            return 0;
+        }
+        let mut n = 0;
+        for row in self.rows_with_verdict("malicious") {
+            if !self.rule_based_malicious(&row) {
+                continue;
+            }
+            let ok = self
+                .kill_process(
+                    &json!({ "pid": row.pid, "start_time": row.start_time, "block": true }),
+                    "service",
+                )
+                .ok()
+                .and_then(|v| v["ok"].as_bool())
+                .unwrap_or(false);
+            n += usize::from(ok);
+        }
+        n
+    }
+
+    fn rule_based_malicious(&self, row: &ProcRow) -> bool {
+        let Some(id) = row
+            .identity_id
+            .as_deref()
+            .and_then(|i| i.parse::<i64>().ok())
+        else {
+            return false;
+        };
+        self.with_store(|c| repo::latest_evaluation(c, id))
+            .and_then(Result::ok)
+            .flatten()
+            .is_some_and(|e| e.source == "rules" && e.verdict == "malicious")
+    }
+}

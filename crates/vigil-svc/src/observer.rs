@@ -57,7 +57,7 @@ fn signals_of(ev: &vigil_core::eval::Evaluation) -> Vec<serde_json::Value> {
 }
 
 /// `FILETIME` ticks (100 ns since 1601) to RFC 3339.
-fn start_time(ticks: Option<u64>) -> String {
+pub(crate) fn start_time(ticks: Option<u64>) -> String {
     const EPOCH_DIFF_SECS: i64 = 11_644_473_600;
     let secs = ticks.map_or(0, |t| i64::try_from(t / 10_000_000).unwrap_or(0)) - EPOCH_DIFF_SECS;
     time::OffsetDateTime::from_unix_timestamp(secs)
@@ -177,6 +177,12 @@ pub async fn run(shared: Arc<Shared>, pack: Arc<RulePack>) -> anyhow::Result<()>
         }
 
         sync_connections(&shared);
+        let sh = Arc::clone(&shared);
+        tokio::task::spawn_blocking(move || {
+            sh.respawn_scan();
+            sh.auto_kill_malicious();
+        })
+        .await?;
 
         if last_beat.elapsed() >= HEARTBEAT {
             shared.emit_health();
