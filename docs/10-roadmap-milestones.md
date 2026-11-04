@@ -154,3 +154,5 @@ Standing rule for every milestone: `cargo fmt --check`, `cargo clippy -D warning
 - Signed remote rule-pack updates (Ed25519).
 - Fleet management console and SIEM export (syslog/Windows Event Forwarding).
 - Local small-model verdict option (no cloud).
+
+- macOS support: see [docs/13-cross-platform-macos.md](13-cross-platform-macos.md) (milestones M7–M10).

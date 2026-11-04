@@ -6,6 +6,8 @@ Vigil is an open-source, user-mode endpoint tool for Windows 10 1809+ / 11. It w
 
 > **Status: early development (pre-1.0).** Milestones M0 (rule engine foundations) and the scoring core of M1 are implemented and tested; the Windows collectors, service, enforcement and UI are in progress. See [Roadmap](docs/10-roadmap-milestones.md). Do not rely on it for protection yet.
 
+**Platforms:** Windows 10/11 today. macOS is planned in stages (portability refactor, observe-only, then enforcement); see [docs/13-cross-platform-macos.md](docs/13-cross-platform-macos.md).
+
 > **VI:** Vigil là công cụ bảo vệ endpoint chạy hoàn toàn ở user-mode cho Windows: phân loại mọi process và kết nối mạng thành Safe / Unknown / Malicious, giải thích được từng quyết định, tự chặn hoặc hỏi người dùng; AI (Claude) chỉ là ý kiến tham khảo tùy chọn. Dự án đang phát triển, chưa dùng làm lớp bảo vệ chính.
 
 ## Why Vigil
