@@ -2,7 +2,8 @@
 
 use std::collections::HashMap;
 
-use windows::Win32::Foundation::{CloseHandle, FILETIME, HANDLE};
+use windows::Wdk::System::Threading::{NtQueryInformationProcess, PROCESSINFOCLASS};
+use windows::Win32::Foundation::{CloseHandle, FILETIME, HANDLE, UNICODE_STRING};
 use windows::Win32::System::Diagnostics::ToolHelp::{
     CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS,
 };
@@ -89,6 +90,44 @@ pub fn query(pid: u32) -> (Option<String>, Option<u64>) {
     (image, start)
 }
 
+/// `ProcessCommandLineInformation` (Windows 8.1+): the kernel copies the command line out, so no
+/// PEB walk and only `PROCESS_QUERY_LIMITED_INFORMATION` is needed.
+const PROCESS_COMMAND_LINE_INFORMATION: i32 = 60;
+
+/// Command line of `pid`, when the process can be opened with limited rights.
+/// The result is untrusted host data.
+#[must_use]
+pub fn command_line(pid: u32) -> Option<String> {
+    // SAFETY: plain Win32 call; the returned handle is owned and closed by `Handle`.
+    let h = Handle(unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) }.ok()?);
+    // u64 backing store keeps the UNICODE_STRING header 8-byte aligned.
+    let mut buf = vec![0u64; 8_192];
+    let cap = u32::try_from(buf.len() * 8).ok()?;
+    let mut needed = 0u32;
+    // SAFETY: `buf` is writable for `cap` bytes; `needed` is a valid out-pointer.
+    let status = unsafe {
+        NtQueryInformationProcess(
+            h.0,
+            PROCESSINFOCLASS(PROCESS_COMMAND_LINE_INFORMATION),
+            buf.as_mut_ptr().cast(),
+            cap,
+            &raw mut needed,
+        )
+    };
+    if status.is_err() {
+        return None;
+    }
+    // SAFETY: on success the buffer starts with a UNICODE_STRING whose `Buffer` points at
+    // `Length` bytes of UTF-16 stored later in the same buffer.
+    let us = unsafe { &*buf.as_ptr().cast::<UNICODE_STRING>() };
+    if us.Buffer.is_null() {
+        return Some(String::new());
+    }
+    // SAFETY: see above; `Length` is in bytes and lies within `buf`.
+    let units = unsafe { std::slice::from_raw_parts(us.Buffer.0, usize::from(us.Length) / 2) };
+    Some(String::from_utf16_lossy(units))
+}
+
 /// Snapshot all processes, enriched with image path and start time.
 pub fn snapshot() -> Result<Vec<ProcessInfo>, Error> {
     // SAFETY: plain Win32 call; handle owned by `Handle`.
@@ -143,6 +182,12 @@ mod tests {
         let p = all.iter().find(|p| p.pid == me).expect("self in snapshot");
         assert!(p.image.as_deref().is_some_and(|i| i.contains(".exe")));
         assert!(p.start_time.is_some());
+    }
+
+    #[test]
+    fn own_command_line_is_readable() {
+        let c = command_line(std::process::id()).expect("own command line");
+        assert!(c.to_lowercase().contains(".exe"), "{c}");
     }
 
     fn proc_at(pid: u32, parent: u32, start: u64) -> ProcessInfo {
