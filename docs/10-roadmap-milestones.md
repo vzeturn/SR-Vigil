@@ -97,6 +97,11 @@ Standing rule for every milestone: `cargo fmt --check`, `cargo clippy -D warning
 - [ ] Attempt to kill `lsass.exe`/`csrss.exe` is refused with `protected_target`.
 - [ ] Disable then Restore of a Run key and a scheduled task returns the exact original state (round-trip test).
 
+**M4 status (branch `ms/m4-kill`)**
+- Verified by automated tests: kill/respawn/renamed copy (`t_kill_01_every_respawn_and_renamed_copy_is_killed_and_counted`, fake process table, 20 respawns + same-hash copy), `protected_target` (`t_kill_02_protected_target_is_refused_and_not_terminated`), Run-key and scheduled-task disable/restore round trip against the real registry/`schtasks` (`vigil-win` persist tests), service state machine and audit (`t_pers_01_*`).
+- Not verified (needs an elevated VM): the 500 ms kill latency with a real binary through the service, killing other users' processes, service-kind disable/restore against a real service.
+- Deferred (tracked): `wmi_subscription`, `winlogon` and `shell_ext` scanners (not scanned yet); `svchost` service attribution and `svchost_service_suspicious`; UWP package-id filters; the enforce-mode positive path of `auto_kill_malicious` (needs an engine in the test harness).
+
 ## M5 — AI advisor and auto
 
 **Deliver**
