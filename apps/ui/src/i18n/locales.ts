@@ -302,6 +302,13 @@ export const en = {
     imported: 'Imported {{imported}}, skipped {{skipped}}.',
     failed: 'Failed: {{code}}',
   },
+  catalogue: {
+    title: 'Check for newer versions',
+    intro:
+      'Optional. Once a day Vigil downloads a small signed list of the newest versions of common software. Nothing is uploaded. Out-of-date programs lose a few trust points and Vigil tells you where to get the update; it never installs anything.',
+    enable: 'Download the version list daily',
+    failed: 'Failed: {{code}}',
+  },
   ai: {
     title: 'AI second opinion',
     intro:
@@ -643,6 +650,13 @@ export const vi: Messages = {
     exportAudit: 'Xuất nhật ký (CSV)',
     exported: 'Đã lưu {{n}} mục.',
     imported: 'Đã nhập {{imported}}, bỏ qua {{skipped}}.',
+    failed: 'Thất bại: {{code}}',
+  },
+  catalogue: {
+    title: 'Kiểm tra phiên bản mới',
+    intro:
+      'Tùy chọn. Mỗi ngày Vigil tải một danh sách nhỏ đã ký số về phiên bản mới nhất của phần mềm phổ biến. Không gửi gì lên mạng. Chương trình lỗi thời bị trừ vài điểm tin cậy và Vigil chỉ cho bạn nơi lấy bản cập nhật; Vigil không bao giờ tự cài.',
+    enable: 'Tải danh sách phiên bản mỗi ngày',
     failed: 'Thất bại: {{code}}',
   },
   ai: {

@@ -2232,6 +2232,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "jsonschema",
+ "reqwest",
  "rusqlite",
  "secrecy",
  "serde",

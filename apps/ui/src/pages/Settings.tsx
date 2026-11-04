@@ -267,6 +267,43 @@ function JunkCard() {
   );
 }
 
+function CatalogueCard() {
+  const { t } = useTranslation();
+  const [on, setOn] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  useEffect(() => {
+    void getBridge()
+      .then((b) => b.rpc<{ catalogue?: { enabled?: boolean } }>('settings.get', {}))
+      .then((s) => setOn(s.catalogue?.enabled === true))
+      .catch(() => undefined);
+  }, []);
+
+  async function toggle(next: boolean) {
+    setMsg('');
+    try {
+      await (await getBridge()).rpc('settings.set', { settings: { catalogue: { enabled: next } } });
+      setOn(next);
+    } catch (e) {
+      setMsg(t('catalogue.failed', { code: e instanceof Error ? e.message : String(e) }));
+    }
+  }
+
+  return (
+    <section className="card">
+      <h2>{t('catalogue.title')}</h2>
+      <p className="muted">{t('catalogue.intro')}</p>
+      <label>
+        <input type="checkbox" checked={on} onChange={(e) => void toggle(e.target.checked)} />{' '}
+        {t('catalogue.enable')}
+      </label>
+      <p className="muted" role="status">
+        {msg}
+      </p>
+    </section>
+  );
+}
+
 export function Settings() {
   const { t, i18n } = useTranslation();
   const { snapshot } = useVigil();
@@ -307,6 +344,7 @@ export function Settings() {
         </select>
       </section>
       <AiCard />
+      <CatalogueCard />
       <JunkCard />
       <DataCard />
       <section className="card">
