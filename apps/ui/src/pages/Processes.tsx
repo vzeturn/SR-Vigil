@@ -1,6 +1,7 @@
 import { useDeferredValue, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { KillDialog } from '../components/KillDialog';
+import { ProcessActions } from '../components/ProcessActions';
+import { ScoreBar } from '../components/ScoreBar';
 import { VerdictChip } from '../components/VerdictChip';
 import { VirtualTable, type Column } from '../components/VirtualTable';
 import { useVigil } from '../store';
@@ -11,7 +12,6 @@ export function Processes() {
   const { snapshot } = useVigil();
   const [query, setQuery] = useState('');
   const [verdict, setVerdict] = useState<Verdict | ''>('');
-  const [target, setTarget] = useState<ProcessInfo | null>(null);
   const deferred = useDeferredValue(query);
 
   const rows = useMemo(() => {
@@ -26,7 +26,7 @@ export function Processes() {
   const columns: Column<ProcessInfo>[] = [
     { header: t('table.name'), width: '2fr', cell: (p) => p.name },
     { header: t('table.pid'), width: '80px', cell: (p) => <span className="mono">{p.pid}</span> },
-    { header: t('table.score'), width: '70px', cell: (p) => p.score ?? '' },
+    { header: t('table.score'), width: '120px', cell: (p) => <ScoreBar score={p.score} verdict={p.verdict} /> },
     { header: t('table.verdict'), width: '150px', cell: (p) => <VerdictChip verdict={p.verdict} /> },
     {
       header: t('table.version'),
@@ -46,12 +46,8 @@ export function Processes() {
     {
       header: t('table.actions'),
       hideHeader: true,
-      width: '90px',
-      cell: (p) => (
-        <button type="button" className="btn" onClick={() => setTarget(p)}>
-          {t('kill.action')}
-        </button>
-      ),
+      width: '130px',
+      cell: (p) => <ProcessActions proc={p} />,
     },
     { header: t('table.path'), width: '3fr', cell: (p) => <span className="mono">{p.path ?? ''}</span> },
   ];
@@ -87,7 +83,6 @@ export function Processes() {
         empty={snapshot ? t('table.empty') : t('table.loading')}
         label={t('nav.processes')}
       />
-      {target && <KillDialog proc={target} onClose={() => setTarget(null)} />}
     </>
   );
 }

@@ -40,7 +40,7 @@ pub fn on_pending(app: &AppHandle) {
 }
 
 fn show(app: &AppHandle) {
-    let Some(win) = app.get_webview_window("popup") else {
+    let Some(win) = crate::window(app, "popup") else {
         return;
     };
     if win.is_visible().unwrap_or(false) {

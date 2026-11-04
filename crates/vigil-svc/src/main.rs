@@ -173,6 +173,9 @@ fn cleanup() -> anyhow::Result<()> {
 
 #[cfg(windows)]
 fn main() -> anyhow::Result<()> {
+    if let Err(e) = vigil_win::harden::lower_priority() {
+        tracing::warn!(error = %e, "could not lower process priority");
+    }
     let arg = std::env::args().nth(1);
     if arg.as_deref() == Some("--cleanup") {
         cleanup()

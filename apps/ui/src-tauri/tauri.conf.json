@@ -13,6 +13,7 @@
     "windows": [
       {
         "label": "main",
+        "create": false,
         "title": "Vigil",
         "width": 1040,
         "height": 680,
@@ -23,6 +24,7 @@
       },
       {
         "label": "popup",
+        "create": false,
         "title": "Vigil",
         "url": "index.html#popup",
         "width": 440,

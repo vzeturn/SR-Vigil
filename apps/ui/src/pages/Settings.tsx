@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getBridge, junkClean, junkScan, type JunkCategory } from '../bridge';
 import type { AiConfig, AiMode, AiSource } from '../types';
-import { LANGUAGES, setLang, type Lang } from '../i18n';
 import { useVigil } from '../store';
 
 type Theme = 'system' | 'light' | 'dark';
@@ -305,7 +304,7 @@ function CatalogueCard() {
 }
 
 export function Settings() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { snapshot } = useVigil();
   const [theme, setTheme] = useState<Theme>(
     (document.documentElement.getAttribute('data-theme') as Theme | null) ?? 'system',
@@ -313,20 +312,6 @@ export function Settings() {
 
   return (
     <>
-      <section className="card">
-        <h2>{t('settings.language')}</h2>
-        <select
-          aria-label={t('settings.language')}
-          value={i18n.language}
-          onChange={(e) => setLang(e.target.value as Lang)}
-        >
-          {LANGUAGES.map((l) => (
-            <option key={l.code} value={l.code}>
-              {l.label}
-            </option>
-          ))}
-        </select>
-      </section>
       <section className="card">
         <h2>{t('settings.theme')}</h2>
         <select

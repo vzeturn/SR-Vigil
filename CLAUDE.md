@@ -58,7 +58,7 @@ pnpm -C apps/ui lint && pnpm -C apps/ui test
 - Public types crossing IPC derive `serde::{Serialize, Deserialize}` and match `schemas/ipc.schema.json` exactly; add a contract test that validates sample payloads against the schema.
 - Rules are data (`rules/*.toml`), embedded with `include_str!`, overridable from `%ProgramData%\Vigil\rules.d\`. Adding a signal means: rule entry + doc row in `docs/03` + fixture test.
 - Every enforcement action writes an audit row (hash-chained, see `docs/09`).
-- UI strings go through i18n (`vi`, `en`); never hardcode user-visible text.
+- UI is English only (user decision); strings still live in the i18next table in `apps/ui/src/i18n`, never inline.
 - Commit small, one concern per commit, message format `area: imperative summary` (e.g. `win: add WinVerifyTrust wrapper`).
 
 ## Workflow

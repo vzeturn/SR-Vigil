@@ -85,6 +85,14 @@ function Shell() {
       .catch(() => undefined);
     return () => off?.();
   }, []);
+  useEffect(() => {
+    const go = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail;
+      if (id in PAGES) setPage(id as PageId);
+    };
+    window.addEventListener('vigil:goto', go);
+    return () => window.removeEventListener('vigil:goto', go);
+  }, []);
   const View = PAGES[page].view;
 
   return (

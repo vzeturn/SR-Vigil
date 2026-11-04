@@ -3,6 +3,9 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getBridge } from '../bridge';
 import { Dialog } from '../components/Dialog';
+import { Gauge } from '../components/Gauge';
+import { ProcessActions } from '../components/ProcessActions';
+import { ScoreBar } from '../components/ScoreBar';
 import { VerdictChip } from '../components/VerdictChip';
 import { countryName, topCountries } from '../countries';
 import { dismissPanic, markPanic, useVigil } from '../store';
@@ -20,7 +23,13 @@ export function Overview() {
   const { status, processes } = snapshot;
   const isAdmin = link.role === 'admin';
   const countries = topCountries(snapshot.connections);
-  const review = processes.filter((p) => p.verdict && p.verdict !== 'safe').slice(0, 8);
+  const rank = { malicious: 0, unknown: 1, safe: 2 } as const;
+  const attention = processes
+    .filter((p) => p.verdict && p.verdict !== 'safe')
+    .sort((a, b) => rank[a.verdict ?? 'safe'] - rank[b.verdict ?? 'safe'] || (a.score ?? 0) - (b.score ?? 0));
+  const total = status.counts.safe + status.counts.unknown + status.counts.malicious;
+  const score = total === 0 ? 100 : Math.round((status.counts.safe / total) * 100);
+  const tone = status.counts.malicious > 0 ? 'malicious' : status.counts.unknown > 0 ? 'unknown' : 'safe';
 
   const setMode = (mode: Mode) => {
     setModeError(null);
@@ -88,9 +97,26 @@ export function Overview() {
         <span className="muted">{t('overview.rulePack', { version: status.rule_pack_version })}</span>
       </div>
 
+      <section className={`card hero tone-${tone}`}>
+        <Gauge value={score} label={t('overview.score')} tone={tone} large />
+        <div className="hero-text">
+          <h2>{t(`overview.headline.${tone}`, { count: attention.length })}</h2>
+          <p className="muted">{t('overview.scoreHelp', { safe: status.counts.safe, total })}</p>
+          {status.counts.pending > 0 && (
+            <button
+              type="button"
+              className="btn"
+              onClick={() => window.dispatchEvent(new CustomEvent('vigil:goto', { detail: 'pending' }))}
+            >
+              {t('overview.pending', { count: status.counts.pending })}
+            </button>
+          )}
+        </div>
+      </section>
+
       <div className="kpis">
-        {(['safe', 'unknown', 'malicious', 'pending'] as const).map((k) => (
-          <div key={k} className="card">
+        {(['safe', 'unknown', 'malicious'] as const).map((k) => (
+          <div key={k} className={`card kpi tone-${k}`}>
             <div className="kpi-label">{t(`kpi.${k}`)}</div>
             <div className="kpi-value">{status.counts[k]}</div>
           </div>
@@ -99,20 +125,23 @@ export function Overview() {
 
       <section className="card">
         <h2>{t('overview.recent')}</h2>
-        {review.length === 0 ? (
+        {attention.length === 0 ? (
           <p className="muted">{t('overview.none')}</p>
         ) : (
-          <ul className="list">
-            {review.map((p) => (
+          <ul className="list attention">
+            {attention.slice(0, 6).map((p) => (
               <li key={`${p.pid}-${p.start_time}`}>
-                <span>
+                <span className="attention-name">
                   {p.name} <span className="muted mono">{p.pid}</span>
                 </span>
+                <ScoreBar score={p.score} verdict={p.verdict} />
                 <VerdictChip verdict={p.verdict} />
+                <ProcessActions proc={p} />
               </li>
             ))}
           </ul>
         )}
+        {attention.length > 6 && <p className="muted">{t('overview.more', { count: attention.length - 6 })}</p>}
       </section>
       {countries.length > 0 && (
         <section className="card">

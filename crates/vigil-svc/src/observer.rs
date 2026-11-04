@@ -17,6 +17,9 @@ use vigil_win::{net, trust, version};
 use crate::state::{ConnRow, ProcRow, Shared, now};
 
 const POLL: Duration = Duration::from_millis(500);
+/// More new images than this in one tick counts as a burst (first scan, installer, build).
+const BURST: usize = 8;
+const BURST_PAUSE: Duration = Duration::from_millis(40);
 const HEARTBEAT: Duration = Duration::from_secs(15);
 
 type Key = (String, Option<String>);
@@ -168,7 +171,12 @@ pub async fn run(shared: Arc<Shared>, pack: Arc<RulePack>) -> anyhow::Result<()>
                 }
             }
         }
+        // A big first scan is spread out so it never hogs a core; steady state has 0-2 new images.
+        let burst = pending.len() > BURST;
         for (key, image, parent, pid) in pending {
+            if burst {
+                tokio::time::sleep(BURST_PAUSE).await;
+            }
             let (ctx, pack, hashes, sh) = (
                 Arc::clone(&ctx),
                 Arc::clone(&pack),

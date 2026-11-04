@@ -15,7 +15,7 @@ async function violations() {
   return r.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(' | ')}`);
 }
 
-describe.each(['en', 'vi'])('accessibility (%s)', (lang) => {
+describe.each(['en'])('accessibility (%s)', (lang) => {
   beforeEach(async () => {
     await act(async () => {
       await i18n.changeLanguage(lang);

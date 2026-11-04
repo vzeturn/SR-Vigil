@@ -15,12 +15,21 @@ use windows::Win32::Security::{
 use windows::Win32::System::LibraryLoader::{
     LOAD_LIBRARY_SEARCH_SYSTEM32, SetDefaultDllDirectories,
 };
+use windows::Win32::System::Threading::{
+    BELOW_NORMAL_PRIORITY_CLASS, GetCurrentProcess, SetPriorityClass,
+};
 use windows::core::{PCWSTR, PWSTR};
 
 use crate::to_wide;
 
 /// Protected DACL: SYSTEM and Administrators full control, inherited by children, nobody else.
 pub const DATA_DIR_SDDL: &str = "D:PAI(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)";
+
+/// Run below normal priority so scanning never competes with what the user is doing.
+pub fn lower_priority() -> Result<(), windows::core::Error> {
+    // SAFETY: the pseudo-handle from `GetCurrentProcess` is always valid for the calling process.
+    unsafe { SetPriorityClass(GetCurrentProcess(), BELOW_NORMAL_PRIORITY_CLASS) }
+}
 
 /// Only load DLLs from System32 for the rest of the process lifetime.
 pub fn restrict_dll_search() -> Result<(), windows::core::Error> {

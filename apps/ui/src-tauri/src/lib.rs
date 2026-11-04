@@ -35,12 +35,34 @@ async fn rpc(
 
 const TRAY_ID: &str = "main";
 
-fn show_main(app: &AppHandle) {
-    if let Some(win) = app.get_webview_window("main") {
+/// Get a window, building it from `tauri.conf.json` on first use. Windows are created lazily and
+/// destroyed when dismissed, so a tray-resident Vigil holds no WebView (hundreds of MB) at all.
+pub(crate) fn window(app: &AppHandle, label: &str) -> Option<tauri::WebviewWindow> {
+    if let Some(w) = app.get_webview_window(label) {
+        return Some(w);
+    }
+    let cfg = app
+        .config()
+        .app
+        .windows
+        .iter()
+        .find(|c| c.label == label)?
+        .clone();
+    tauri::WebviewWindowBuilder::from_config(app, &cfg)
+        .ok()?
+        .build()
+        .ok()
+}
+
+/// Show the main window; returns `true` when it had to be created (its page is not ready yet).
+fn show_main(app: &AppHandle) -> bool {
+    let created = app.get_webview_window("main").is_none();
+    if let Some(win) = window(app, "main") {
         let _ = win.show();
         let _ = win.unminimize();
         let _ = win.set_focus();
     }
+    created
 }
 
 const TRAY_MODES: [&str; 3] = ["observe", "learning", "enforce"];
@@ -121,8 +143,15 @@ fn set_autostart(on: bool) -> bool {
 
 /// Bring the window forward and ask the UI to switch page.
 fn open_page(app: &AppHandle, page: &str) {
-    show_main(app);
-    let _ = app.emit("vigil://navigate", page);
+    let fresh = show_main(app);
+    let (app, page) = (app.clone(), page.to_owned());
+    tauri::async_runtime::spawn(async move {
+        if fresh {
+            // A new WebView needs a moment to attach its listeners.
+            tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
+        }
+        let _ = app.emit("vigil://navigate", page);
+    });
 }
 
 fn default_labels() -> Labels {
@@ -359,7 +388,7 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
     let mut tray = TrayIconBuilder::with_id(TRAY_ID)
         .menu(&tray_menu(app, &default_labels())?)
         .on_menu_event(|app, event| match event.id().as_ref() {
-            "open" => show_main(app),
+            "open" => drop(show_main(app)),
             "quit" => app.exit(0),
             "pending" => open_page(app, "pending"),
             "audit" => open_page(app, "audit"),
@@ -403,15 +432,6 @@ pub fn run() {
             tauri::async_runtime::spawn(bridge::run(app.handle().clone(), rx));
             Ok(())
         })
-        // Closing the main window keeps Vigil running in the tray; "Quit" in the tray menu exits.
-        .on_window_event(|w, e| {
-            if let tauri::WindowEvent::CloseRequested { api, .. } = e {
-                if w.label() == "main" {
-                    api.prevent_close();
-                    let _ = w.hide();
-                }
-            }
-        })
         .invoke_handler(tauri::generate_handler![
             rpc,
             local_kill,
@@ -422,6 +442,13 @@ pub fn run() {
             junk_clean,
             local_scan
         ])
-        .run(tauri::generate_context!())
-        .expect("failed to start Vigil UI");
+        .build(tauri::generate_context!())
+        .expect("failed to start Vigil UI")
+        // Closing the last window destroys its WebView but keeps Vigil in the tray; only the tray's
+        // "Quit" (an explicit exit code) ends the process.
+        .run(|_, event| {
+            if let tauri::RunEvent::ExitRequested { code: None, api, .. } = event {
+                api.prevent_exit();
+            }
+        });
 }

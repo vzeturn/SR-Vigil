@@ -176,7 +176,8 @@ export async function localKill(f: LocalFinding): Promise<string> {
 export async function hidePopup(): Promise<void> {
   if (!inTauri) return;
   const { getCurrentWindow } = await import('@tauri-apps/api/window');
-  await getCurrentWindow().hide();
+  // Closed, not hidden: the Rust side rebuilds it on the next pending item and frees the WebView.
+  await getCurrentWindow().close();
 }
 
 let current: Promise<Bridge> | undefined;

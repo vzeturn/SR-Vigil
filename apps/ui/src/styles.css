@@ -574,3 +574,88 @@ body {
 .fold[open] > summary {
   margin-bottom: var(--space-2);
 }
+
+.gauge.large {
+  width: 112px;
+  height: 112px;
+}
+.gauge.large .gauge-value {
+  font: 600 var(--fs-display) / var(--lh-display) var(--font-display);
+}
+.hero {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+.hero-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+.hero-text h2 {
+  margin: 0;
+}
+.kpis {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.kpi.tone-safe .kpi-value {
+  color: var(--safe);
+}
+.kpi.tone-unknown .kpi-value {
+  color: var(--unknown);
+}
+.kpi.tone-malicious .kpi-value {
+  color: var(--malicious);
+}
+.scorebar {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.scorebar-track {
+  width: 64px;
+  height: 6px;
+  border-radius: var(--radius-chip);
+  background: var(--surface-strong);
+  overflow: hidden;
+}
+.scorebar-track > span {
+  display: block;
+  height: 100%;
+  background: var(--safe);
+}
+.scorebar-track.tone-unknown > span {
+  background: var(--unknown);
+}
+.scorebar-track.tone-malicious > span {
+  background: var(--malicious);
+}
+.scorebar-num {
+  min-width: 2ch;
+  text-align: right;
+}
+.row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.btn.icon {
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+  justify-content: center;
+}
+.btn.icon.allow {
+  color: var(--safe);
+}
+.btn.icon.block,
+.btn.icon.kill {
+  color: var(--malicious);
+}
+.attention li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: var(--space-4);
+}

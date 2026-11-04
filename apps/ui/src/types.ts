@@ -26,6 +26,7 @@ export interface ProcessInfo {
   ppid: number;
   name: string;
   path?: string | null;
+  identity_id?: string | null;
   verdict?: Verdict | null;
   score?: number | null;
   /** Set when this is a recognised program that is behind the newest release. */
