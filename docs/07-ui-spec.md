@@ -8,9 +8,9 @@
 |---|---|
 | Shell | Tauri v2 (Rust bridge owns the named pipe; tray; multi-window) |
 | Frontend | React 19, TypeScript (strict), Vite |
-| Styling | Tailwind CSS v4 with CSS variables for tokens; shadcn/ui primitives (Radix) |
+| Styling | Plain CSS with two-tier CSS-variable tokens (primitive → semantic; components use semantic only). **M2 deviation:** Tailwind/shadcn not adopted, to keep the dependency surface small; revisit if M3 popup needs Radix primitives |
 | Motion | Motion (Framer Motion) springs; all motion disabled under `prefers-reduced-motion` |
-| Data | TanStack Query (snapshots), Zustand (live stream store), TanStack Table + TanStack Virtual (large lists) |
+| Data | `useSyncExternalStore` store fed by the Tauri bridge, which polls `status.get` + paged `process.list`/`connection.list` every 1 s (**M2 deviation:** snapshot polling instead of live subscription; live push arrives with M3 events), TanStack Virtual (large lists). Tauri crate and npm packages must stay on the same minor (2.11.x) |
 | Charts/graphs | visx (sparklines, timeline), `@xyflow/react` (process/connection graph) |
 | Map (optional) | MapLibre GL with a bundled offline basemap; geo-IP via `maxminddb` in the **service** (user supplies GeoLite2 `.mmdb`) |
 | i18n | `react-i18next`, locales `vi` and `en`, ICU plurals; default follows OS UI language |

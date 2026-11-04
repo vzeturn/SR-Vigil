@@ -1,5 +1,6 @@
 export const en = {
   app: { name: 'Vigil' },
+  tray: { open: 'Open Vigil', quit: 'Quit' },
   nav: {
     overview: 'Overview',
     processes: 'Processes',
@@ -66,6 +67,7 @@ export type Messages = typeof en;
 
 export const vi: Messages = {
   app: { name: 'Vigil' },
+  tray: { open: 'Mở Vigil', quit: 'Thoát' },
   nav: {
     overview: 'Tổng quan',
     processes: 'Tiến trình',

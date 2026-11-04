@@ -21,6 +21,13 @@ async function tauriBridge(): Promise<Bridge> {
   };
 }
 
+/** Tray menu text is owned by the i18n tables; no-op outside the Tauri shell. */
+export async function syncTrayLabels(open: string, quit: string): Promise<void> {
+  if (!inTauri) return;
+  const { invoke } = await import('@tauri-apps/api/core');
+  await invoke('set_tray_labels', { open, quit });
+}
+
 let current: Promise<Bridge> | undefined;
 
 export function getBridge(): Promise<Bridge> {

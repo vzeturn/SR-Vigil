@@ -1,6 +1,7 @@
 import { Activity, Network, Settings as Cog, ShieldCheck, ListChecks, type LucideIcon } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { syncTrayLabels } from './bridge';
 import { Connections } from './pages/Connections';
 import { Overview } from './pages/Overview';
 import { Processes } from './pages/Processes';
@@ -22,6 +23,9 @@ export function App() {
   const { t } = useTranslation();
   const { link } = useVigil();
   const [page, setPage] = useState<PageId>('overview');
+  useEffect(() => {
+    syncTrayLabels(t('tray.open'), t('tray.quit')).catch(() => undefined);
+  }, [t]);
   const View = PAGES[page].view;
 
   return (
