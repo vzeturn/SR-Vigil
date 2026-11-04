@@ -140,7 +140,12 @@ Standing rule for every milestone: `cargo fmt --check`, `cargo clippy -D warning
 
 ---
 
+**Status (M6, in progress):** done: MSI (`installer/`, `docs/13`), uninstall cleanup (`vigil-svc --cleanup`), DLL search-path lock-down, data-dir ACL repair, FR-018, release workflow, static CRT. Open: T14, BEH-005, FR-017, geo map, accessibility audit, performance pass, standard-user "enable protection" flow, and every VM-only acceptance box above.
+
 ## Backlog (post-v1, tracked)
+
+- Bundle the WebView2 Evergreen bootstrapper in the MSI (Windows 11 and current Windows 10 already ship the runtime; older Windows 10 needs it installed once).
+- Process mitigation policies for the service and live WFP change-event alerts (`docs/08` §5).
 
 - Per-service WFP filtering via service SID for `svchost`.
 - ARM64 build.

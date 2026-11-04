@@ -53,11 +53,14 @@
 
 ## 5. Self-protection checklist (M6)
 
-- Binaries Authenticode-signed; installer verifies signer before creating the self-pin (HA-001).
-- Service DACL restricts stop/pause to Administrators; recovery actions configured.
-- Data dir ACL verified at start (re-applied if drifted, with audit).
-- Process mitigations on the service: `SetProcessMitigationPolicy` for dynamic-code prohibit and image-load restrictions where compatible; load-library search path hardened (`SetDefaultDllDirectories`).
-- Detect and alert on: service stop attempts, filter deletions not initiated by Vigil (subscribe to WFP change events), data-dir ACL changes.
+Status: **done** = implemented and compile/unit verified; **VM** = implemented, needs the manual check in `docs/11` §10; **tracked** = deferred, listed in `docs/10` backlog.
+
+- Binaries Authenticode-signed (`installer/build.ps1 -SignCert`, `docs/13`); self-pin from the signer thumbprint (HA-001). Status: signing script done, pin recording VM/tracked.
+- Service DACL restricts control to SYSTEM and Administrators (query-only for users); restart-on-failure recovery configured in `installer/Vigil.wxs`. Status: VM.
+- Data dir ACL verified at start (re-applied if drifted, audited as `config_change`). Status: done (`vigil_win::harden::ensure_data_dir_acl`), elevated check VM.
+- Load-library search path hardened (`SetDefaultDllDirectories`, System32 only). Status: done.
+- Process mitigation policies (dynamic-code prohibit, image-load restrictions): tracked, because they conflict with the WebView2/ETW components until measured.
+- Detect and alert on service stop attempts, filter deletions not initiated by Vigil (WFP change events) and data-dir ACL changes: ACL drift at start is audited; live WFP-event subscription is tracked.
 
 ## 6. Compliance mapping (ISO/IEC 27001:2022 Annex A, ISO/IEC 27701:2025)
 

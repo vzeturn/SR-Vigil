@@ -103,3 +103,14 @@ Use a disposable VM snapshot, elevated shell, service installed, `vigilctl statu
 1. Fresh VM, install, run `learning` for the configured minimum (or override), then switch to `enforce`.
 2. Verify: DNS resolution (`nslookup example.com`), DHCP renew (`ipconfig /renew`), time sync (`w32tm /resync`), Windows Update scan, Defender update, and the Vigil UI all work with no Pending storm.
 3. Reboot; repeat step 2 after login (permits rebuilt before catch-all).
+
+## 10. Manual elevated checks: installer and self-protection
+
+Disposable Windows 10 and Windows 11 VM snapshots, standard user plus an admin account.
+
+1. **Install**: run `dist\Vigil-<version>.msi`; accept UAC once. Expect service `VigilSvc` running (`sc query VigilSvc`), Start Menu entry, UI starts at next sign-in as the standard user.
+2. **Service DACL**: as standard user `sc stop VigilSvc` fails with access denied; `sc query VigilSvc` works.
+3. **Data dir ACL**: `icacls %ProgramData%\Vigil` lists only SYSTEM and Administrators. Run `icacls %ProgramData%\Vigil /grant Users:R`, restart the service, re-run `icacls`: Users entry gone and the audit log shows a `config_change` with `data_dir_acl: re-applied`.
+4. **Upgrade**: install a newer MSI over the old one; data and decisions are kept, service keeps running.
+5. **Uninstall**: remove via Apps; then `netsh wfp show filters file=f.xml` has no `Vigil` provider, sublayer or filter, and `sc query VigilSvc` reports it missing. `%ProgramData%\Vigil` is kept by design.
+6. **Manual cleanup**: `vigil-svc.exe --cleanup` (elevated) prints `removed N persistent filter(s)` and is safe to repeat.
