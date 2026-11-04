@@ -114,3 +114,7 @@ desktop.ini
 
 # SBOMs are release artifacts
 *.cdx.json
+
+# Self-hosted AI endpoint runtime state
+quota.json
+quota.json.tmp

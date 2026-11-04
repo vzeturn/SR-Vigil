@@ -13,6 +13,19 @@ A small Cloudflare Worker that lets Vigil users get a Claude second opinion **wi
 
 ## Deploy
 
+Two equivalent options; pick one. Both use the same handler (`src/handler.js`).
+
+### A. Self-hosted on your own machine (Node ≥ 20, no cloud account)
+
+```
+cd proxy
+ANTHROPIC_API_KEY=… TOKEN_SECRET=<24+ random chars> npm start   # listens on 127.0.0.1:8787
+```
+
+Quotas persist in `quota.json` (override with `QUOTA_FILE`). The server speaks plain HTTP on loopback; expose it over HTTPS with a tunnel or reverse proxy (the app refuses non-https URLs) and set `TRUST_PROXY=1` only when such a proxy supplies `X-Forwarded-For`. Set `PORT`/`HOST` as needed. Keep the secrets in your shell or a launchd `EnvironmentVariables` entry, never in the repo.
+
+### B. Cloudflare Workers
+
 ```
 cd proxy
 wrangler secret put ANTHROPIC_API_KEY   # key from a dedicated Console workspace with a spend limit

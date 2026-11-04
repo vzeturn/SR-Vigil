@@ -3,6 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test test/lib.test.js"
+    "test": "node --test test/lib.test.js",
+    "start": "node src/server.js"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

@@ -24,6 +24,9 @@ jobs:
       - run: dotnet tool install --global wix
       - run: cargo install cargo-cyclonedx --locked
       - name: Build MSI (unsigned; see docs/13-release.md for signing)
+        env:
+          # Repository variable (not a secret): the public URL of the shared AI endpoint. Empty = no shared option.
+          VIGIL_PROXY_URL: ${{ vars.VIGIL_PROXY_URL }}
         run: ./installer/build.ps1 -Version ${{ startsWith(github.ref_name, 'v') && github.ref_name || '0.0.0' }}
         shell: pwsh
       - name: SBOM

@@ -33,6 +33,16 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo test -p vigil-core -p vigil-store -p vigil-ipc -p vigil-ai
 
+  proxy-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm test
+        working-directory: proxy
+
   windows-build:
     runs-on: windows-latest
     steps:
