@@ -46,6 +46,9 @@ Standing rule for every milestone: `cargo fmt --check`, `cargo clippy -D warning
 - [ ] 10-minute stress run: 0 ETW lost events; CPU < 2% idle.
 - [ ] `vigilctl scan` on a clean Windows 11 VM: ≥ 95% Safe, no panics, no unsigned system binary misflagged.
 
+**Tracked (found by M1 scan on a real machine)**
+- MSIX/Store apps under `%ProgramFiles%\WindowsApps` have no embedded Authenticode signature (package-level `AppxSignature.p7x`), so e.g. `WidgetService.exe` is scored unsigned and hits HR-007 because its metadata claims Microsoft. Needs package-signature verification (or the WindowsApps TrustedInstaller-ACL trust path) before the clean-VM acceptance box can be ticked.
+
 ## M2 — Service, IPC, read-only UI
 
 **Deliver**

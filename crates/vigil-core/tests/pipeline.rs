@@ -1,6 +1,6 @@
 //! Observation → Facts → verdict, using the real rule files and a Windows-like machine context.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use vigil_core::analysis::path::{PathEnv, normalize};
 use vigil_core::eval::evaluate;
@@ -24,7 +24,7 @@ fn ctx() -> Context {
             .unwrap(),
         lolbins: Lolbins::parse("t", include_str!("../../../rules/lolbins.toml")).unwrap(),
         publishers: Publishers::parse("t", include_str!("../../../rules/publishers.toml")).unwrap(),
-        locked_thumbprints: HashSet::new(),
+        locked_thumbprints: HashMap::new(),
     }
 }
 

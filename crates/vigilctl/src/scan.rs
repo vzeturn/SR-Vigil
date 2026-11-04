@@ -50,8 +50,11 @@ fn env_context() -> anyhow::Result<Context> {
 
 /// In-memory equivalent of `vigilctl trust bootstrap`: pin the chain thumbprints observed on each
 /// publisher's reference binaries (docs/03), only when the signature is valid and the org matches.
-fn bootstrap_pins(publishers: &Publishers, vars: &HashMap<String, String>) -> HashSet<String> {
-    let mut pins = HashSet::new();
+fn bootstrap_pins(
+    publishers: &Publishers,
+    vars: &HashMap<String, String>,
+) -> HashMap<String, HashSet<String>> {
+    let mut pins: HashMap<String, HashSet<String>> = HashMap::new();
     for p in publishers
         .publishers
         .iter()
@@ -70,7 +73,9 @@ fn bootstrap_pins(publishers: &Publishers, vars: &HashMap<String, String>) -> Ha
                     SignatureState::ValidEmbedded | SignatureState::ValidCatalog
                 )
             {
-                pins.extend(signer.thumbprints);
+                pins.entry(p.id.clone())
+                    .or_default()
+                    .extend(signer.thumbprints);
             }
         }
     }

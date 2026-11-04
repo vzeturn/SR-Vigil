@@ -92,8 +92,8 @@ pub struct Context {
     pub system: SystemProcesses,
     pub lolbins: Lolbins,
     pub publishers: Publishers,
-    /// Leaf and intermediate thumbprints from `publishers.lock`.
-    pub locked_thumbprints: HashSet<String>,
+    /// Leaf and intermediate thumbprints from `publishers.lock`, keyed by publisher id.
+    pub locked_thumbprints: HashMap<String, HashSet<String>>,
 }
 
 impl Context {
@@ -118,9 +118,9 @@ impl Context {
 
     fn chain_ok(&self, p: &Publisher, s: &SignerInfo) -> bool {
         if p.match_mode == "thumbprint" {
-            s.thumbprints
-                .iter()
-                .any(|t| self.locked_thumbprints.contains(t))
+            self.locked_thumbprints
+                .get(&p.id)
+                .is_some_and(|pins| s.thumbprints.iter().any(|t| pins.contains(t)))
         } else {
             p.required_roots
                 .iter()
@@ -128,10 +128,19 @@ impl Context {
         }
     }
 
+    /// Names of publishers that can actually be pinned. A thumbprint-mode publisher without any
+    /// bootstrapped pin cannot be impersonated *against*, so claiming it is not a signal.
     fn all_publisher_names(&self) -> Vec<String> {
         self.publishers
             .publishers
             .iter()
+            .filter(|p| {
+                p.match_mode != "thumbprint"
+                    || self
+                        .locked_thumbprints
+                        .get(&p.id)
+                        .is_some_and(|t| !t.is_empty())
+            })
             .flat_map(publisher_names)
             .collect()
     }
