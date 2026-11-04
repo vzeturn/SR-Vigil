@@ -30,7 +30,7 @@ const RULE_KEYS: [&str; 11] = [
 ];
 
 /// `%ProgramData%\Vigil` when writable (service), else `%LOCALAPPDATA%\Vigil` (unelevated dev run).
-fn data_dir() -> anyhow::Result<PathBuf> {
+pub fn data_dir() -> anyhow::Result<PathBuf> {
     let candidates = ["PROGRAMDATA", "LOCALAPPDATA"]
         .iter()
         .filter_map(std::env::var_os)

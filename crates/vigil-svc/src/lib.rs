@@ -3,6 +3,7 @@
 //! `VigilSvc`: live state, IPC handlers and (on Windows) the observer and service host.
 
 pub mod ai;
+pub mod catalogue;
 pub mod decide;
 pub mod enforce;
 pub mod events;
