@@ -30,6 +30,7 @@ fn shared() -> Arc<Shared> {
                            "source": "builtin", "note": null, "created_at": "2026-01-01T00:00:00Z"}),
         ],
         rule_pack_version: "1.0.0".into(),
+        network_critical: Vec::new(),
     });
     s.put_process(ProcRow {
         pid: 4242,
@@ -140,7 +141,7 @@ async fn emitted_events_match_the_schema() {
     });
     sh.remove_process(1, "2026-01-01T00:00:00Z");
     sh.sync_connections(vec![]);
-    sh.set_mode("learning").unwrap();
+    sh.set_mode("learning", false).unwrap();
     sh.set_health("degraded", Some("x"));
     let mut seen = std::collections::BTreeSet::new();
     while let Ok(e) = bus.try_recv() {
@@ -156,4 +157,77 @@ async fn emitted_events_match_the_schema() {
     ] {
         assert!(seen.contains(m), "{m} not emitted: {seen:?}");
     }
+}
+
+#[tokio::test]
+async fn decision_flow_matches_the_schema_and_is_audited() {
+    use vigil_store::decisions::{DestClass, NewPending, create_pending};
+    let s = schema();
+    let shared = shared();
+    shared
+        .with_store(|c| {
+            let p = NewPending {
+                executable_id: 1,
+                dest_class: DestClass::Public,
+                dest_addr: "8.8.8.8".into(),
+                dest_port: 443,
+                dns_name: None,
+            };
+            create_pending(c, &p, time::OffsetDateTime::now_utc()).unwrap();
+        })
+        .unwrap();
+    let (a, b) = tokio::io::duplex(1 << 16);
+    tokio::spawn(handle_connection(b, Role::Admin, shared));
+    let mut c = Client::new(a);
+
+    let list = c.call("pending.list", json!({})).await.unwrap();
+    validate(
+        &s["x-methods"]["pending.list"]["result"],
+        "pending.list",
+        &list,
+    );
+    let pid = list["items"][0]["id"]
+        .as_str()
+        .expect("one pending item")
+        .to_owned();
+
+    let params = json!({"pending_id": pid, "action": "allow", "scope": "1h", "apply_to": "file"});
+    validate(
+        &s["x-methods"]["decision.submit"]["params"],
+        "decision.submit",
+        &params,
+    );
+    let res = c.call("decision.submit", params).await.unwrap();
+    validate(
+        &s["x-methods"]["decision.submit"]["result"],
+        "decision.submit",
+        &res,
+    );
+
+    let after = c.call("pending.list", json!({})).await.unwrap();
+    assert_eq!(
+        after["items"].as_array().unwrap().len(),
+        0,
+        "pending resolved"
+    );
+    let audit = c.call("audit.query", json!({})).await.unwrap();
+    validate(
+        &s["x-methods"]["audit.query"]["result"],
+        "audit.query",
+        &audit,
+    );
+    assert_eq!(audit["chain_ok"], true);
+    assert_eq!(audit["items"][0]["kind"], "decision");
+
+    let id = res["decision"]["id"].clone();
+    c.call("decision.revoke", json!({"decision_id": id}))
+        .await
+        .unwrap();
+    let kinds: Vec<String> = c.call("audit.query", json!({})).await.unwrap()["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["kind"].as_str().unwrap().to_owned())
+        .collect();
+    assert_eq!(kinds, ["decision", "decision_revoked"]);
 }

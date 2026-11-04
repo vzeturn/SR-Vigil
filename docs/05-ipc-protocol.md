@@ -69,7 +69,7 @@ JSON-RPC 2.0 subset: `{"jsonrpc":"2.0","id":<int|string>,"method":"...","params"
 | `ai.config.set` | A | `{enabled?, mode?, model?, escalation_model?, api_key?, thresholds?, budget?}` → `AiConfig` |
 | `ai.test` | A | `{}` → `{ok, latency_ms, model}` |
 | `ai.explain` | A | `{identity_id}` → `AiOpinion` (forces a fresh opinion, shows in UI) |
-| `audit.query` | R | `{since?, until?, kind?, cursor?, limit?}` → `{items: AuditEntry[], next_cursor?, chain_ok}` |
+| `audit.query` | R | `{since?, until?, kind?, cursor?, limit?}` → `{items: AuditEntry[], next_cursor?, chain_ok, first_bad_seq?}` |
 | `audit.export` | A | `{format: "json"|"csv", since?, until?}` → `{path}` (written under `%ProgramData%\Vigil\exports`) |
 | `settings.get` / `settings.set` | R / A | policy settings (see `config/default-policy.toml`) |
 | `enforcement.panic` | A | `{}` → `Status` |

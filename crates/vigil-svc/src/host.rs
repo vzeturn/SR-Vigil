@@ -90,6 +90,21 @@ fn builtin_trust() -> anyhow::Result<Vec<Value>> {
         .collect())
 }
 
+const SYSTEM_PROCESSES: &str = include_str!("../../../rules/system_processes.toml");
+
+/// Canonical paths of `network_critical` system processes (must stay permitted when enforcing).
+fn network_critical() -> anyhow::Result<Vec<String>> {
+    let doc = toml_to_json(SYSTEM_PROCESSES)?;
+    Ok(doc["process"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|p| p["network_critical"].as_bool() == Some(true))
+        .flat_map(|p| p["canonical_paths"].as_array().cloned().unwrap_or_default())
+        .filter_map(|v| v.as_str().map(str::to_owned))
+        .collect())
+}
+
 /// Build the shared state from the on-disk store and embedded rules.
 pub fn build_state() -> anyhow::Result<(Arc<Shared>, Arc<vigil_core::rules::RulePack>)> {
     let dir = data_dir()?;
@@ -101,6 +116,7 @@ pub fn build_state() -> anyhow::Result<(Arc<Shared>, Arc<vigil_core::rules::Rule
         rules: builtin_rules()?,
         trust: builtin_trust()?,
         rule_pack_version: pack.meta.rule_pack_version.clone(),
+        network_critical: network_critical()?,
     });
     tracing::info!(dir = %dir.display(), "data directory ready");
     Ok((Arc::new(shared), pack))

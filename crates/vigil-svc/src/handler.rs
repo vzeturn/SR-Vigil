@@ -60,7 +60,12 @@ impl ConnHandler {
                     .get("mode")
                     .and_then(Value::as_str)
                     .ok_or_else(|| invalid("mode is required"))?,
+                params
+                    .get("override_learning_minimum")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false),
             ),
+            "enforcement.panic" => Ok(s.panic_now("user")),
             "process.list" => s.list_processes(params),
             "process.get" => s.get_process(
                 params
@@ -76,8 +81,11 @@ impl ConnHandler {
             "connection.list" => s.list_connections(params),
             "rule.list" => Ok(s.rules()),
             "trust.list" => Ok(s.trust()),
-            "pending.list" | "decision.list" => Ok(json!({ "items": [] })),
-            "audit.query" => Ok(json!({ "items": [], "chain_ok": true })),
+            "pending.list" => s.list_pending(),
+            "decision.list" => s.list_decisions(),
+            "decision.submit" => s.submit_decision(params),
+            "decision.revoke" => s.revoke_decision(params),
+            "audit.query" => s.audit_query(params),
             "settings.get" => Ok(s.settings()),
             "settings.set" => s.update_settings(
                 params

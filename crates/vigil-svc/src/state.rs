@@ -1,7 +1,9 @@
 //! Live service state: process and connection tables, mode, health and settings.
 
 use std::collections::BTreeMap;
-use std::sync::{Mutex, MutexGuard, PoisonError};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::time::Instant;
 
 use rusqlite::{Connection, params};
 use serde_json::{Map, Value, json};
@@ -10,6 +12,7 @@ use time::format_description::well_known::Rfc3339;
 use tokio::sync::broadcast;
 use vigil_ipc::proto::{INVALID_PARAMS, INVALID_STATE, NOT_FOUND, RpcError};
 
+use crate::enforce::{Desired, FilterEngine};
 use crate::events::Event;
 
 pub const SERVICE_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -93,6 +96,8 @@ pub struct Options {
     pub rules: Value,
     pub trust: Vec<Value>,
     pub rule_pack_version: String,
+    /// Canonical path patterns of processes that must stay permitted (`network_critical`).
+    pub network_critical: Vec<String>,
 }
 
 /// Everything shared between the observer and the connection handlers.
@@ -103,6 +108,11 @@ pub struct Shared {
     rules: Value,
     trust: Vec<Value>,
     rule_pack_version: String,
+    network_critical: Vec<String>,
+    engine: Mutex<Option<Arc<dyn FilterEngine>>>,
+    last_applied: Mutex<Option<(Desired, bool)>>,
+    armed: AtomicBool,
+    once: Mutex<Vec<(String, Instant)>>,
 }
 
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -191,6 +201,7 @@ impl Shared {
             }
             mode = match get("mode").as_deref() {
                 Some("learning") => "learning",
+                Some("enforce") => "enforce",
                 _ => "observe",
             };
             learning = get("learning_started_at");
@@ -211,6 +222,11 @@ impl Shared {
             rules: opts.rules,
             trust: opts.trust,
             rule_pack_version: opts.rule_pack_version,
+            network_critical: opts.network_critical,
+            engine: Mutex::new(None),
+            last_applied: Mutex::new(None),
+            armed: AtomicBool::new(false),
+            once: Mutex::new(Vec::new()),
         }
     }
 
@@ -279,6 +295,10 @@ impl Shared {
 
     #[must_use]
     pub fn status(&self) -> Value {
+        let pending = self
+            .with_store(vigil_store::repo::pending_count)
+            .and_then(Result::ok)
+            .unwrap_or(0);
         let g = lock(&self.inner);
         let count = |v: &str| {
             g.processes
@@ -289,28 +309,46 @@ impl Shared {
         json!({
             "protocol": vigil_ipc::PROTOCOL, "service_version": SERVICE_VERSION,
             "mode": g.mode, "health": g.health, "health_detail": g.health_detail,
-            "filters_armed": false,
+            "filters_armed": self.armed.load(Ordering::SeqCst),
             "counts": { "safe": count("safe"), "unknown": count("unknown"),
-                        "malicious": count("malicious"), "pending": 0 },
+                        "malicious": count("malicious"), "pending": pending },
             "rule_pack_version": self.rule_pack_version,
             "ai": { "enabled": false, "mode": "off" },
             "learning_started_at": g.learning_started_at,
         })
     }
 
-    /// `mode.set`: only `observe` and `learning` exist until enforcement is implemented.
-    pub fn set_mode(&self, mode: &str) -> Result<Value, RpcError> {
+    /// `mode.set`. Entering `enforce` needs a filter engine and (unless overridden) enough learning.
+    pub fn set_mode(&self, mode: &str, override_minimum: bool) -> Result<Value, RpcError> {
         let mode: &'static str = match mode {
             "observe" => "observe",
             "learning" => "learning",
-            "enforce" => {
-                return Err(RpcError::new(
-                    vigil_ipc::proto::ENFORCEMENT_OFF,
-                    "enforcement is not available in this build",
-                ));
-            }
+            "enforce" => "enforce",
             _ => return Err(RpcError::new(INVALID_PARAMS, "unknown mode")),
         };
+        if mode == "enforce" {
+            self.check_enforce(override_minimum)?;
+        }
+        let prev = self.mode_and_health().0;
+        self.apply_mode(mode, "mode.set");
+        if let Err(e) = self.resync_enforcement() {
+            self.fail_enforcement(&e);
+            return Err(RpcError::new(
+                vigil_ipc::proto::ENFORCEMENT_OFF,
+                "the filter engine could not be armed; back in observe mode",
+            ));
+        }
+        self.audit(
+            "user",
+            vigil_core::audit::AuditKind::ModeChange,
+            None,
+            &json!({ "from": prev, "to": mode, "override_learning_minimum": override_minimum }),
+        );
+        Ok(self.status())
+    }
+
+    /// Set the mode without validation (also used for fail-open fallbacks) and announce it.
+    pub(crate) fn apply_mode(&self, mode: &'static str, reason: &str) {
         let started = {
             let mut g = lock(&self.inner);
             g.mode = mode;
@@ -326,9 +364,52 @@ impl Shared {
         self.emit(
             "enforcement",
             "event.enforcement_changed",
-            json!({ "mode": mode, "filters_armed": false, "reason": "mode.set" }),
+            json!({ "mode": mode, "filters_armed": self.armed.load(Ordering::SeqCst), "reason": reason }),
         );
-        Ok(self.status())
+    }
+
+    pub(crate) fn force_mode(&self, mode: &'static str, reason: &str) {
+        self.apply_mode(mode, reason);
+    }
+
+    pub(crate) fn engine_slot(&self) -> MutexGuard<'_, Option<Arc<dyn FilterEngine>>> {
+        lock(&self.engine)
+    }
+
+    pub(crate) fn last_applied_slot(&self) -> MutexGuard<'_, Option<(Desired, bool)>> {
+        lock(&self.last_applied)
+    }
+
+    pub(crate) fn set_armed(&self, armed: bool) {
+        if self.armed.swap(armed, Ordering::SeqCst) != armed {
+            let mode = self.mode_and_health().0;
+            self.emit(
+                "enforcement",
+                "event.enforcement_changed",
+                json!({ "mode": mode, "filters_armed": armed, "reason": "sync" }),
+            );
+        }
+    }
+
+    pub(crate) fn learning_started(&self) -> Option<String> {
+        lock(&self.inner).learning_started_at.clone()
+    }
+
+    pub(crate) fn network_critical_patterns(&self) -> Vec<String> {
+        self.network_critical.clone()
+    }
+
+    pub(crate) fn add_once_permit(&self, path: Option<String>, until: Instant) {
+        if let Some(p) = path {
+            lock(&self.once).push((p, until));
+        }
+    }
+
+    pub(crate) fn live_once_permits(&self) -> Vec<String> {
+        let mut g = lock(&self.once);
+        let now = Instant::now();
+        g.retain(|(_, until)| *until > now);
+        g.iter().map(|(p, _)| p.clone()).collect()
     }
 
     #[must_use]
@@ -589,6 +670,7 @@ mod tests {
             rules: json!([]),
             trust: vec![],
             rule_pack_version: "t".into(),
+            network_critical: Vec::new(),
         })
     }
 
@@ -610,10 +692,10 @@ mod tests {
     fn enforce_is_refused_and_modes_persist() {
         let s = shared();
         assert_eq!(
-            s.set_mode("enforce").unwrap_err().code,
+            s.set_mode("enforce", false).unwrap_err().code,
             vigil_ipc::proto::ENFORCEMENT_OFF
         );
-        s.set_mode("learning").unwrap();
+        s.set_mode("learning", false).unwrap();
         assert_eq!(s.status()["mode"], "learning");
         assert!(s.status()["learning_started_at"].is_string());
     }

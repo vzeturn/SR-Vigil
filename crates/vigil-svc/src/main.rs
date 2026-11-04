@@ -38,6 +38,21 @@ mod win {
     /// Run observer and pipe server until either ends or `stop` resolves.
     async fn run(stop: impl Future<Output = ()>) -> anyhow::Result<()> {
         let (shared, pack) = host::build_state()?;
+        match vigil_svc::winfilter::WfpEngine::open() {
+            Ok(e) => shared.attach_engine(Some(Arc::new(e))),
+            Err(e) => {
+                tracing::warn!(error = %e, "filter engine unavailable; running without enforcement");
+                shared.attach_engine(None);
+            }
+        }
+        tokio::spawn(Arc::clone(&shared).pump_drops());
+        tokio::spawn(Arc::clone(&shared).maintain());
+        shared.audit(
+            "service",
+            vigil_core::audit::AuditKind::ServiceStart,
+            None,
+            &serde_json::json!({}),
+        );
         let obs = tokio::spawn(observer::run(Arc::clone(&shared), pack));
         let pipe = tokio::spawn(host::serve_pipe(shared));
         tokio::select! {

@@ -2097,6 +2097,17 @@
           },
           "chain_ok": {
             "type": "boolean"
+          },
+          "first_bad_seq": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
