@@ -6,6 +6,7 @@
 
 pub mod etw;
 pub mod hash;
+pub mod pipe;
 pub mod process;
 pub mod trust;
 pub mod version;
