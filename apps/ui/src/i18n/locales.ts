@@ -34,6 +34,8 @@ export const en = {
     none: 'Nothing needs your attention.',
     modeFailed: 'Could not change mode',
     rulePack: 'Rule pack {{version}}',
+    countries: 'Where your connections go',
+    countriesNote: 'Offline country data by DB-IP.com (CC BY 4.0)',
   },
   kill: {
     action: 'Kill',
@@ -155,6 +157,7 @@ export const en = {
     path: 'Path',
     local: 'Local',
     remote: 'Remote',
+    country: 'Country',
     state: 'State',
     verdict: 'Verdict',
     process: 'Process',
@@ -264,6 +267,8 @@ export const vi: Messages = {
     none: 'Không có gì cần bạn xử lý.',
     modeFailed: 'Không đổi được chế độ',
     rulePack: 'Bộ quy tắc {{version}}',
+    countries: 'Kết nối của bạn đi đâu',
+    countriesNote: 'Dữ liệu quốc gia offline của DB-IP.com (CC BY 4.0)',
   },
   kill: {
     action: 'Dừng',
@@ -384,6 +389,7 @@ export const vi: Messages = {
     path: 'Đường dẫn',
     local: 'Cục bộ',
     remote: 'Từ xa',
+    country: 'Quốc gia',
     state: 'Trạng thái',
     verdict: 'Kết luận',
     process: 'Tiến trình',

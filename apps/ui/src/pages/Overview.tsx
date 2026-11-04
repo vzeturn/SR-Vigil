@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { getBridge } from '../bridge';
 import { Dialog } from '../components/Dialog';
 import { VerdictChip } from '../components/VerdictChip';
+import { countryName, topCountries } from '../countries';
 import { dismissPanic, markPanic, useVigil } from '../store';
 import type { Mode } from '../types';
 
@@ -18,6 +19,7 @@ export function Overview() {
   if (!snapshot) return <p className="muted">{t('table.loading')}</p>;
   const { status, processes } = snapshot;
   const isAdmin = link.role === 'admin';
+  const countries = topCountries(snapshot.connections);
   const review = processes.filter((p) => p.verdict && p.verdict !== 'safe').slice(0, 8);
 
   const setMode = (mode: Mode) => {
@@ -112,6 +114,20 @@ export function Overview() {
           </ul>
         )}
       </section>
+      {countries.length > 0 && (
+        <section className="card">
+          <h2>{t('overview.countries')}</h2>
+          <ul className="list">
+            {countries.map(([cc, n]) => (
+              <li key={cc}>
+                <span>{countryName(cc)}</span>
+                <span className="muted mono">{n}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="muted">{t('overview.countriesNote')}</p>
+        </section>
+      )}
       {confirming && (
         <Dialog title={t('panic.confirmTitle')} onClose={() => setConfirming(false)}>
           <p>{t('panic.confirmBody')}</p>

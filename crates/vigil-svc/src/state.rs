@@ -75,6 +75,7 @@ impl ConnRow {
             "local_addr": self.local_addr, "local_port": self.local_port,
             "remote_addr": self.remote_addr, "remote_port": self.remote_port,
             "state": self.state, "verdict": self.verdict, "blocked": false,
+            "country": self.remote_addr.as_deref().and_then(|a| a.parse().ok()).and_then(vigil_core::analysis::geo::country),
             "first_seen": self.first_seen, "last_seen": self.last_seen,
         })
     }

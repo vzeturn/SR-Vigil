@@ -43,6 +43,7 @@ export interface ConnectionInfo {
   state?: string | null;
   verdict?: Verdict | null;
   blocked: boolean;
+  country?: string | null;
 }
 
 export interface Snapshot {

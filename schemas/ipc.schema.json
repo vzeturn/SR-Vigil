@@ -498,6 +498,17 @@
             }
           ]
         },
+        "country": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Z]{2}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "blocked": {
           "type": "boolean"
         },

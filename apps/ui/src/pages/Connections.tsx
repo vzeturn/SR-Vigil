@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { VerdictChip } from '../components/VerdictChip';
 import { VirtualTable, type Column } from '../components/VirtualTable';
 import { useVigil } from '../store';
+import { countryName } from '../countries';
 import type { ConnectionInfo } from '../types';
 
 export function Connections() {
@@ -27,6 +28,7 @@ export function Connections() {
         </span>
       ),
     },
+    { header: t('table.country'), width: '1.5fr', cell: (c) => countryName(c.country) },
     { header: t('table.state'), width: '130px', cell: (c) => c.state ?? '' },
     { header: t('table.verdict'), width: '150px', cell: (c) => <VerdictChip verdict={c.verdict} /> },
   ];
