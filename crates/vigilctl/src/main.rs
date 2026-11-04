@@ -5,6 +5,10 @@ use clap::{Parser, Subcommand};
 
 #[cfg(windows)]
 mod scan;
+#[cfg(windows)]
+mod service;
+#[cfg(windows)]
+mod status;
 
 #[derive(Parser)]
 #[command(version, about = "Vigil command-line client")]
@@ -21,13 +25,43 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
+    /// Show the running service's mode, health and verdict counts.
+    Status {
+        /// Emit machine-readable JSON instead of text.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Register or control the Windows service (needs an elevated shell).
+    #[command(subcommand)]
+    Service(ServiceCmd),
 }
 
+#[derive(Subcommand)]
+enum ServiceCmd {
+    /// Register `VigilSvc` (auto-start, restart on failure) and start it.
+    Install,
+    /// Stop and remove `VigilSvc`; data is kept.
+    Uninstall,
+    /// Start the installed service.
+    Start,
+    /// Stop the installed service.
+    Stop,
+}
+
+#[cfg(windows)]
 fn main() -> anyhow::Result<()> {
     match Cli::parse().command {
-        #[cfg(windows)]
         Command::Scan { json } => scan::run(json),
-        #[cfg(not(windows))]
-        Command::Scan { .. } => anyhow::bail!("scan requires Windows"),
+        Command::Status { json } => status::run(json),
+        Command::Service(ServiceCmd::Install) => service::install(),
+        Command::Service(ServiceCmd::Uninstall) => service::uninstall(),
+        Command::Service(ServiceCmd::Start) => service::start(),
+        Command::Service(ServiceCmd::Stop) => service::stop(),
     }
+}
+
+#[cfg(not(windows))]
+fn main() -> anyhow::Result<()> {
+    let _ = Cli::parse();
+    anyhow::bail!("vigilctl requires Windows")
 }
