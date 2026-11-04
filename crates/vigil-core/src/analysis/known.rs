@@ -4,6 +4,7 @@ use std::sync::OnceLock;
 
 use serde::Deserialize;
 
+use super::catalogue::{self, Release};
 use crate::rules::VersionStatus;
 
 const EMBEDDED: &str = include_str!("../../../../rules/known_software.toml");
@@ -32,6 +33,19 @@ impl Known {
     /// without release data, reports `Unknown` so no penalty can fire on guesswork.
     #[must_use]
     pub fn version_status(&self, installed: &str) -> VersionStatus {
+        let live = catalogue::release(&self.label).unwrap_or_default();
+        let pick = |own: &Option<String>, fresh: Option<String>| fresh.or_else(|| own.clone());
+        Self::status_against(
+            installed,
+            &Release {
+                latest: pick(&self.latest, live.latest),
+                min_supported: pick(&self.min_supported, live.min_supported),
+                vulnerable_below: pick(&self.vulnerable_below, live.vulnerable_below),
+            },
+        )
+    }
+
+    fn status_against(installed: &str, rel: &Release) -> VersionStatus {
         let Some(have) = parse_version(installed) else {
             return VersionStatus::Unknown;
         };
@@ -41,11 +55,11 @@ impl Known {
                 .and_then(parse_version)
                 .is_some_and(|l| cmp_version(&have, &l).is_lt())
         };
-        if below(&self.vulnerable_below) {
+        if below(&rel.vulnerable_below) {
             VersionStatus::Vulnerable
-        } else if below(&self.min_supported) {
+        } else if below(&rel.min_supported) {
             VersionStatus::FarBehind
-        } else if below(&self.latest) {
+        } else if below(&rel.latest) {
             VersionStatus::Outdated
         } else {
             VersionStatus::Unknown
