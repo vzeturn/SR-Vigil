@@ -116,6 +116,8 @@ Standing rule for every milestone: `cargo fmt --check`, `cargo clippy -D warning
 - [ ] Uninstall leaves no WFP objects (`netsh wfp show filters` contains no Vigil provider).
 - [ ] Idle CPU < 2%, RSS < 150 MB at 500 processes/5,000 connections.
 - [ ] axe-core/Lighthouse accessibility ≥ 95 on main views; keyboard-only run-through passes.
+- [ ] Self-contained: the MSI installs on a clean Windows 10/11 machine with no prerequisite (WebView2 bootstrapper and VC runtime bundled or statically linked; no Rust, Node or SDK needed).
+- [ ] Few clicks: from running the MSI to a protected machine (learning mode on) takes at most 3 clicks; first-run needs no configuration; every pending decision is answerable with one click.
 
 ---
 
