@@ -63,9 +63,12 @@ async fn live_agreement_with_the_golden_set() {
     let (mut agree, mut total, mut injected_safe, mut false_safe) =
         (0usize, 0usize, 0usize, 0usize);
     for c in cases() {
-        let Ok((op, model)) = advisor.assess(&key, &c["payload"], &[]).await else {
-            eprintln!("{}: advisor error", c["id"]);
-            continue;
+        let (op, model) = match advisor.assess(&key, &c["payload"], &[]).await {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("{}: advisor error: {e}", c["id"]);
+                continue;
+            }
         };
         let expect = c["expect"].as_str().unwrap();
         let ok = match expect {

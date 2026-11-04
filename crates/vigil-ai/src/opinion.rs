@@ -19,6 +19,8 @@ pub struct Opinion {
     pub confidence: f64,
     pub recommended_action: String,
     pub reasons: Vec<String>,
+    /// Optional in the schema, so a verdict without indicators must still deserialize.
+    #[serde(default)]
     pub indicators: Vec<String>,
 }
 
@@ -97,6 +99,12 @@ mod tests {
                 "{v}"
             );
         }
+    }
+
+    #[test]
+    fn missing_indicators_default_to_empty() {
+        let v = json!({"verdict":"unknown","confidence":0.4,"recommended_action":"ask_user","reasons":["x"]});
+        assert!(validate(&v, &present()).unwrap().indicators.is_empty());
     }
 
     #[test]

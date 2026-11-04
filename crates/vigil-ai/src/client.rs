@@ -112,7 +112,6 @@ impl Advisor {
         let body = json!({
             "model": model,
             "max_tokens": 400,
-            "temperature": 0,
             "system": SYSTEM_PROMPT,
             "tools": [{"name": TOOL, "description": "Submit the verdict for this executable.",
                        "input_schema": tool_schema()}],
