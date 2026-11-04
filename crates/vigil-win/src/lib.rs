@@ -4,6 +4,7 @@
 //! All `unsafe` lives in this crate, each block with a `// SAFETY:` comment, behind safe APIs.
 #![allow(clippy::missing_errors_doc)]
 
+pub mod etw;
 pub mod hash;
 pub mod process;
 pub mod trust;
@@ -14,6 +15,8 @@ pub mod version;
 pub enum Error {
     #[error("windows api: {0}")]
     Api(#[from] windows::core::Error),
+    #[error("etw: {0}")]
+    Etw(String),
     #[error("io: {0}")]
     Io(#[from] std::io::Error),
 }
