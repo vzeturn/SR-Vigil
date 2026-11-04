@@ -118,6 +118,7 @@ Standing rule for every milestone: `cargo fmt --check`, `cargo clippy -D warning
 - [ ] axe-core/Lighthouse accessibility ≥ 95 on main views; keyboard-only run-through passes.
 - [ ] Self-contained: the MSI installs on a clean Windows 10/11 machine with no prerequisite (WebView2 bootstrapper and VC runtime bundled or statically linked; no Rust, Node or SDK needed).
 - [ ] Few clicks: from running the MSI to a protected machine (learning mode on) takes at most 3 clicks; first-run needs no configuration; every pending decision is answerable with one click.
+- [ ] Least privilege: the UI and `vigilctl scan` run as a standard user with no elevation prompt (read-only view with signature, hash, path and parent checks). Elevation is requested only for the features that need it: service install, ETW network collection, WFP enforcement, and killing other users' or system processes. The UI shows which features are limited and offers a one-click "enable protection" UAC prompt.
 
 ---
 
