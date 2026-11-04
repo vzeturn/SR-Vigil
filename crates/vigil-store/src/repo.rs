@@ -109,6 +109,30 @@ pub fn insert_evaluation(
     Ok(conn.last_insert_rowid())
 }
 
+/// The executable identity stored under `id`.
+pub fn executable_by_id(conn: &Connection, id: i64) -> Result<Option<Executable>, StoreError> {
+    Ok(conn
+        .query_row(
+            "SELECT sha256, path, signer_thumbprint, publisher, company, product,
+                    original_filename, signature_status
+             FROM executables WHERE id = ?1",
+            params![id],
+            |r| {
+                Ok(Executable {
+                    sha256: r.get(0)?,
+                    path: r.get(1)?,
+                    signer_thumbprint: r.get(2)?,
+                    publisher: r.get(3)?,
+                    company: r.get(4)?,
+                    product: r.get(5)?,
+                    original_filename: r.get(6)?,
+                    signature_status: r.get(7)?,
+                })
+            },
+        )
+        .optional()?)
+}
+
 /// Most recent evaluation of an executable.
 pub fn latest_evaluation(
     conn: &Connection,
