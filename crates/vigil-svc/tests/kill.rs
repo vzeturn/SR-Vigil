@@ -124,6 +124,7 @@ fn row(pid: u32, image: &str, identity: Option<&str>) -> ProcRow {
         identity_id: identity.map(Into::into),
         verdict: Some("malicious".into()),
         score: Some(10),
+        freshness: None,
     }
 }
 

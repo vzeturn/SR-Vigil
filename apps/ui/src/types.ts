@@ -28,6 +28,13 @@ export interface ProcessInfo {
   path?: string | null;
   verdict?: Verdict | null;
   score?: number | null;
+  /** Set when this is a recognised program that is behind the newest release. */
+  freshness?: {
+    product: string;
+    installed: string;
+    latest: string;
+    status: 'outdated' | 'far_behind' | 'vulnerable';
+  } | null;
 }
 
 export interface ConnectionInfo {

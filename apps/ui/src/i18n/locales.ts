@@ -243,6 +243,7 @@ export const en = {
   },
   table: {
     search: 'Search',
+    version: 'Version',
     actions: 'Actions',
     allVerdicts: 'All verdicts',
     name: 'Name',
@@ -301,6 +302,12 @@ export const en = {
     exported: 'Saved {{n}} item(s).',
     imported: 'Imported {{imported}}, skipped {{skipped}}.',
     failed: 'Failed: {{code}}',
+  },
+  version: {
+    line: '{{installed}} → {{latest}}',
+    outdated: 'A newer version exists. Update through the vendor installer.',
+    far_behind: 'Many versions behind or no longer supported. Update through the vendor installer.',
+    vulnerable: 'This version has a serious known vulnerability. Update through the vendor installer.',
   },
   catalogue: {
     title: 'Check for newer versions',
@@ -593,6 +600,7 @@ export const vi: Messages = {
   },
   table: {
     search: 'Tìm kiếm',
+    version: 'Phiên bản',
     actions: 'Thao tác',
     allVerdicts: 'Mọi kết luận',
     name: 'Tên',
@@ -651,6 +659,12 @@ export const vi: Messages = {
     exported: 'Đã lưu {{n}} mục.',
     imported: 'Đã nhập {{imported}}, bỏ qua {{skipped}}.',
     failed: 'Thất bại: {{code}}',
+  },
+  version: {
+    line: '{{installed}} → {{latest}}',
+    outdated: 'Đã có phiên bản mới hơn. Hãy cập nhật bằng bộ cài của nhà phát hành.',
+    far_behind: 'Cũ nhiều phiên bản hoặc hết hỗ trợ. Hãy cập nhật bằng bộ cài của nhà phát hành.',
+    vulnerable: 'Phiên bản này có lỗ hổng nghiêm trọng đã biết. Hãy cập nhật bằng bộ cài của nhà phát hành.',
   },
   catalogue: {
     title: 'Kiểm tra phiên bản mới',

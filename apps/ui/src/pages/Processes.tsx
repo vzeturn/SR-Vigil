@@ -29,6 +29,21 @@ export function Processes() {
     { header: t('table.score'), width: '70px', cell: (p) => p.score ?? '' },
     { header: t('table.verdict'), width: '150px', cell: (p) => <VerdictChip verdict={p.verdict} /> },
     {
+      header: t('table.version'),
+      width: '170px',
+      cell: (p) =>
+        p.freshness ? (
+          <span
+            className="muted"
+            title={t(`version.${p.freshness.status}`)}
+          >
+            {t('version.line', { installed: p.freshness.installed, latest: p.freshness.latest })}
+          </span>
+        ) : (
+          ''
+        ),
+    },
+    {
       header: t('table.actions'),
       hideHeader: true,
       width: '90px',

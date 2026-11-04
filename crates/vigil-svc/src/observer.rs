@@ -27,6 +27,7 @@ struct Verdicted {
     score: u8,
     identity: String,
     signals: Vec<serde_json::Value>,
+    freshness: Option<serde_json::Value>,
 }
 
 const fn verdict_name(v: Verdict) -> &'static str {
@@ -67,6 +68,25 @@ pub(crate) fn start_time(ticks: Option<u64>) -> String {
                 .ok()
         })
         .unwrap_or_default()
+}
+
+/// "Installed X, latest Y" for `path` when it is a recognised program that is behind.
+fn freshness_note(path: &str) -> Option<serde_json::Value> {
+    let ver = version::read(path)?;
+    let name = Path::new(path).file_name()?.to_str()?;
+    let f = vigil_core::analysis::known::freshness(
+        name,
+        &[&ver.company, &ver.product, &ver.original_filename],
+        &ver.file_version,
+    )?;
+    Some(serde_json::json!({
+        "product": f.label, "installed": f.installed, "latest": f.latest,
+        "status": match f.status {
+            vigil_core::rules::VersionStatus::Outdated => "outdated",
+            vigil_core::rules::VersionStatus::FarBehind => "far_behind",
+            _ => "vulnerable",
+        },
+    }))
 }
 
 fn persist(
@@ -165,12 +185,18 @@ pub async fn run(shared: Arc<Shared>, pack: Arc<RulePack>) -> anyhow::Result<()>
                     score: ev.score,
                     identity,
                     signals: signals_of(&ev),
+                    freshness: freshness_note(&img),
                 }
             })
             .await?;
-            for (row, old) in
-                shared.apply_evaluation(&image, parent.as_deref(), &v.identity, v.verdict, v.score)
-            {
+            for (row, old) in shared.apply_evaluation(
+                &image,
+                parent.as_deref(),
+                &v.identity,
+                v.verdict,
+                v.score,
+                v.freshness.as_ref(),
+            ) {
                 announce(&shared, &row, old, &v.signals);
             }
             cache.insert(key, v);
@@ -233,6 +259,7 @@ fn sync_processes(shared: &Shared, procs: &[ProcessInfo]) {
             identity_id: None,
             verdict: None,
             score: None,
+            freshness: None,
         });
     }
 }

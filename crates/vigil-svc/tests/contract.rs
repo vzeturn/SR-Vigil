@@ -43,6 +43,7 @@ fn shared() -> Arc<Shared> {
         identity_id: None,
         verdict: None,
         score: None,
+        freshness: None,
     });
     let id = s
         .with_store(|c| {
@@ -69,7 +70,7 @@ fn shared() -> Arc<Shared> {
             id
         })
         .unwrap();
-    s.apply_evaluation(r"C:\a.exe", None, &id.to_string(), "safe", 90);
+    s.apply_evaluation(r"C:\a.exe", None, &id.to_string(), "safe", 90, None);
     s.sync_connections(vec![ConnRow {
         id: "c1".into(),
         pid: 4242,
@@ -139,6 +140,7 @@ async fn emitted_events_match_the_schema() {
         identity_id: None,
         verdict: None,
         score: None,
+        freshness: None,
     });
     sh.remove_process(1, "2026-01-01T00:00:00Z");
     sh.sync_connections(vec![]);

@@ -38,6 +38,8 @@ pub struct ProcRow {
     pub identity_id: Option<String>,
     pub verdict: Option<String>,
     pub score: Option<u8>,
+    /// "Installed X, latest Y" when this is a recognised program that is behind.
+    pub freshness: Option<Value>,
 }
 
 impl ProcRow {
@@ -46,7 +48,7 @@ impl ProcRow {
         json!({
             "pid": self.pid, "start_time": self.start_time, "ppid": self.ppid,
             "name": self.name, "path": self.path, "identity_id": self.identity_id,
-            "verdict": self.verdict, "score": self.score,
+            "verdict": self.verdict, "score": self.score, "freshness": self.freshness,
         })
     }
 }
@@ -512,6 +514,7 @@ impl Shared {
         identity: &str,
         verdict: &str,
         score: u8,
+        freshness: Option<&Value>,
     ) -> Vec<(ProcRow, Option<String>)> {
         let mut changed = Vec::new();
         let mut g = lock(&self.inner);
@@ -525,6 +528,7 @@ impl Shared {
             if same && (p.verdict.as_deref() != Some(verdict) || p.score != Some(score)) {
                 let old = p.verdict.replace(verdict.to_string());
                 p.score = Some(score);
+                p.freshness = freshness.cloned();
                 p.identity_id = Some(identity.to_string());
                 changed.push((p.clone(), old));
             }
@@ -731,6 +735,7 @@ mod tests {
             identity_id: None,
             verdict: None,
             score: None,
+            freshness: None,
         }
     }
 
@@ -785,10 +790,10 @@ mod tests {
     fn evaluation_updates_matching_rows_once() {
         let s = shared();
         s.put_process(proc(7));
-        let first = s.apply_evaluation("c:\\X\\P7.exe", None, "1", "safe", 90);
+        let first = s.apply_evaluation("c:\\X\\P7.exe", None, "1", "safe", 90, None);
         assert_eq!(first.len(), 1);
         assert!(first[0].1.is_none());
-        let again = s.apply_evaluation("C:\\x\\p7.exe", None, "1", "safe", 90);
+        let again = s.apply_evaluation("C:\\x\\p7.exe", None, "1", "safe", 90, None);
         assert_eq!(again.len(), 0);
     }
 

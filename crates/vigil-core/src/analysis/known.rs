@@ -33,16 +33,18 @@ impl Known {
     /// without release data, reports `Unknown` so no penalty can fire on guesswork.
     #[must_use]
     pub fn version_status(&self, installed: &str) -> VersionStatus {
+        Self::status_against(installed, &self.release())
+    }
+
+    /// Release data: the signed snapshot wins over what is embedded, field by field.
+    fn release(&self) -> Release {
         let live = catalogue::release(&self.label).unwrap_or_default();
         let pick = |own: &Option<String>, fresh: Option<String>| fresh.or_else(|| own.clone());
-        Self::status_against(
-            installed,
-            &Release {
-                latest: pick(&self.latest, live.latest),
-                min_supported: pick(&self.min_supported, live.min_supported),
-                vulnerable_below: pick(&self.vulnerable_below, live.vulnerable_below),
-            },
-        )
+        Release {
+            latest: pick(&self.latest, live.latest),
+            min_supported: pick(&self.min_supported, live.min_supported),
+            vulnerable_below: pick(&self.vulnerable_below, live.vulnerable_below),
+        }
     }
 
     fn status_against(installed: &str, rel: &Release) -> VersionStatus {
@@ -105,6 +107,30 @@ fn catalogue() -> &'static [Known] {
         toml::from_str::<File>(EMBEDDED)
             .map(|f| f.software)
             .unwrap_or_default()
+    })
+}
+
+/// What the detail view shows about a recognised program's version.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Freshness {
+    pub label: String,
+    pub installed: String,
+    pub latest: String,
+    pub status: VersionStatus,
+}
+
+/// "Installed X, latest Y" for a recognised program that is behind. `None` when the program is
+/// unknown, current, or there is no readable version or release data.
+#[must_use]
+pub fn freshness(file_name: &str, version_text: &[&str], installed: &str) -> Option<Freshness> {
+    let known = lookup(file_name, version_text)?;
+    let status = known.version_status(installed);
+    let latest = known.release().latest?;
+    (status != VersionStatus::Unknown).then(|| Freshness {
+        label: known.label.clone(),
+        installed: installed.to_string(),
+        latest,
+        status,
     })
 }
 

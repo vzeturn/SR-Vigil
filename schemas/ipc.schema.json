@@ -326,6 +326,22 @@
             }
           ]
         },
+        "freshness": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "product": { "type": "string" },
+                "installed": { "type": "string" },
+                "latest": { "type": "string" },
+                "status": { "enum": ["outdated", "far_behind", "vulnerable"] }
+              },
+              "additionalProperties": false,
+              "required": ["product", "installed", "latest", "status"]
+            },
+            { "type": "null" }
+          ]
+        },
         "user_sid": {
           "anyOf": [
             {
