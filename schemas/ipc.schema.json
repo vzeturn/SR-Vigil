@@ -2167,9 +2167,6 @@
           "until": {
             "type": "string",
             "format": "date-time"
-          },
-          "anonymize_paths": {
-            "type": "boolean"
           }
         },
         "additionalProperties": false,
@@ -2180,13 +2177,26 @@
       "result": {
         "type": "object",
         "properties": {
-          "path": {
+          "format": {
+            "type": "string",
+            "enum": [
+              "json",
+              "csv"
+            ]
+          },
+          "content": {
             "type": "string"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 0
           }
         },
         "additionalProperties": false,
         "required": [
-          "path"
+          "format",
+          "content",
+          "count"
         ]
       }
     },
@@ -2284,6 +2294,65 @@
         "type": "object",
         "properties": {},
         "additionalProperties": false
+      }
+    },
+    "decision.export": {
+      "role": "admin",
+      "params": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "content",
+          "count"
+        ]
+      }
+    },
+    "decision.import": {
+      "role": "admin",
+      "params": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "maxLength": 1048576
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "content"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "imported": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "skipped": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "imported",
+          "skipped"
+        ]
       }
     }
   },

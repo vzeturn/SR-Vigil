@@ -39,6 +39,9 @@ const ALLOWED: &[&str] = &[
     "ai.preview",
     "ai.test",
     "ai.explain",
+    "audit.export",
+    "decision.export",
+    "decision.import",
 ];
 
 pub struct Rpc {

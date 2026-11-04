@@ -112,6 +112,13 @@ export function createMockBridge(rows = 200): Bridge {
         model: ai.model,
       };
     },
+    'decision.export': () => ({ content: 'version = 1\n', count: 0 }),
+    'decision.import': (params) => {
+      const { content } = params as { content?: string };
+      if (!content?.startsWith('version = 1')) throw new Error('invalid_params');
+      return { imported: 0, skipped: 0 };
+    },
+    'audit.export': () => ({ format: 'csv', content: 'seq,ts,actor,kind,target,details,hash\r\n', count: 0 }),
     'ai.test':() => ({ ok: ai.has_key, latency_ms: 120, model: ai.model }),
     'process.kill': () => ({ ok: true, detail: 'terminated' }),
     'persistence.scan': () => ({ findings: persistence.map((p) => ({ ...p })) }),

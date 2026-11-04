@@ -9,6 +9,7 @@ pub mod events;
 pub mod handler;
 pub mod kill;
 pub mod persist;
+pub mod portable;
 pub mod state;
 
 #[cfg(windows)]

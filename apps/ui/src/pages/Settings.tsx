@@ -117,6 +117,78 @@ function AiCard() {
   );
 }
 
+interface Exported {
+  content: string;
+  count: number;
+}
+
+function saveText(name: string, mime: string, text: string) {
+  const url = URL.createObjectURL(new Blob([text], { type: mime }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function DataCard() {
+  const { t } = useTranslation();
+  const [msg, setMsg] = useState('');
+  const fail = (e: unknown) => setMsg(t('data.failed', { code: e instanceof Error ? e.message : String(e) }));
+
+  const exportAs = async (method: string, params: object, name: string, mime: string) => {
+    try {
+      const r = await (await getBridge()).rpc<Exported>(method, params);
+      saveText(name, mime, r.content);
+      setMsg(t('data.exported', { n: r.count }));
+    } catch (e) {
+      fail(e);
+    }
+  };
+
+  const importFile = async (file: File) => {
+    try {
+      const r = await (await getBridge()).rpc<{ imported: number; skipped: number }>('decision.import', {
+        content: await file.text(),
+      });
+      setMsg(t('data.imported', r));
+    } catch (e) {
+      fail(e);
+    }
+  };
+
+  return (
+    <section className="card">
+      <h2>{t('data.title')}</h2>
+      <p className="muted">{t('data.intro')}</p>
+      <div className="row">
+        <button type="button" onClick={() => void exportAs('decision.export', {}, 'vigil-decisions.toml', 'application/toml')}>
+          {t('data.exportDecisions')}
+        </button>
+        <label className="button">
+          {t('data.importDecisions')}
+          <input
+            type="file"
+            accept=".toml"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = '';
+              if (f) void importFile(f);
+            }}
+          />
+        </label>
+        <button type="button" onClick={() => void exportAs('audit.export', { format: 'csv' }, 'vigil-audit.csv', 'text/csv')}>
+          {t('data.exportAudit')}
+        </button>
+      </div>
+      <p className="muted" role="status">
+        {msg}
+      </p>
+    </section>
+  );
+}
+
 export function Settings() {
   const { t, i18n } = useTranslation();
   const { snapshot } = useVigil();
@@ -157,6 +229,7 @@ export function Settings() {
         </select>
       </section>
       <AiCard />
+      <DataCard />
       <section className="card">
         <h2>{t('settings.about')}</h2>
         <p className="muted">

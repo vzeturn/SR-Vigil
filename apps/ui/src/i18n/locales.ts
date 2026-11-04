@@ -177,6 +177,16 @@ export const en = {
     about: 'About',
     version: 'Service version {{version}}',
   },
+  data: {
+    title: 'Backup and audit',
+    intro: 'Move your allow/block decisions to another machine, or export the audit log.',
+    exportDecisions: 'Export decisions',
+    importDecisions: 'Import decisions',
+    exportAudit: 'Export audit (CSV)',
+    exported: 'Saved {{n}} item(s).',
+    imported: 'Imported {{imported}}, skipped {{skipped}}.',
+    failed: 'Failed: {{code}}',
+  },
   ai: {
     title: 'AI second opinion',
     intro:
@@ -380,6 +390,16 @@ export const vi: Messages = {
     themeDark: 'Tối',
     about: 'Giới thiệu',
     version: 'Phiên bản dịch vụ {{version}}',
+  },
+  data: {
+    title: 'Sao lưu và nhật ký',
+    intro: 'Chuyển các quyết định cho phép/chặn sang máy khác, hoặc xuất nhật ký kiểm toán.',
+    exportDecisions: 'Xuất quyết định',
+    importDecisions: 'Nhập quyết định',
+    exportAudit: 'Xuất nhật ký (CSV)',
+    exported: 'Đã lưu {{n}} mục.',
+    imported: 'Đã nhập {{imported}}, bỏ qua {{skipped}}.',
+    failed: 'Thất bại: {{code}}',
   },
   ai: {
     title: 'Ý kiến thứ hai từ AI',

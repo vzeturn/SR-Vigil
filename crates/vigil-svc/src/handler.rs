@@ -91,6 +91,9 @@ impl ConnHandler {
             "decision.submit" => s.submit_decision(params),
             "decision.revoke" => s.revoke_decision(params),
             "audit.query" => s.audit_query(params),
+            "audit.export" => s.audit_export(params),
+            "decision.export" => s.decisions_export(),
+            "decision.import" => s.decisions_import(params, "user"),
             "settings.get" => Ok(s.settings()),
             "settings.set" => s.update_settings(
                 params

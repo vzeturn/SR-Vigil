@@ -71,7 +71,9 @@ JSON-RPC 2.0 subset: `{"jsonrpc":"2.0","id":<int|string>,"method":"...","params"
 | `ai.test` | A | `{}` → `{ok, latency_ms, model}` |
 | `ai.explain` | A | `{identity_id}` → `AiOpinion` (forces a fresh opinion, shows in UI) |
 | `audit.query` | R | `{since?, until?, kind?, cursor?, limit?}` → `{items: AuditEntry[], next_cursor?, chain_ok, first_bad_seq?}` |
-| `audit.export` | A | `{format: "json"|"csv", since?, until?}` → `{path}` (written under `%ProgramData%\Vigil\exports`) |
+| `audit.export` | A | `{format: "json"|"csv", since?, until?}` → `{format, content, count}` (content is returned inline; the service never writes to a caller-chosen path; CSV cells that start with a formula trigger are prefixed with `'`) |
+| `decision.export` | A | `{}` → `{content, count}` (TOML, version 1; active non-`once` decisions with their identity) |
+| `decision.import` | A | `{content}` → `{imported, skipped}` (validated, ≤ 1 MiB / 5,000 entries; duplicates and `once` scopes are skipped; recorded as user decisions by actor `user`) |
 | `settings.get` / `settings.set` | R / A | policy settings (see `config/default-policy.toml`) |
 | `enforcement.panic` | A | `{}` → `Status` |
 | `subscribe` | R | `{topics: Topic[]}` → `{subscribed: Topic[]}` |
