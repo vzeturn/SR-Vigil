@@ -1,6 +1,6 @@
 export const en = {
   app: { name: 'Vigil' },
-  tray: { open: 'Open Vigil', quit: 'Quit', panic: 'Panic: stop enforcement', pending: 'Vigil: {{count}} pending' },
+  tray: { open: 'Open Vigil', quit: 'Quit', panic: 'Panic: stop enforcement', audit: 'Audit log', settings: 'Settings', autostart: 'Start with Windows', pending: 'Vigil: {{count}} pending' },
   nav: {
     overview: 'Overview',
     pending: 'Pending',
@@ -233,7 +233,7 @@ export type Messages = typeof en;
 
 export const vi: Messages = {
   app: { name: 'Vigil' },
-  tray: { open: 'Mở Vigil', quit: 'Thoát', panic: 'Khẩn cấp: dừng chặn', pending: 'Vigil: {{count}} chờ duyệt' },
+  tray: { open: 'Mở Vigil', quit: 'Thoát', panic: 'Khẩn cấp: dừng chặn', audit: 'Nhật ký kiểm toán', settings: 'Cài đặt', autostart: 'Khởi động cùng Windows', pending: 'Vigil: {{count}} chờ duyệt' },
   nav: {
     overview: 'Tổng quan',
     pending: 'Chờ duyệt',

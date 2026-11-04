@@ -50,6 +50,9 @@ function Shell() {
       open: t('tray.open'),
       quit: t('tray.quit'),
       panic: t('tray.panic'),
+      audit: t('tray.audit'),
+      settings: t('tray.settings'),
+      autostart: t('tray.autostart'),
       modes: t('mode.label'),
       mode_observe: t('mode.observe'),
       mode_learning: t('mode.learning'),
@@ -59,6 +62,18 @@ function Shell() {
   useEffect(() => {
     syncTrayPending(t('tray.pending', { count: pendingCount })).catch(() => undefined);
   }, [t, pendingCount]);
+  useEffect(() => {
+    let off: (() => void) | undefined;
+    import('@tauri-apps/api/event')
+      .then(({ listen }) =>
+        listen<string>('vigil://navigate', (e) => {
+          if (e.payload in PAGES) setPage(e.payload as PageId);
+        }),
+      )
+      .then((un) => (off = un))
+      .catch(() => undefined);
+    return () => off?.();
+  }, []);
   const View = PAGES[page].view;
 
   return (

@@ -4,9 +4,9 @@ mod bridge;
 mod popup;
 
 use serde_json::Value;
-use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
+use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::sync::{mpsc, oneshot};
 
 struct Link(mpsc::Sender<bridge::Rpc>);
@@ -55,17 +55,74 @@ fn tray_menu(app: &AppHandle, labels: &Labels) -> tauri::Result<Menu<tauri::Wry>
     for m in TRAY_MODES {
         modes.append(&item(&format!("mode_{m}"))?)?;
     }
+    let version = MenuItem::new(
+        app,
+        format!("Vigil {}", env!("CARGO_PKG_VERSION")),
+        false,
+        None::<&str>,
+    )?;
+    let autostart = CheckMenuItem::with_id(
+        app,
+        "autostart",
+        text("autostart"),
+        true,
+        autostart_enabled(),
+        None::<&str>,
+    )?;
+    let sep = || PredefinedMenuItem::separator(app);
     Menu::with_items(
         app,
         &[
+            &version,
+            &sep()?,
             &item("open")?,
             &item("pending")?,
+            &item("audit")?,
+            &item("settings")?,
+            &sep()?,
             &modes,
             &item("panic")?,
-            &PredefinedMenuItem::separator(app)?,
+            &sep()?,
+            &autostart,
             &item("quit")?,
         ],
     )
+}
+
+const RUN_KEY: &str = r"HKCUSoftwareMicrosoftWindowsCurrentVersionRun";
+const RUN_VALUE: &str = "Vigil";
+
+fn reg(args: &[&str]) -> bool {
+    use std::os::windows::process::CommandExt;
+    std::process::Command::new("reg")
+        .args(args)
+        .creation_flags(0x0800_0000)
+        .output()
+        .is_ok_and(|o| o.status.success())
+}
+
+/// Start-with-Windows is a per-user Run value (no admin needed).
+fn autostart_enabled() -> bool {
+    reg(&["query", RUN_KEY, "/v", RUN_VALUE])
+}
+
+fn set_autostart(on: bool) -> bool {
+    if !on {
+        return reg(&["delete", RUN_KEY, "/v", RUN_VALUE, "/f"]);
+    }
+    let Ok(exe) = std::env::current_exe() else {
+        return false;
+    };
+    let value = format!("\"{}\" --background", exe.display());
+    reg(&[
+        "add", RUN_KEY, "/v", RUN_VALUE, "/t", "REG_SZ", "/d", &value, "/f",
+    ])
+}
+
+/// Bring the window forward and ask the UI to switch page.
+fn open_page(app: &AppHandle, page: &str) {
+    show_main(app);
+    let _ = app.emit("vigil://navigate", page);
 }
 
 fn default_labels() -> Labels {
@@ -75,6 +132,9 @@ fn default_labels() -> Labels {
         ("pending", "Pending"),
         ("modes", "Mode"),
         ("panic", "Panic"),
+        ("audit", "Audit log"),
+        ("settings", "Settings"),
+        ("autostart", "Start with Windows"),
         ("mode_observe", "Observe"),
         ("mode_learning", "Learning"),
         ("mode_enforce", "Enforce"),
@@ -162,8 +222,12 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
         .on_menu_event(|app, event| match event.id().as_ref() {
             "open" => show_main(app),
             "quit" => app.exit(0),
-            "pending" => show_main(app),
-            "panic" => tray_rpc(app, "enforcement.panic", serde_json::json!({})),
+            "pending" => open_page(app, "pending"),
+            "audit" => open_page(app, "audit"),
+            "settings" => open_page(app, "settings"),
+            "autostart" => {
+                let _ = set_autostart(!autostart_enabled());
+            }
             id => {
                 if let Some(mode) = id.strip_prefix("mode_") {
                     tray_rpc(app, "mode.set", serde_json::json!({ "mode": mode }));
@@ -193,6 +257,10 @@ pub fn run() {
             app.manage(Link(tx));
             app.manage(popup::Gate::default());
             build_tray(app.handle())?;
+            // Autostart passes `--background`: stay in the tray; a manual launch opens the window.
+            if !std::env::args().any(|a| a == "--background") {
+                show_main(app.handle());
+            }
             tauri::async_runtime::spawn(bridge::run(app.handle().clone(), rx));
             Ok(())
         })
