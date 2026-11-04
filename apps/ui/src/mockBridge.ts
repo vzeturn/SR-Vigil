@@ -82,6 +82,8 @@ export function createMockBridge(rows = 200): Bridge {
     model: 'claude-haiku-5-5',
     escalation_model: 'claude-sonnet-5-5',
     has_key: false,
+    source: 'own_key',
+    shared_available: true,
     auto_threshold: 0.9,
     escalate_below: 0.75,
     auto_kill: false,
@@ -98,8 +100,12 @@ export function createMockBridge(rows = 200): Bridge {
         acknowledge_data_categories?: boolean;
       };
       const has_key = api_key === undefined ? ai.has_key : api_key !== '';
-      if (rest.enabled && !(has_key && acknowledge_data_categories)) throw new Error('invalid_state');
-      ai = { ...ai, ...rest, has_key };
+      const source = rest.source ?? ai.source;
+      if (source === 'shared' && !ai.shared_available) throw new Error('invalid_params');
+      if (rest.enabled && !((has_key || source === 'shared') && acknowledge_data_categories)) {
+        throw new Error('invalid_state');
+      }
+      ai = { ...ai, ...rest, has_key, source };
       return ai;
     },
     'ai.explain': () => {
@@ -108,7 +114,8 @@ export function createMockBridge(rows = 200): Bridge {
         verdict: 'unknown',
         confidence: 0.6,
         recommended_action: 'ask_user',
-        reasons: ['Unsigned binary in a user-writable folder'],
+        reasons: ['Unsigned binary in a user-writable folder', 'Not seen on this machine before'],
+        indicators: [],
         model: ai.model,
       };
     },
@@ -119,7 +126,7 @@ export function createMockBridge(rows = 200): Bridge {
       return { imported: 0, skipped: 0 };
     },
     'audit.export': () => ({ format: 'csv', content: 'seq,ts,actor,kind,target,details,hash\r\n', count: 0 }),
-    'ai.test':() => ({ ok: ai.has_key, latency_ms: 120, model: ai.model }),
+    'ai.test':() => ({ ok: ai.has_key || ai.source === 'shared', latency_ms: 120, model: ai.model }),
     'process.kill': () => ({ ok: true, detail: 'terminated' }),
     'persistence.scan': () => ({ findings: persistence.map((p) => ({ ...p })) }),
     'persistence.apply': (params) => {

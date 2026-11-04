@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getBridge, hidePopup } from '../bridge';
 import type { AiOpinion } from '../types';
+import { AiAssessment } from '../components/AiAssessment';
 import { DecisionControls } from '../components/DecisionControls';
 import { destinationText, itemName } from '../components/pendingView';
 import { VerdictChip } from '../components/VerdictChip';
@@ -73,11 +74,7 @@ export function Popup() {
               </li>
             ))}
           </ul>
-          {opinion && (
-            <div className="muted">
-              {t('popup.ai', { verdict: t(`verdict.${opinion.verdict}`), reason: opinion.reasons[0] })}
-            </div>
-          )}
+          {opinion && <AiAssessment opinion={opinion} compact />}
           {!opinion && (
             <button type="button" className="btn" disabled={asking} onClick={() => void askAi(item.identity.id)}>
               {asking ? t('popup.aiAsking') : t('popup.aiAsk')}

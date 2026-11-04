@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getBridge } from '../bridge';
-import type { AiConfig, AiMode } from '../types';
+import type { AiConfig, AiMode, AiSource } from '../types';
 import { LANGUAGES, setLang, type Lang } from '../i18n';
 import { useVigil } from '../store';
 
@@ -83,17 +83,32 @@ function AiCard() {
           <option value="auto">{t('ai.auto')}</option>
         </select>
       </label>
-      <label>
-        {t('ai.key')}
-        <input
-          type="password"
-          autoComplete="off"
-          value={key}
-          placeholder={t('ai.keyPlaceholder')}
-          onChange={(e) => setKey(e.target.value)}
-        />
-      </label>
-      {cfg.has_key && <p className="muted">{t('ai.keySaved')}</p>}
+      {cfg.shared_available && (
+        <label>
+          {t('ai.source')}
+          <select value={cfg.source} onChange={(e) => void save({ source: e.target.value as AiSource })}>
+            <option value="shared">{t('ai.sourceShared')}</option>
+            <option value="own_key">{t('ai.sourceOwn')}</option>
+          </select>
+        </label>
+      )}
+      {cfg.source === 'shared' ? (
+        <p className="muted">{t('ai.sharedNote')}</p>
+      ) : (
+        <>
+          <label>
+            {t('ai.key')}
+            <input
+              type="password"
+              autoComplete="off"
+              value={key}
+              placeholder={t('ai.keyPlaceholder')}
+              onChange={(e) => setKey(e.target.value)}
+            />
+          </label>
+          {cfg.has_key && <p className="muted">{t('ai.keySaved')}</p>}
+        </>
+      )}
       <label>
         <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} /> {t('ai.ack')}
       </label>
@@ -101,10 +116,10 @@ function AiCard() {
         <button type="button" onClick={() => void save(key ? { api_key: key } : {})}>
           {t('ai.save')}
         </button>
-        <button type="button" disabled={!cfg.has_key} onClick={() => void test()}>
+        <button type="button" disabled={!cfg.has_key && cfg.source !== 'shared'} onClick={() => void test()}>
           {t('ai.test')}
         </button>
-        {cfg.has_key && (
+        {cfg.has_key && cfg.source === 'own_key' && (
           <button type="button" onClick={() => void save({ api_key: '', enabled: false, mode: 'off' })}>
             {t('ai.keyRemove')}
           </button>

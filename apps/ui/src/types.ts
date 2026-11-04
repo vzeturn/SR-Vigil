@@ -121,8 +121,11 @@ export interface AiOpinion {
   confidence: number;
   recommended_action: Action | 'ask_user';
   reasons: string[];
+  indicators?: string[];
   model: string;
 }
+
+export type AiSource = 'own_key' | 'shared';
 
 export type AiMode = 'off' | 'advisor' | 'auto';
 
@@ -133,6 +136,9 @@ export interface AiConfig {
   model: string;
   escalation_model: string;
   has_key: boolean;
+  source: AiSource;
+  /** True only in builds that ship a shared AI endpoint. */
+  shared_available: boolean;
   auto_threshold: number;
   escalate_below: number;
   auto_kill: boolean;

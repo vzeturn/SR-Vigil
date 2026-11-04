@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { PendingItem } from '../types';
+import { AiAssessment } from './AiAssessment';
 import { DecisionControls } from './DecisionControls';
 import { Dialog } from './Dialog';
 import { destinationText, itemName } from './pendingView';
@@ -68,19 +69,7 @@ export function ReviewWizard({ item, onClose }: Props) {
               ))}
             </ul>
           )}
-          {ai && (
-            <>
-              <h3>
-                {t('wizard.ai', { verdict: t(`verdict.${ai.verdict}`), confidence: Math.round(ai.confidence * 100) })}
-              </h3>
-              <ul className="list">
-                {ai.reasons.map((r) => (
-                  <li key={r}>{r}</li>
-                ))}
-              </ul>
-              <p className="muted">{t('wizard.aiNote')}</p>
-            </>
-          )}
+          {ai && <AiAssessment opinion={ai} />}
         </div>
       )}
 
