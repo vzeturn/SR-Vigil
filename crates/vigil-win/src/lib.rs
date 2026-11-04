@@ -9,6 +9,7 @@ pub mod hash;
 pub mod kill;
 pub mod net;
 pub mod observe;
+pub mod persist;
 pub mod pipe;
 pub mod process;
 pub mod trust;
