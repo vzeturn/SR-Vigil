@@ -4,6 +4,7 @@
 //! All `unsafe` lives in this crate, each block with a `// SAFETY:` comment, behind safe APIs.
 #![allow(clippy::missing_errors_doc)]
 
+pub mod dpapi;
 pub mod etw;
 pub mod hash;
 pub mod kill;
