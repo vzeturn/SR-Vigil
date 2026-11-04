@@ -104,7 +104,8 @@ mod tests {
     #[test]
     fn missing_indicators_default_to_empty() {
         let v = json!({"verdict":"unknown","confidence":0.4,"recommended_action":"ask_user","reasons":["x"]});
-        assert!(validate(&v, &present()).unwrap().indicators.is_empty());
+        let o = validate(&v, &present()).unwrap();
+        assert_eq!(o.indicators.len(), 0);
     }
 
     #[test]
