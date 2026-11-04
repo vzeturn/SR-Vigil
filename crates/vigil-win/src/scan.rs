@@ -2,6 +2,8 @@
 //! (protected processes are skipped); shared by `vigilctl scan` and the UI's watching-only view.
 
 use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
+use std::time::SystemTime;
 
 use vigil_core::analysis::path::normalize;
 use vigil_core::eval::Evaluation;
@@ -10,6 +12,21 @@ use vigil_core::rules::{RuleStore, Verdict};
 
 use crate::observe::{env_context, evaluate_image_detailed};
 use crate::process;
+
+type Judged = (Evaluation, SignerInfo, VersionInfo);
+type CacheKey = (String, Option<String>, Option<(SystemTime, u64)>);
+
+/// Verdicts kept across scans so a refresh only evaluates images it has not judged yet. The key
+/// includes the file's mtime and size, so a replaced binary is judged again.
+fn judged() -> &'static Mutex<HashMap<CacheKey, Judged>> {
+    static CACHE: OnceLock<Mutex<HashMap<CacheKey, Judged>>> = OnceLock::new();
+    CACHE.get_or_init(Mutex::default)
+}
+
+fn stamp(image: &str) -> Option<(SystemTime, u64)> {
+    let m = std::fs::metadata(image).ok()?;
+    Some((m.modified().ok()?, m.len()))
+}
 
 /// One classified process.
 #[derive(Debug, Clone)]
@@ -235,8 +252,6 @@ pub fn run_with(mut on_progress: impl FnMut(&Scan, usize, usize)) -> Result<Scan
     let procs = process::snapshot().map_err(|e| format!("enumerate processes: {e}"))?;
     let parents = process::parent_of(&procs);
 
-    let mut cache: HashMap<(String, Option<String>), (Evaluation, SignerInfo, VersionInfo)> =
-        HashMap::new();
     let mut rows = Vec::new();
     let mut skipped = 0usize;
     let descriptions: HashMap<String, String> = pack
@@ -269,12 +284,18 @@ pub fn run_with(mut on_progress: impl FnMut(&Scan, usize, usize)) -> Result<Scan
             continue;
         };
         let parent = parents.get(&p.pid).and_then(|pp| pp.image.clone());
-        let (eval, signer, version) = cache
-            .entry((normalize(image), parent.clone()))
-            .or_insert_with(|| {
-                evaluate_image_detailed(&ctx, &pack, image, parent.as_deref(), Some(p.pid))
-            })
-            .clone();
+        let key = (normalize(image), parent.clone(), stamp(image));
+        let hit = judged().lock().ok().and_then(|c| c.get(&key).cloned());
+        let (eval, signer, version) = hit.unwrap_or_else(|| {
+            let v = evaluate_image_detailed(&ctx, &pack, image, parent.as_deref(), Some(p.pid));
+            if let Ok(mut c) = judged().lock() {
+                if c.len() >= 4096 {
+                    c.clear();
+                }
+                c.insert(key, v.clone());
+            }
+            v
+        });
         rows.push(Row {
             pid: p.pid,
             name: p.name.clone(),

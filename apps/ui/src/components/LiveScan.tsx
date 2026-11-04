@@ -62,6 +62,7 @@ export function LiveScan({ onCleanup }: { onCleanup: () => void }) {
   const [showAll, setShowAll] = useState(false);
   const [order, setOrder] = useState<ReadonlyMap<string, number>>(new Map());
   const full = useRef(false);
+  const lastPaint = useRef(0);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
 
   const adopt = useCallback((r: LocalScan) => {
@@ -92,7 +93,9 @@ export function LiveScan({ onCleanup }: { onCleanup: () => void }) {
     let gone = false;
     // Stream only the first scan; later refreshes swap in at once so numbers never fall back to zero.
     onScanProgress((p) => {
-      if (full.current) return;
+      const now = Date.now();
+      if (full.current || (now - lastPaint.current < 500 && p.done < p.total)) return;
+      lastPaint.current = now;
       adopt(p.scan);
       setProgress({ done: p.done, total: p.total });
     })
