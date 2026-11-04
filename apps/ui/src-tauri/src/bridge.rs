@@ -31,6 +31,9 @@ const ALLOWED: &[&str] = &[
     "audit.query",
     "enforcement.panic",
     "process.get",
+    "process.kill",
+    "persistence.scan",
+    "persistence.apply",
 ];
 
 pub struct Rpc {

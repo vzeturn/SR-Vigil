@@ -1,5 +1,5 @@
 import type { Bridge } from './bridge';
-import type { AuditEntry, DecisionParams, PendingItem, ProcessInfo, Snapshot, Verdict } from './types';
+import type { AuditEntry, DecisionParams, PendingItem, PersistenceItem, ProcessInfo, Snapshot, Verdict } from './types';
 
 const HASH = 'a'.repeat(64);
 
@@ -64,7 +64,28 @@ export function createMockBridge(rows = 200): Bridge {
   });
   const snapshot = (): Snapshot => ({ status: status(), processes, connections: [] });
 
+  const persistence: PersistenceItem[] = [
+    {
+      id: '1',
+      kind: 'run_key',
+      location: String.raw`HKCU\Software\Microsoft\Windows\CurrentVersion\Run :: Updater`,
+      image_path: String.raw`C:\Temp\updater.exe`,
+      command: String.raw`C:\Temp\updater.exe /silent`,
+      status: 'found',
+      first_seen: '2026-01-01T00:00:00Z',
+    },
+  ];
+
   const handlers: Record<string, (params: unknown) => unknown> = {
+    'process.kill': () => ({ ok: true, detail: 'terminated' }),
+    'persistence.scan': () => ({ findings: persistence.map((p) => ({ ...p })) }),
+    'persistence.apply': (params) => {
+      const { item_id, action } = params as { item_id: string; action: string };
+      const it = persistence.find((x) => x.id === item_id);
+      if (!it) throw new Error('not_found');
+      it.status = action === 'disable' ? 'disabled' : action === 'restore' ? 'restored' : 'deleted';
+      return { ok: true, detail: it.status };
+    },
     'rule.list': () => ({ rule_pack_version: '1.0.0', rules: [] }),
     'trust.list': () => ({ publishers: [] }),
     'pending.list': () => ({ items: pending }),

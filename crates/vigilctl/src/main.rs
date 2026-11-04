@@ -43,9 +43,32 @@ enum Command {
         #[arg(long = "override")]
         override_minimum: bool,
     },
+    /// Kill a process (and optionally its tree) and keep it from respawning (needs an elevated shell).
+    Kill {
+        pid: u32,
+        /// The process start time exactly as shown by `vigilctl scan --json`.
+        start_time: String,
+        #[arg(long)]
+        tree: bool,
+    },
+    /// Inspect and reversibly disable autostart entries (needs an elevated shell).
+    #[command(subcommand)]
+    Persistence(PersistenceCmd),
     /// Register or control the Windows service (needs an elevated shell).
     #[command(subcommand)]
     Service(ServiceCmd),
+}
+
+#[derive(Subcommand)]
+enum PersistenceCmd {
+    /// List autostart entries, optionally only those pointing at one image.
+    Scan { image: Option<String> },
+    /// Disable, restore or delete (after disable) one scanned entry.
+    Apply {
+        item_id: String,
+        #[arg(value_parser = ["disable", "restore", "delete"])]
+        action: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -70,6 +93,17 @@ fn main() -> anyhow::Result<()> {
             mode,
             override_minimum,
         } => control::mode(&mode, override_minimum),
+        Command::Kill {
+            pid,
+            start_time,
+            tree,
+        } => control::kill(pid, &start_time, tree),
+        Command::Persistence(PersistenceCmd::Scan { image }) => {
+            control::persistence_scan(image.as_deref())
+        }
+        Command::Persistence(PersistenceCmd::Apply { item_id, action }) => {
+            control::persistence_apply(&item_id, &action)
+        }
         Command::Service(ServiceCmd::Install) => service::install(),
         Command::Service(ServiceCmd::Uninstall) => service::uninstall(),
         Command::Service(ServiceCmd::Start) => service::start(),

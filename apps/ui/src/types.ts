@@ -151,6 +151,25 @@ export interface AuditEntry {
   hash: string;
 }
 
+export interface ActionResult {
+  ok: boolean;
+  error_code?: string | null;
+  detail?: string | null;
+}
+
+export type PersistenceStatus = 'found' | 'disabled' | 'deleted' | 'restored';
+
+export interface PersistenceItem {
+  id: string;
+  kind: string;
+  location: string;
+  image_path?: string | null;
+  command?: string | null;
+  status: PersistenceStatus;
+  risk_note?: string | null;
+  first_seen: string;
+}
+
 export interface AuditPage {
   items: AuditEntry[];
   next_cursor?: string | null;

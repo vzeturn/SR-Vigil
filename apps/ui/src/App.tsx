@@ -1,4 +1,4 @@
-import { Activity, Bell, Network, ScrollText, Settings as Cog, ShieldCheck, ListChecks, type LucideIcon } from 'lucide-react';
+import { Activity, Bell, Network, ScrollText, Settings as Cog, ShieldCheck, ListChecks, Power, type LucideIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { syncTrayLabels, syncTrayPending } from './bridge';
@@ -9,6 +9,7 @@ import { Pending } from './pages/Pending';
 import { Popup } from './pages/Popup';
 import { Processes } from './pages/Processes';
 import { RulesTrust } from './pages/RulesTrust';
+import { Startup } from './pages/Startup';
 import { Settings } from './pages/Settings';
 import { useVigil } from './store';
 
@@ -17,6 +18,7 @@ const PAGES = {
   pending: { icon: Bell, view: Pending },
   processes: { icon: ListChecks, view: Processes },
   connections: { icon: Network, view: Connections },
+  startup: { icon: Power, view: Startup },
   audit: { icon: ScrollText, view: Audit },
   rules: { icon: ShieldCheck, view: RulesTrust },
   settings: { icon: Cog, view: Settings },
