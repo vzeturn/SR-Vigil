@@ -6,6 +6,7 @@
 
 pub mod etw;
 pub mod hash;
+pub mod kill;
 pub mod net;
 pub mod observe;
 pub mod pipe;

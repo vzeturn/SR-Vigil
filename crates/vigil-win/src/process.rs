@@ -28,7 +28,7 @@ pub struct ProcessInfo {
     pub start_time: Option<u64>,
 }
 
-struct Handle(HANDLE);
+pub(crate) struct Handle(pub(crate) HANDLE);
 
 impl Drop for Handle {
     fn drop(&mut self) {
@@ -42,7 +42,7 @@ fn utf16_to_string(buf: &[u16]) -> String {
     String::from_utf16_lossy(&buf[..end])
 }
 
-fn filetime(ft: FILETIME) -> u64 {
+pub(crate) fn filetime(ft: FILETIME) -> u64 {
     (u64::from(ft.dwHighDateTime) << 32) | u64::from(ft.dwLowDateTime)
 }
 

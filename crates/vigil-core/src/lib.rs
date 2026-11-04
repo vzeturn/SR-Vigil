@@ -10,5 +10,6 @@ pub mod analysis;
 pub mod audit;
 pub mod consts;
 pub mod eval;
+pub mod kill;
 pub mod observe;
 pub mod rules;
