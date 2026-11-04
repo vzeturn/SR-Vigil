@@ -2003,6 +2003,37 @@
         "$ref": "#/$defs/AiConfig"
       }
     },
+    "ai.preview": {
+      "role": "admin",
+      "params": {
+        "type": "object",
+        "properties": {
+          "identity_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "identity_id"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "payload": {
+            "type": "object"
+          },
+          "payload_sha256": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "payload",
+          "payload_sha256"
+        ],
+        "additionalProperties": false
+      }
+    },
     "ai.test": {
       "role": "admin",
       "params": {

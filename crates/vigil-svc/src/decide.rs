@@ -111,7 +111,7 @@ impl Shared {
                 "addr": p.dest_addr, "port": p.dest_port, "dns_name": p.dns_name,
                 "dest_class": p.dest_class.as_str(),
             },
-            "ai_opinion": null,
+            "ai_opinion": self.ai_opinion_json(p.executable_id),
             "created_at": p.created_at,
         }))
     }

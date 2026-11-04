@@ -77,7 +77,9 @@ pub fn dest_class(ip: IpAddr) -> &'static str {
         IpAddr::V4(v) if v.is_private() || v.is_link_local() || v.is_unspecified() => "private",
         IpAddr::V4(v) if v.octets()[0] == 100 && (64..128).contains(&v.octets()[1]) => "private",
         IpAddr::V6(v) if v.is_loopback() => "loopback",
-        IpAddr::V6(v) if (v.segments()[0] & 0xfe00) == 0xfc00 || (v.segments()[0] & 0xffc0) == 0xfe80 => {
+        IpAddr::V6(v)
+            if (v.segments()[0] & 0xfe00) == 0xfc00 || (v.segments()[0] & 0xffc0) == 0xfe80 =>
+        {
             "private"
         }
         _ => "public",
@@ -152,8 +154,18 @@ pub fn redact_path(path: &str, user: &str, hosts: &[String]) -> String {
 /// opaque tokens), then truncate.
 #[must_use]
 pub fn scrub_cmdline(cmd: &str) -> String {
-    const FLAGS: [&str; 7] = ["-p", "--password", "--pass", "--token", "--secret", "--api-key", "-key"];
-    const KEYS: [&str; 8] = ["password", "passwd", "pwd", "token", "secret", "apikey", "api_key", "key"];
+    const FLAGS: [&str; 7] = [
+        "-p",
+        "--password",
+        "--pass",
+        "--token",
+        "--secret",
+        "--api-key",
+        "-key",
+    ];
+    const KEYS: [&str; 8] = [
+        "password", "passwd", "pwd", "token", "secret", "apikey", "api_key", "key",
+    ];
     let cmd: String = cmd.chars().take(MAX_CMDLINE).collect();
     let mut out: Vec<String> = Vec::new();
     let mut hide_next = false;
@@ -181,7 +193,9 @@ pub fn scrub_cmdline(cmd: &str) -> String {
                 tok = format!("{}<redacted>{}", &raw[..scheme_end], &raw[at..]);
             }
         } else if raw.len() >= 24
-            && raw.chars().all(|c| c.is_ascii_alphanumeric() || "+/=_-".contains(c))
+            && raw
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || "+/=_-".contains(c))
             && raw.chars().any(|c| c.is_ascii_digit())
         {
             tok = "<redacted>".into();
@@ -192,15 +206,16 @@ pub fn scrub_cmdline(cmd: &str) -> String {
 }
 
 fn opt(v: Option<&String>, user: &str, hosts: &[String]) -> Value {
-    v.map_or(Value::Null, |s| Value::String(clean(&strip_identity(s, user, hosts))))
+    v.map_or(Value::Null, |s| {
+        Value::String(clean(&strip_identity(s, user, hosts)))
+    })
 }
 
 fn destination(d: &Dest, user: &str, hosts: &[String]) -> Value {
-    let class = d
-        .ip
-        .as_deref()
-        .and_then(|i| i.parse::<IpAddr>().ok())
-        .map_or("public", dest_class);
+    let class =
+        d.ip.as_deref()
+            .and_then(|i| i.parse::<IpAddr>().ok())
+            .map_or("public", dest_class);
     let public = class == "public";
     json!({
         "class": class,
@@ -213,74 +228,80 @@ fn destination(d: &Dest, user: &str, hosts: &[String]) -> Value {
 
 /// Build the redacted payload. The result is final: preview and request body are this value.
 #[must_use]
-pub fn build(i: &Input, send_cmdline: bool) -> Value {
-    let (u, h) = (i.username.as_str(), i.hostnames.as_slice());
-    let s = |x: &str| Value::String(clean(&strip_identity(x, u, h)));
-    let mut m = Map::new();
-    m.insert("image_name".into(), s(basename(&i.image_path)));
-    m.insert("path".into(), Value::String(redact_path(&i.image_path, u, h)));
-    m.insert("sha256".into(), s(&i.sha256));
-    m.insert(
+pub fn build(input: &Input, send_cmdline: bool) -> Value {
+    let (user, hosts) = (input.username.as_str(), input.hostnames.as_slice());
+    let scrub = |x: &str| Value::String(clean(&strip_identity(x, user, hosts)));
+    let mut out = Map::new();
+    out.insert("image_name".into(), scrub(basename(&input.image_path)));
+    out.insert(
+        "path".into(),
+        Value::String(redact_path(&input.image_path, user, hosts)),
+    );
+    out.insert("sha256".into(), scrub(&input.sha256));
+    out.insert(
         "signature".into(),
         json!({
-            "status": s(&i.signature.status),
-            "org": opt(i.signature.org.as_ref(), u, h),
-            "issuer": opt(i.signature.issuer.as_ref(), u, h),
-            "valid_from": opt(i.signature.valid_from.as_ref(), u, h),
-            "valid_to": opt(i.signature.valid_to.as_ref(), u, h),
+            "status": scrub(&input.signature.status),
+            "org": opt(input.signature.org.as_ref(), user, hosts),
+            "issuer": opt(input.signature.issuer.as_ref(), user, hosts),
+            "valid_from": opt(input.signature.valid_from.as_ref(), user, hosts),
+            "valid_to": opt(input.signature.valid_to.as_ref(), user, hosts),
         }),
     );
-    m.insert(
+    out.insert(
         "version_info".into(),
         json!({
-            "company": s(&i.company), "product": s(&i.product),
-            "original_filename": s(&i.original_filename), "description": s(&i.description),
+            "company": scrub(&input.company), "product": scrub(&input.product),
+            "original_filename": scrub(&input.original_filename), "description": scrub(&input.description),
         }),
     );
-    let parents: Vec<Value> = i
+    let parents: Vec<Value> = input
         .parents
         .iter()
         .take(3)
         .map(|p| {
             json!({
-                "image_name": s(basename(&p.image)),
-                "verdict": opt(p.verdict.as_ref(), u, h),
-                "signer_org": opt(p.signer_org.as_ref(), u, h),
+                "image_name": scrub(basename(&p.image)),
+                "verdict": opt(p.verdict.as_ref(), user, hosts),
+                "signer_org": opt(p.signer_org.as_ref(), user, hosts),
             })
         })
         .collect();
-    m.insert("parent_chain".into(), Value::Array(parents));
-    m.insert(
+    out.insert("parent_chain".into(), Value::Array(parents));
+    out.insert(
         "destination".into(),
-        i.dest.as_ref().map_or(Value::Null, |d| destination(d, u, h)),
+        input
+            .dest
+            .as_ref()
+            .map_or(Value::Null, |d| destination(d, user, hosts)),
     );
-    m.insert(
+    out.insert(
         "behaviour".into(),
         json!({
-            "beaconing": i.beaconing, "connection_count": i.connection_count,
-            "first_seen": opt(i.first_seen.as_ref(), u, h), "lolbin": i.lolbin,
+            "beaconing": input.beaconing, "connection_count": input.connection_count,
+            "first_seen": opt(input.first_seen.as_ref(), user, hosts), "lolbin": input.lolbin,
         }),
     );
-    let signals: Vec<Value> = i
+    let signals: Vec<Value> = input
         .signals
         .iter()
         .take(40)
-        .map(|(id, d)| json!({ "id": s(id), "delta": d }))
+        .map(|(id, d)| json!({ "id": scrub(id), "delta": d }))
         .collect();
-    let hard: Vec<Value> = i.hard_rules.iter().take(10).map(|r| s(r)).collect();
-    m.insert(
+    let hard: Vec<Value> = input.hard_rules.iter().take(10).map(|r| scrub(r)).collect();
+    out.insert(
         "rule_result".into(),
-        json!({ "score": i.score, "signals": signals, "hard_rules": hard }),
+        json!({ "score": input.score, "signals": signals, "hard_rules": hard }),
     );
-    if let (true, Some(c)) = (send_cmdline, i.cmdline.as_deref()) {
-        let scrubbed = scrub_cmdline(&strip_identity(c, u, h));
+    if let (true, Some(c)) = (send_cmdline, input.cmdline.as_deref()) {
+        let scrubbed = scrub_cmdline(&strip_identity(c, user, hosts));
         let fp = hex16(&Sha256::digest(c.as_bytes()));
-        m.insert(
+        out.insert(
             "command_line".into(),
             json!({ "text": clean(&scrubbed), "fingerprint": fp }),
         );
     }
-    Value::Object(m)
+    Value::Object(out)
 }
 
 fn hex16(bytes: &[u8]) -> String {
@@ -300,11 +321,13 @@ pub fn payload_sha256(payload: &Value) -> String {
 /// Lower-case hex SHA-256.
 #[must_use]
 pub fn sha256_hex(bytes: &[u8]) -> String {
-    Sha256::digest(bytes).iter().fold(String::new(), |mut acc, b| {
-        use std::fmt::Write as _;
-        let _ = write!(acc, "{b:02x}");
-        acc
-    })
+    Sha256::digest(bytes)
+        .iter()
+        .fold(String::new(), |mut acc, b| {
+            use std::fmt::Write as _;
+            let _ = write!(acc, "{b:02x}");
+            acc
+        })
 }
 
 #[cfg(test)]
@@ -331,7 +354,9 @@ mod tests {
             verdict: None,
             signer_org: Some("corp.local Ltd".into()),
         }];
-        let v = serde_json::to_string(&build(&i, false)).unwrap().to_lowercase();
+        let v = serde_json::to_string(&build(&i, false))
+            .unwrap()
+            .to_lowercase();
         for secret in ["zqalice", "workpc01", "corp.local"] {
             assert!(!v.contains(secret), "{secret} leaked: {v}");
         }
@@ -341,11 +366,19 @@ mod tests {
     #[test]
     fn private_destinations_lose_their_names_and_addresses() {
         let mut i = base("zqbob");
-        i.dest = Some(Dest { ip: Some("10.1.2.3".into()), dns: Some("db.corp.internal".into()), port: 445 });
+        i.dest = Some(Dest {
+            ip: Some("10.1.2.3".into()),
+            dns: Some("db.corp.internal".into()),
+            port: 445,
+        });
         let v = build(&i, false);
         assert_eq!(v["destination"]["class"], "private");
         assert!(v["destination"]["dns"].is_null() && v["destination"]["ip"].is_null());
-        i.dest = Some(Dest { ip: Some("93.184.216.34".into()), dns: Some("example.com".into()), port: 443 });
+        i.dest = Some(Dest {
+            ip: Some("93.184.216.34".into()),
+            dns: Some("example.com".into()),
+            port: 443,
+        });
         let v = build(&i, false);
         assert_eq!(v["destination"]["class"], "public");
         assert_eq!(v["destination"]["dns"], "example.com");
@@ -354,9 +387,14 @@ mod tests {
     #[test]
     fn command_line_is_withheld_unless_enabled_and_secrets_are_scrubbed() {
         let mut i = base("zqcarol");
-        i.cmdline = Some("tool.exe --password hunter2 token=abc123 https://user:pw@host/x -p s3cret".into());
+        i.cmdline = Some(
+            "tool.exe --password hunter2 token=abc123 https://user:pw@host/x -p s3cret".into(),
+        );
         assert!(build(&i, false).get("command_line").is_none());
-        let t = build(&i, true)["command_line"]["text"].as_str().unwrap().to_string();
+        let t = build(&i, true)["command_line"]["text"]
+            .as_str()
+            .unwrap()
+            .to_string();
         for secret in ["hunter2", "abc123", "user:pw", "s3cret"] {
             assert!(!t.contains(secret), "{secret} survived: {t}");
         }
@@ -378,11 +416,28 @@ mod tests {
 
     #[test]
     fn address_classes() {
-        for (ip, c) in [("192.168.1.1", "private"), ("172.16.0.9", "private"), ("169.254.1.1", "private"),
-                        ("100.64.0.1", "private"), ("127.0.0.1", "loopback"), ("fd00::1", "private"),
-                        ("fe80::1", "private"), ("::1", "loopback"), ("8.8.8.8", "public"),
-                        ("2606:4700::1111", "public")] {
+        for (ip, c) in [
+            ("192.168.1.1", "private"),
+            ("172.16.0.9", "private"),
+            ("169.254.1.1", "private"),
+            ("100.64.0.1", "private"),
+            ("127.0.0.1", "loopback"),
+            ("fd00::1", "private"),
+            ("fe80::1", "private"),
+            ("::1", "loopback"),
+            ("8.8.8.8", "public"),
+            ("2606:4700::1111", "public"),
+        ] {
             assert_eq!(dest_class(ip.parse().unwrap()), c, "{ip}");
+        }
+    }
+
+    fn walk(v: &Value) -> bool {
+        match v {
+            Value::String(x) => x.chars().count() <= MAX_STR,
+            Value::Array(a) => a.iter().all(walk),
+            Value::Object(o) => o.values().all(walk),
+            _ => true,
         }
     }
 
@@ -403,14 +458,6 @@ mod tests {
             prop_assert!(!s.contains(&user));
             let private_ip = format!("10.{a}.{b}.7");
             prop_assert!(!s.contains(&private_ip));
-            fn walk(v: &Value) -> bool {
-                match v {
-                    Value::String(x) => x.chars().count() <= MAX_STR,
-                    Value::Array(a) => a.iter().all(walk),
-                    Value::Object(o) => o.values().all(walk),
-                    _ => true,
-                }
-            }
             prop_assert!(walk(&v));
         }
     }

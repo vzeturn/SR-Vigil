@@ -10,6 +10,20 @@ use vigil_win::{persist, process};
 use crate::kill::{KillOutcome, ProcessControl, Snap};
 use crate::observer::start_time;
 
+/// DPAPI (machine scope + per-install entropy) key sealing for the AI key.
+pub struct DpapiVault;
+
+impl crate::ai::KeyVault for DpapiVault {
+    fn seal(&self, plain: &[u8], entropy: &[u8]) -> Result<Vec<u8>, String> {
+        vigil_win::dpapi::protect(plain, entropy).map_err(|e| e.to_string())
+    }
+    fn unseal(&self, cipher: &[u8], entropy: &[u8]) -> Result<zeroize::Zeroizing<Vec<u8>>, String> {
+        vigil_win::dpapi::unprotect(cipher, entropy)
+            .map(zeroize::Zeroizing::new)
+            .map_err(|e| e.to_string())
+    }
+}
+
 #[derive(Default)]
 pub struct WinControl {
     hashes: HashCache,

@@ -42,7 +42,9 @@ impl Default for Config {
 #[must_use]
 pub fn user_message(payload: &Value) -> String {
     let json = serde_json::to_string(payload).unwrap_or_default();
-    format!("<untrusted_telemetry>\n{json}\n</untrusted_telemetry>\nAssess this executable and call submit_verdict.")
+    format!(
+        "<untrusted_telemetry>\n{json}\n</untrusted_telemetry>\nAssess this executable and call submit_verdict."
+    )
 }
 
 /// Messages API client with local budgets.
@@ -54,7 +56,9 @@ pub struct Advisor {
 }
 
 fn now_secs() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs())
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs())
 }
 
 impl Advisor {
@@ -86,7 +90,11 @@ impl Advisor {
     ) -> Result<(Opinion, String), AiError> {
         let first = self.call(key, &self.cfg.model, payload, present).await?;
         if first.confidence < self.cfg.escalate_below
-            && let Some(m) = self.cfg.escalation_model.as_ref().filter(|m| **m != self.cfg.model)
+            && let Some(m) = self
+                .cfg
+                .escalation_model
+                .as_ref()
+                .filter(|m| **m != self.cfg.model)
             && let Ok(second) = self.call(key, m, payload, present).await
         {
             return Ok((second, m.clone()));
@@ -113,10 +121,16 @@ impl Advisor {
         });
         let mut attempt = 0;
         loop {
-            self.limiter.lock().map_err(|_| AiError::Budget)?.acquire(now_secs())?;
+            self.limiter
+                .lock()
+                .map_err(|_| AiError::Budget)?
+                .acquire(now_secs())?;
             let sent = self
                 .http
-                .post(format!("{}/v1/messages", self.cfg.base_url.trim_end_matches('/')))
+                .post(format!(
+                    "{}/v1/messages",
+                    self.cfg.base_url.trim_end_matches('/')
+                ))
                 .header("x-api-key", key.expose_secret())
                 .header("anthropic-version", API_VERSION)
                 .json(&body)
@@ -130,24 +144,36 @@ impl Advisor {
             let status = resp.status().as_u16();
             if (status == 429 || status >= 500) && attempt == 0 {
                 attempt += 1;
-                let jitter = u64::from(SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.subsec_millis()) % 250);
+                let jitter = u64::from(
+                    SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .map_or(0, |d| d.subsec_millis())
+                        % 250,
+                );
                 tokio::time::sleep(Duration::from_millis(200 + jitter)).await;
                 continue;
             }
             if status != 200 {
                 return Err(AiError::Status(status));
             }
-            let v: Value = resp.json().await.map_err(|_| AiError::InvalidOutput("body".into()))?;
+            let v: Value = resp
+                .json()
+                .await
+                .map_err(|_| AiError::InvalidOutput("body".into()))?;
             return parse(&v, present);
         }
     }
 }
 
 fn parse(v: &Value, present: &[String]) -> Result<Opinion, AiError> {
-    let blocks = v["content"].as_array().ok_or_else(|| AiError::InvalidOutput("no content".into()))?;
+    let blocks = v["content"]
+        .as_array()
+        .ok_or_else(|| AiError::InvalidOutput("no content".into()))?;
     let mut tools = blocks.iter().filter(|b| b["type"] == "tool_use");
     let (Some(t), None) = (tools.next(), tools.next()) else {
-        return Err(AiError::InvalidOutput("expected exactly one tool_use".into()));
+        return Err(AiError::InvalidOutput(
+            "expected exactly one tool_use".into(),
+        ));
     };
     if t["name"] != TOOL {
         return Err(AiError::InvalidOutput("wrong tool".into()));

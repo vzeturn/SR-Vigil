@@ -12,7 +12,10 @@ use windows::core::PCWSTR;
 use crate::Error;
 
 fn blob(b: &[u8]) -> CRYPT_INTEGER_BLOB {
-    CRYPT_INTEGER_BLOB { cbData: u32::try_from(b.len()).unwrap_or(u32::MAX), pbData: b.as_ptr().cast_mut() }
+    CRYPT_INTEGER_BLOB {
+        cbData: u32::try_from(b.len()).unwrap_or(u32::MAX),
+        pbData: b.as_ptr().cast_mut(),
+    }
 }
 
 fn take(out: CRYPT_INTEGER_BLOB) -> Vec<u8> {

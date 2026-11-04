@@ -117,6 +117,9 @@ pub struct Shared {
     last_applied: Mutex<Option<(Desired, bool)>>,
     armed: AtomicBool,
     once: Mutex<Vec<(String, Instant)>>,
+    pub(crate) ai: Mutex<Option<Arc<dyn crate::ai::AiBackend>>>,
+    pub(crate) ai_inflight: Mutex<std::collections::HashSet<i64>>,
+    pub(crate) ai_slots: tokio::sync::Semaphore,
 }
 
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -233,6 +236,9 @@ impl Shared {
             last_applied: Mutex::new(None),
             armed: AtomicBool::new(false),
             once: Mutex::new(Vec::new()),
+            ai: Mutex::new(None),
+            ai_inflight: Mutex::new(std::collections::HashSet::new()),
+            ai_slots: tokio::sync::Semaphore::new(2),
         }
     }
 
@@ -319,7 +325,7 @@ impl Shared {
             "counts": { "safe": count("safe"), "unknown": count("unknown"),
                         "malicious": count("malicious"), "pending": pending },
             "rule_pack_version": self.rule_pack_version,
-            "ai": { "enabled": false, "mode": "off" },
+            "ai": self.ai_status(),
             "learning_started_at": g.learning_started_at,
         })
     }
@@ -395,6 +401,21 @@ impl Shared {
                 json!({ "mode": mode, "filters_armed": armed, "reason": "sync" }),
             );
         }
+    }
+
+    /// Paths of the parents of every running process of identity `id`.
+    pub(crate) fn parent_paths_of(&self, id: i64) -> Vec<String> {
+        let id = id.to_string();
+        let g = lock(&self.inner);
+        let mut v: Vec<String> = g
+            .processes
+            .values()
+            .filter(|p| p.identity_id.as_deref() == Some(id.as_str()))
+            .filter_map(|p| p.parent_path.clone())
+            .collect();
+        v.sort();
+        v.dedup();
+        v
     }
 
     pub(crate) fn learning_started(&self) -> Option<String> {
@@ -609,7 +630,7 @@ impl Shared {
             },
             "parent_chain": chain,
             "connections": conns,
-            "ai_opinion": null,
+            "ai_opinion": self.ai_opinion_json(id),
         }))
     }
 

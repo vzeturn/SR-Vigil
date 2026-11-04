@@ -9,7 +9,9 @@ use crate::decisions::format_ts;
 /// Read a `settings` value.
 pub fn setting_get(conn: &Connection, key: &str) -> Result<Option<Vec<u8>>, StoreError> {
     Ok(conn
-        .query_row("SELECT value FROM settings WHERE key = ?1", [key], |r| r.get(0))
+        .query_row("SELECT value FROM settings WHERE key = ?1", [key], |r| {
+            r.get(0)
+        })
         .optional()?)
 }
 
@@ -150,7 +152,11 @@ pub fn latest_opinion(
 }
 
 /// Link an applied decision to the opinion that caused it.
-pub fn link_decision(conn: &Connection, opinion_id: i64, decision_id: i64) -> Result<(), StoreError> {
+pub fn link_decision(
+    conn: &Connection,
+    opinion_id: i64,
+    decision_id: i64,
+) -> Result<(), StoreError> {
     conn.execute(
         "UPDATE ai_opinions SET applied_decision_id = ?2 WHERE id = ?1",
         params![opinion_id, decision_id],
@@ -193,7 +199,11 @@ mod tests {
 
         cache_put(&c, "a", "{}", "m", Duration::hours(1), now).unwrap();
         assert!(cache_get(&c, "a", now).unwrap().is_some());
-        assert!(cache_get(&c, "a", now + Duration::hours(2)).unwrap().is_none());
+        assert!(
+            cache_get(&c, "a", now + Duration::hours(2))
+                .unwrap()
+                .is_none()
+        );
         cache_clear(&c).unwrap();
         assert!(cache_get(&c, "a", now).unwrap().is_none());
     }

@@ -1,7 +1,7 @@
 //! JSON-RPC method dispatch for one client connection.
 
 use std::collections::HashSet;
-use std::future::{Future, ready};
+use std::future::Future;
 use std::sync::{Arc, Mutex, PoisonError};
 
 use serde_json::{Value, json};
@@ -97,6 +97,9 @@ impl ConnHandler {
                     .get("settings")
                     .ok_or_else(|| invalid("settings is required"))?,
             ),
+            "ai.config.get" => Ok(s.ai_config_get()),
+            "ai.config.set" => s.ai_config_set(params, "user"),
+            "ai.preview" => s.ai_preview(params),
             "subscribe" => {
                 let add = topic_list(params)?;
                 let mut t = self.topics.lock().unwrap_or_else(PoisonError::into_inner);
@@ -126,7 +129,19 @@ impl Handler for ConnHandler {
         method: &str,
         params: Value,
     ) -> impl Future<Output = Result<Value, RpcError>> + Send {
-        ready(self.dispatch(role, method, &params))
+        let shared = Arc::clone(&self.shared);
+        let method = method.to_string();
+        let sync = match method.as_str() {
+            "ai.test" | "ai.explain" => None,
+            _ => Some(self.dispatch(role, &method, &params)),
+        };
+        async move {
+            match (sync, method.as_str()) {
+                (Some(r), _) => r,
+                (None, "ai.test") => Ok(shared.ai_test().await),
+                (None, _) => shared.ai_explain(&params).await,
+            }
+        }
     }
 }
 

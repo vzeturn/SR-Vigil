@@ -80,13 +80,19 @@ pub fn decide(i: &Inputs<'_>) -> Outcome {
             if i.score < ALLOW_MIN_SCORE {
                 return S(Skip::ScoreTooLow);
             }
-            Outcome::Decide { action: Action::Allow, scope: "24h" }
+            Outcome::Decide {
+                action: Action::Allow,
+                scope: "24h",
+            }
         }
         "block" => {
             if i.verdict != "malicious" {
                 return S(Skip::VerdictMismatch);
             }
-            Outcome::Decide { action: Action::Block, scope: "forever" }
+            Outcome::Decide {
+                action: Action::Block,
+                scope: "forever",
+            }
         }
         // Kill is never automatic unless explicitly enabled; otherwise the reversible block applies.
         "kill" => {
@@ -94,7 +100,10 @@ pub fn decide(i: &Inputs<'_>) -> Outcome {
                 return S(Skip::VerdictMismatch);
             }
             if !i.auto_kill {
-                return Outcome::Decide { action: Action::Block, scope: "forever" };
+                return Outcome::Decide {
+                    action: Action::Block,
+                    scope: "forever",
+                };
             }
             if i.never_kill {
                 return S(Skip::NeverKill);
@@ -105,7 +114,10 @@ pub fn decide(i: &Inputs<'_>) -> Outcome {
             if i.score > KILL_MAX_SCORE {
                 return S(Skip::ScoreTooHigh);
             }
-            Outcome::Decide { action: Action::Kill, scope: "forever" }
+            Outcome::Decide {
+                action: Action::Kill,
+                scope: "forever",
+            }
         }
         _ => S(Skip::NoAction),
     }
@@ -131,52 +143,151 @@ mod tests {
     }
 
     fn mal(action: &'static str) -> Inputs<'static> {
-        Inputs { verdict: "malicious", recommended_action: action, score: 20, ..base() }
+        Inputs {
+            verdict: "malicious",
+            recommended_action: action,
+            score: 20,
+            ..base()
+        }
     }
 
     #[test]
     fn happy_paths_use_the_documented_scopes() {
-        assert_eq!(decide(&base()), Outcome::Decide { action: Action::Allow, scope: "24h" });
-        assert_eq!(decide(&mal("block")), Outcome::Decide { action: Action::Block, scope: "forever" });
+        assert_eq!(
+            decide(&base()),
+            Outcome::Decide {
+                action: Action::Allow,
+                scope: "24h"
+            }
+        );
+        assert_eq!(
+            decide(&mal("block")),
+            Outcome::Decide {
+                action: Action::Block,
+                scope: "forever"
+            }
+        );
     }
 
     #[test]
     fn a_fired_hard_rule_always_wins() {
         for i in [base(), mal("block"), mal("kill")] {
-            assert_eq!(decide(&Inputs { hard_rule_fired: true, ..i }), Outcome::Skip(Skip::HardRule));
+            assert_eq!(
+                decide(&Inputs {
+                    hard_rule_fired: true,
+                    ..i
+                }),
+                Outcome::Skip(Skip::HardRule)
+            );
         }
     }
 
     #[test]
     fn kill_is_never_automatic_by_default() {
-        let o = decide(&Inputs { confidence: 0.99, ..mal("kill") });
-        assert_eq!(o, Outcome::Decide { action: Action::Block, scope: "forever" });
+        let o = decide(&Inputs {
+            confidence: 0.99,
+            ..mal("kill")
+        });
+        assert_eq!(
+            o,
+            Outcome::Decide {
+                action: Action::Block,
+                scope: "forever"
+            }
+        );
     }
 
     #[test]
     fn auto_kill_needs_every_condition() {
-        let k = Inputs { auto_kill: true, confidence: 0.97, ..mal("kill") };
-        assert_eq!(decide(&k), Outcome::Decide { action: Action::Kill, scope: "forever" });
-        assert_eq!(decide(&Inputs { never_kill: true, ..k.clone() }), Outcome::Skip(Skip::NeverKill));
-        assert_eq!(decide(&Inputs { score: 50, ..k.clone() }), Outcome::Skip(Skip::ScoreTooHigh));
+        let k = Inputs {
+            auto_kill: true,
+            confidence: 0.97,
+            ..mal("kill")
+        };
         assert_eq!(
-            decide(&Inputs { confidence: 0.92, ..k }),
+            decide(&k),
+            Outcome::Decide {
+                action: Action::Kill,
+                scope: "forever"
+            }
+        );
+        assert_eq!(
+            decide(&Inputs {
+                never_kill: true,
+                ..k.clone()
+            }),
+            Outcome::Skip(Skip::NeverKill)
+        );
+        assert_eq!(
+            decide(&Inputs {
+                score: 50,
+                ..k.clone()
+            }),
+            Outcome::Skip(Skip::ScoreTooHigh)
+        );
+        assert_eq!(
+            decide(&Inputs {
+                confidence: 0.92,
+                ..k
+            }),
             Outcome::Skip(Skip::NotConfident)
         );
     }
 
     #[test]
     fn thresholds_and_score_floor() {
-        assert_eq!(decide(&Inputs { confidence: 0.89, ..base() }), Outcome::Skip(Skip::NotConfident));
-        assert_eq!(decide(&Inputs { score: 39, ..base() }), Outcome::Skip(Skip::ScoreTooLow));
-        assert_eq!(decide(&Inputs { verdict: "unknown", ..base() }), Outcome::Skip(Skip::VerdictMismatch));
-        assert_eq!(decide(&Inputs { recommended_action: "ask_user", ..base() }), Outcome::Skip(Skip::NoAction));
+        assert_eq!(
+            decide(&Inputs {
+                confidence: 0.89,
+                ..base()
+            }),
+            Outcome::Skip(Skip::NotConfident)
+        );
+        assert_eq!(
+            decide(&Inputs {
+                score: 39,
+                ..base()
+            }),
+            Outcome::Skip(Skip::ScoreTooLow)
+        );
+        assert_eq!(
+            decide(&Inputs {
+                verdict: "unknown",
+                ..base()
+            }),
+            Outcome::Skip(Skip::VerdictMismatch)
+        );
+        assert_eq!(
+            decide(&Inputs {
+                recommended_action: "ask_user",
+                ..base()
+            }),
+            Outcome::Skip(Skip::NoAction)
+        );
     }
 
     #[test]
     fn learning_grace_and_stability() {
-        assert_eq!(decide(&Inputs { learning_hours: Some(23), ..base() }), Outcome::Skip(Skip::LearningGrace));
-        assert!(matches!(decide(&Inputs { learning_hours: Some(24), ..base() }), Outcome::Decide { .. }));
-        assert_eq!(decide(&Inputs { flipped_recently: true, ..base() }), Outcome::Skip(Skip::Unstable));
+        assert_eq!(
+            decide(&Inputs {
+                learning_hours: Some(23),
+                ..base()
+            }),
+            Outcome::Skip(Skip::LearningGrace)
+        );
+        assert!(matches!(
+            decide(&Inputs {
+                learning_hours: Some(24),
+                ..base()
+            }),
+            Outcome::Decide { .. }
+        ));
+        assert_eq!(
+            decide(&Inputs {
+                flipped_recently: true,
+                ..base()
+            }),
+            Outcome::Skip(Skip::Unstable)
+        );
     }
 }

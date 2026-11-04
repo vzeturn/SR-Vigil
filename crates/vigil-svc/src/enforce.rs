@@ -355,6 +355,7 @@ impl Shared {
             }
             if self.record_drop(&drop) {
                 recent.push(now);
+                tokio::spawn(Arc::clone(&self).ai_assess_open_pending());
             }
         }
     }

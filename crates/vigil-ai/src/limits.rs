@@ -15,7 +15,13 @@ pub struct Limiter {
 impl Limiter {
     #[must_use]
     pub fn new(daily: u32, per_minute: u32) -> Self {
-        Self { daily, per_minute, day: 0, used_today: 0, recent: VecDeque::new() }
+        Self {
+            daily,
+            per_minute,
+            day: 0,
+            used_today: 0,
+            recent: VecDeque::new(),
+        }
     }
 
     /// Reserve one call at `now` (unix seconds).
@@ -28,7 +34,11 @@ impl Limiter {
             self.day = day;
             self.used_today = 0;
         }
-        while self.recent.front().is_some_and(|t| now.saturating_sub(*t) >= 60) {
+        while self
+            .recent
+            .front()
+            .is_some_and(|t| now.saturating_sub(*t) >= 60)
+        {
             self.recent.pop_front();
         }
         if self.used_today >= self.daily || self.recent.len() >= self.per_minute as usize {

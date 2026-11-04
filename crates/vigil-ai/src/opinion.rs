@@ -4,7 +4,13 @@ use serde_json::Value;
 use crate::AiError;
 
 const SCHEMA: &str = include_str!("../../../schemas/ai-verdict.schema.json");
-const FIELDS: [&str; 5] = ["verdict", "confidence", "recommended_action", "reasons", "indicators"];
+const FIELDS: [&str; 5] = [
+    "verdict",
+    "confidence",
+    "recommended_action",
+    "reasons",
+    "indicators",
+];
 
 /// A validated model verdict.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -35,13 +41,18 @@ pub(crate) fn tool_schema() -> Value {
 pub fn validate(input: &Value, present: &[String]) -> Result<Opinion, AiError> {
     let bad = |m: &str| AiError::InvalidOutput(m.to_string());
     let obj = input.as_object().ok_or_else(|| bad("not an object"))?;
-    let stripped: serde_json::Map<String, Value> =
-        obj.iter().filter(|(k, _)| FIELDS.contains(&k.as_str())).map(|(k, v)| (k.clone(), v.clone())).collect();
+    let stripped: serde_json::Map<String, Value> = obj
+        .iter()
+        .filter(|(k, _)| FIELDS.contains(&k.as_str()))
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect();
     let schema: Value = serde_json::from_str(SCHEMA).map_err(|_| bad("schema"))?;
     let validator = jsonschema::validator_for(&schema).map_err(|_| bad("schema"))?;
     let value = Value::Object(stripped);
     if let Some(e) = validator.iter_errors(&value).next() {
-        return Err(AiError::InvalidOutput(e.to_string().chars().take(120).collect()));
+        return Err(AiError::InvalidOutput(
+            e.to_string().chars().take(120).collect(),
+        ));
     }
     let mut op: Opinion = serde_json::from_value(value).map_err(|_| bad("shape"))?;
     let before = op.indicators.len();
@@ -81,7 +92,10 @@ mod tests {
             json!({"verdict":"safe","confidence":0.9,"reasons":["x"]}),
             json!("text"),
         ] {
-            assert!(matches!(validate(&v, &present()), Err(AiError::InvalidOutput(_))), "{v}");
+            assert!(
+                matches!(validate(&v, &present()), Err(AiError::InvalidOutput(_))),
+                "{v}"
+            );
         }
     }
 

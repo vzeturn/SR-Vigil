@@ -39,6 +39,9 @@ mod win {
     async fn run(stop: impl Future<Output = ()>) -> anyhow::Result<()> {
         let (shared, pack) = host::build_state()?;
         shared.attach_control(Arc::new(vigil_svc::winctl::WinControl::default()));
+        shared.attach_ai(Arc::new(vigil_svc::ai::LiveBackend::new(Arc::new(
+            vigil_svc::winctl::DpapiVault,
+        ))));
         match vigil_svc::winfilter::WfpEngine::open() {
             Ok(e) => shared.attach_engine(Some(Arc::new(e))),
             Err(e) => {

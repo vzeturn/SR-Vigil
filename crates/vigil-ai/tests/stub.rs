@@ -17,7 +17,9 @@ async fn stub(responses: Vec<(u16, String, u64)>) -> String {
     tokio::spawn(async move {
         let mut i = 0;
         loop {
-            let Ok((mut s, _)) = l.accept().await else { return };
+            let Ok((mut s, _)) = l.accept().await else {
+                return;
+            };
             let (status, body, delay) = responses[i.min(responses.len() - 1)].clone();
             i += 1;
             tokio::spawn(async move {
@@ -36,7 +38,8 @@ async fn stub(responses: Vec<(u16, String, u64)>) -> String {
 }
 
 fn tool(input: &Value) -> String {
-    json!({"content":[{"type":"tool_use","id":"t","name":"submit_verdict","input":input}]}).to_string()
+    json!({"content":[{"type":"tool_use","id":"t","name":"submit_verdict","input":input}]})
+        .to_string()
 }
 
 fn good(conf: f64) -> Value {
@@ -67,7 +70,10 @@ async fn valid_tool_use_is_accepted() {
 #[tokio::test]
 async fn low_confidence_escalates_to_the_second_model() {
     let url = stub(vec![(200, tool(&good(0.5)), 0), (200, tool(&good(0.9)), 0)]).await;
-    let (op, model) = advisor(url, 2000).assess(&key(), &json!({}), &[]).await.unwrap();
+    let (op, model) = advisor(url, 2000)
+        .assess(&key(), &json!({}), &[])
+        .await
+        .unwrap();
     assert_eq!(model, "claude-sonnet-5-5");
     assert!((op.confidence - 0.9).abs() < 1e-9);
 }
@@ -119,10 +125,16 @@ async fn slow_server_times_out() {
 
 #[tokio::test]
 async fn one_retry_on_5xx_then_success_and_persistent_5xx_fails() {
-    let ok = advisor(stub(vec![(503, "{}".into(), 0), (200, tool(&good(0.95)), 0)]).await, 2000);
+    let ok = advisor(
+        stub(vec![(503, "{}".into(), 0), (200, tool(&good(0.95)), 0)]).await,
+        2000,
+    );
     assert!(ok.assess(&key(), &json!({}), &[]).await.is_ok());
     let bad = advisor(stub(vec![(500, "{}".into(), 0)]).await, 2000);
-    assert!(matches!(bad.assess(&key(), &json!({}), &[]).await, Err(AiError::Status(500))));
+    assert!(matches!(
+        bad.assess(&key(), &json!({}), &[]).await,
+        Err(AiError::Status(500))
+    ));
 }
 
 #[tokio::test]
@@ -134,5 +146,8 @@ async fn budget_exhaustion_blocks_without_a_request() {
     })
     .unwrap();
     assert!(a.assess(&key(), &json!({}), &[]).await.is_ok());
-    assert!(matches!(a.assess(&key(), &json!({}), &[]).await, Err(AiError::Budget)));
+    assert!(matches!(
+        a.assess(&key(), &json!({}), &[]).await,
+        Err(AiError::Budget)
+    ));
 }
