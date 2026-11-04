@@ -20,6 +20,11 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"
 tracing = "0.1"
 vigil-ipc = { path = "../../../crates/vigil-ipc" }
 
+[features]
+# Serve the bundled frontend instead of devUrl; `tauri dev` builds without default features.
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
+
 [lints.rust]
 unsafe_code = "forbid"
 

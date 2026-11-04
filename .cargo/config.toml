@@ -1,2 +1,6 @@
 [alias]
 xtask = "run --quiet -p xtask --"
+
+# Self-contained binaries: the MSI must not depend on a Visual C++ redistributable.
+[target.'cfg(windows)']
+rustflags = ["-C", "target-feature=+crt-static"]

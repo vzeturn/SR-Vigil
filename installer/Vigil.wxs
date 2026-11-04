@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Vigil MSI (WiX v4+ schema). Built by installer/build.ps1; see docs/08 and docs/11. -->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+  <Package Name="Vigil" Manufacturer="Vigil contributors" Version="$(var.Version)"
+           UpgradeCode="6f1d8b2a-93c4-4e07-a5b1-2d7c40e91a10" Scope="perMachine"
+           Compressed="yes" InstallerVersion="500">
+    <MajorUpgrade DowngradeErrorMessage="A newer version of Vigil is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+    <Launch Condition="VersionNT64 &gt;= 603" Message="Vigil requires 64-bit Windows 10 or 11." />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="Vigil" />
+    </StandardDirectory>
+    <StandardDirectory Id="CommonAppDataFolder">
+      <Directory Id="DATADIR" Name="Vigil" />
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder" />
+
+    <!-- Data directory: SYSTEM and Administrators only (CLAUDE.md fixed constants). -->
+    <DirectoryRef Id="DATADIR">
+      <Component Id="DataDir" Guid="6f1d8b2a-93c4-4e07-a5b1-2d7c40e91a11">
+        <CreateFolder>
+          <util:PermissionEx User="SYSTEM" GenericAll="yes" />
+          <util:PermissionEx User="Administrators" GenericAll="yes" />
+        </CreateFolder>
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="INSTALLFOLDER">
+      <Component Id="Service" Guid="*">
+        <File Id="SvcExe" Source="$(var.BinDir)\vigil-svc.exe" KeyPath="yes" />
+        <ServiceInstall Id="VigilSvc" Name="VigilSvc" DisplayName="Vigil"
+                        Description="Classifies processes and network connections and enforces your policy."
+                        Type="ownProcess" Start="auto" ErrorControl="normal" Account="LocalSystem">
+          <!-- Only SYSTEM and Administrators may stop or reconfigure the service; everyone may query it. -->
+          <util:PermissionEx User="SYSTEM" GenericAll="yes" />
+          <util:PermissionEx User="Administrators" GenericAll="yes" />
+          <util:PermissionEx User="Authenticated Users" ServiceQueryStatus="yes" ServiceInterrogate="yes"
+                             ServiceEnumerateDependents="yes" ServiceQueryConfig="yes" />
+        </ServiceInstall>
+        <util:ServiceConfig ServiceName="VigilSvc"
+                            FirstFailureActionType="restart" SecondFailureActionType="restart"
+                            ThirdFailureActionType="restart" RestartServiceDelayInSeconds="5"
+                            ResetPeriodInDays="1" />
+        <ServiceControl Id="VigilSvcCtl" Name="VigilSvc" Start="install" Stop="both" Remove="uninstall" Wait="yes" />
+      </Component>
+      <Component Id="Cli" Guid="*">
+        <File Id="CtlExe" Source="$(var.BinDir)\vigilctl.exe" KeyPath="yes" />
+      </Component>
+      <Component Id="Ui" Guid="*">
+        <File Id="UiExe" Source="$(var.BinDir)\vigil-ui.exe" KeyPath="yes">
+          <Shortcut Id="StartMenuShortcut" Directory="ProgramMenuFolder" Name="Vigil"
+                    Description="Open Vigil" WorkingDirectory="INSTALLFOLDER" Advertise="no" />
+        </File>
+        <!-- Start the tray/UI at sign-in; runs as the standard user, no elevation. -->
+        <RegistryValue Root="HKLM" Key="Software\Microsoft\Windows\CurrentVersion\Run"
+                       Name="Vigil" Type="string" Value="&quot;[INSTALLFOLDER]vigil-ui.exe&quot;" />
+      </Component>
+    </DirectoryRef>
+
+    <!-- Uninstall: remove the persistent WFP provider, sublayer and filters. Not on upgrade. -->
+    <CustomAction Id="WfpCleanup" Directory="INSTALLFOLDER" Execute="deferred" Impersonate="no"
+                  Return="ignore" ExeCommand="&quot;[INSTALLFOLDER]vigil-svc.exe&quot; --cleanup" />
+    <InstallExecuteSequence>
+      <Custom Action="WfpCleanup" After="StopServices" Condition="REMOVE=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+    </InstallExecuteSequence>
+
+    <Feature Id="Main" Title="Vigil" Level="1">
+      <ComponentRef Id="DataDir" />
+      <ComponentRef Id="Service" />
+      <ComponentRef Id="Cli" />
+      <ComponentRef Id="Ui" />
+    </Feature>
+  </Package>
+</Wix>
