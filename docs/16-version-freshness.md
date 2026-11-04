@@ -66,8 +66,13 @@ The catalogue is the foundation for helping users update applications cleanly. E
 
 Planned flow (not in M12): Vigil shows the advice, the user approves, then the update runs through the vendor's own channel (`winget upgrade --id <id>` or the vendor page). Vigil checks the installer hash against the catalogue before running, stops any running process of that product only after user approval (never the never-kill set), and writes an audit row. No silent updates, no auto-update of Vigil itself in v1 (CLAUDE.md rules 4 and 10); this stays a user-triggered action and needs its own design review before code.
 
-## 7. Open points for the user
+## 6b. Status
 
-1. Approve the cloud-built signed snapshot (needs the rule 10 amendment and a Worker + R2 on the personal Cloudflare account).
-2. Confirm the optional CIRCL/NSRL hash lookup stays opt-in and off by default.
-3. Winget covers Windows apps only; macOS (M7–M10) would need Homebrew Cask metadata as the equivalent source.
+Implemented in core (M12 step 1): `FileVersion` read on Windows, `latest` / `min_supported` / `vulnerable_below` optional fields in `rules/known_software.toml`, signals VER-001/002/003, tests. The embedded catalogue carries no release data yet (none is invented by hand); it arrives with the signed snapshot.
+
+## 7. Decisions (delegated to engineering best practice, 2026-11-04)
+
+1. **Approved:** cloud-built, Ed25519-signed snapshot on the personal Cloudflare account (Worker + R2). CLAUDE.md rule 10 is amended: opt-in, GET only, nothing uploaded, signature verified before use, bundled catalogue as fallback.
+2. **Per-hash NSRL/CIRCL lookup:** not built in M12. If added later it stays opt-in, off by default, one hash and nothing else.
+3. **Safety defaults:** VER-* only fires for recognised software in `system`/`program_files`. Its delta is applied *after* the 0–100 clamp (so a strongly signed app cannot absorb it) but never pushes a score below `MALICIOUS_MAX + 1`, so age alone cannot make a program Malicious. Unreadable or non-numeric versions, and catalogue entries without release data, produce no signal.
+4. **macOS:** Homebrew Cask metadata is the equivalent source, tracked with M7–M10.

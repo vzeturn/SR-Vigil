@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use crate::rules::{Kind, PathClass, Rule, RulePack, SignatureState, Verdict, When};
+use crate::rules::{Kind, PathClass, Rule, RulePack, SignatureState, Verdict, VersionStatus, When};
 
 /// Everything the rules can test. The platform layer fills these in; the rules never see raw strings.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -22,6 +22,7 @@ pub struct Facts {
     pub company_conflicts_signer: bool,
     pub claims_pinned_publisher: bool,
     pub known_software: bool,
+    pub version_status: VersionStatus,
     pub lolbin: bool,
     pub has_outbound: bool,
     pub dest_public: bool,
@@ -57,6 +58,7 @@ impl Default for Facts {
             company_conflicts_signer: false,
             claims_pinned_publisher: false,
             known_software: false,
+            version_status: VersionStatus::Unknown,
             lolbin: false,
             has_outbound: false,
             dest_public: false,
@@ -132,6 +134,7 @@ fn matches(w: &When, f: &Facts) -> bool {
         && flag(w.company_conflicts_signer, f.company_conflicts_signer)
         && flag(w.claims_pinned_publisher, f.claims_pinned_publisher)
         && flag(w.known_software, f.known_software)
+        && w.version_status.is_none_or(|s| s == f.version_status)
         && flag(w.lolbin, f.lolbin)
         && flag(w.has_outbound, f.has_outbound)
         && flag(w.dest_public, f.dest_public)
@@ -154,6 +157,8 @@ fn matches(w: &When, f: &Facts) -> bool {
 
 /// Rules that can lift the never-kill guard (`docs/03 §2.4`).
 const GUARD_LIFTED_BY: [&str; 3] = ["HR-001", "HR-002", "HR-003"];
+/// Exclusive group of the VER-* signals; their delta is applied after the 0–100 clamp.
+const FRESHNESS_GROUP: &str = "version_freshness";
 /// Vigil's own binaries beat every other rule (`CLAUDE.md` authority order).
 const SELF_ALLOW: &str = "HA-001";
 
@@ -188,11 +193,25 @@ pub fn evaluate(pack: &RulePack, facts: &Facts) -> Evaluation {
     let hard_rule = fired.iter().any(|r| r.kind == Kind::HardRule);
     let hard_allow = fired.iter().any(|r| r.kind == Kind::HardAllow);
 
-    let sum: i32 = fired.iter().filter_map(|r| r.score).sum();
+    let is_freshness = |r: &Rule| r.exclusive_group.as_deref() == Some(FRESHNESS_GROUP);
+    let sum: i32 = fired
+        .iter()
+        .filter(|r| !is_freshness(r))
+        .filter_map(|r| r.score)
+        .sum();
     let mut score = (i32::from(pack.meta.baseline) + sum).clamp(0, 100);
     if let Some(cap) = fired.iter().filter_map(|r| r.cap).min() {
         score = score.min(i32::from(cap));
     }
+    // Age is applied after the clamp so a strongly trusted app cannot absorb it, but it can never
+    // by itself push a program into Malicious (`docs/16 §5`).
+    let age: i32 = fired
+        .iter()
+        .filter(|r| is_freshness(r))
+        .filter_map(|r| r.score)
+        .sum();
+    let floor = score.min(i32::from(pack.meta.malicious_max) + 1);
+    score = (score + age).max(floor);
 
     let (score, verdict) = if has(SELF_ALLOW) {
         (100, Verdict::Safe)

@@ -3,9 +3,12 @@
 use std::collections::HashMap;
 
 use vigil_core::analysis::path::{PathEnv, normalize};
-use vigil_core::eval::evaluate;
+use vigil_core::eval::{Facts, evaluate};
 use vigil_core::observe::{Behaviour, Context, Observation, SignerInfo, VersionInfo, build_facts};
-use vigil_core::rules::{Lolbins, Publishers, RuleStore, SignatureState, SystemProcesses, Verdict};
+use vigil_core::rules::{
+    Lolbins, PathClass, Publishers, RuleStore, SignatureState, SystemProcesses, Verdict,
+    VersionStatus,
+};
 
 fn ctx() -> Context {
     Context {
@@ -173,4 +176,48 @@ fn lolbin_outbound_is_capped() {
     };
     let (score, v, _) = verdict(&o);
     assert_eq!((score, v), (70, Verdict::Unknown));
+}
+
+fn known_facts(status: VersionStatus, path_class: PathClass) -> Facts {
+    Facts {
+        signature: SignatureState::ValidEmbedded,
+        path_class,
+        known_software: true,
+        version_status: status,
+        ..Facts::default()
+    }
+}
+
+fn ver_score(status: VersionStatus, path_class: PathClass) -> (u8, Vec<String>) {
+    let pack = RuleStore::from_embedded().unwrap().active();
+    let e = evaluate(&pack, &known_facts(status, path_class));
+    let ids = e.signals.into_iter().map(|s| s.id).collect();
+    (e.score, ids)
+}
+
+#[test]
+fn version_tiers_cost_5_15_30_and_only_the_worst_applies() {
+    let base = ver_score(VersionStatus::Unknown, PathClass::ProgramFiles);
+    for (status, id, cost) in [
+        (VersionStatus::Outdated, "VER-001", 5),
+        (VersionStatus::FarBehind, "VER-002", 15),
+        (VersionStatus::Vulnerable, "VER-003", 30),
+    ] {
+        let (score, ids) = ver_score(status, PathClass::ProgramFiles);
+        assert_eq!(score, base.0 - cost, "{id}");
+        assert_eq!(ids.iter().filter(|i| i.starts_with("VER-")).count(), 1);
+        assert!(ids.iter().any(|i| i == id));
+    }
+}
+
+#[test]
+fn outdated_known_software_is_never_malicious_from_age_alone() {
+    let (score, _) = ver_score(VersionStatus::Vulnerable, PathClass::ProgramFiles);
+    assert!(score > vigil_core::consts::MALICIOUS_MAX, "{score}");
+}
+
+#[test]
+fn version_penalty_needs_a_trusted_install_location() {
+    let (_, ids) = ver_score(VersionStatus::Vulnerable, PathClass::UserWritable);
+    assert!(!ids.iter().any(|i| i.starts_with("VER-")));
 }

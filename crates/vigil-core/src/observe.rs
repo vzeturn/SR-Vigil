@@ -7,7 +7,9 @@ use crate::analysis::masquerade;
 use crate::analysis::names::{claims_publisher, compare_company, is_typosquat, normalize_org};
 use crate::analysis::path::{PathEnv, basename, classify, normalize};
 use crate::eval::Facts;
-use crate::rules::{Lolbins, Publisher, Publishers, SignatureState, SystemProcesses};
+use crate::rules::{
+    Lolbins, Publisher, Publishers, SignatureState, SystemProcesses, VersionStatus,
+};
 
 /// Result of signature verification for one file.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -55,6 +57,8 @@ pub struct VersionInfo {
     pub product: String,
     pub original_filename: String,
     pub legal_copyright: String,
+    /// `FileVersion` (dotted numbers); empty when the file declares none.
+    pub file_version: String,
 }
 
 /// Behaviour seen for the identity (all `false` for a static scan).
@@ -164,15 +168,18 @@ pub fn build_facts(ctx: &Context, obs: &Observation) -> Facts {
     let name = basename(&path).to_string();
     let masq = masquerade::check(&ctx.system, &ctx.vars, &path, parent.as_deref());
     let signer = &obs.signer;
-    let known = crate::analysis::known::lookup(
+    let entry = crate::analysis::known::lookup(
         &name,
         &[
             obs.version.company.as_str(),
             obs.version.product.as_str(),
             obs.version.original_filename.as_str(),
         ],
-    )
-    .is_some();
+    );
+    let known = entry.is_some();
+    let version_status = entry.map_or(VersionStatus::Unknown, |k| {
+        k.version_status(&obs.version.file_version)
+    });
     let company = if signer.valid() && !known {
         compare_company(&obs.version.company, signer.org.as_deref().unwrap_or(""))
     } else {
@@ -198,6 +205,7 @@ pub fn build_facts(ctx: &Context, obs: &Observation) -> Facts {
         company_matches_signer: company.matches,
         company_conflicts_signer: company.conflicts,
         known_software: known,
+        version_status,
         claims_pinned_publisher: claims_publisher(&metadata, &ctx.all_publisher_names()),
         lolbin: ctx
             .lolbins

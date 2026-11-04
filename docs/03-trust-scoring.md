@@ -34,6 +34,9 @@ IDs, deltas and conditions here must match `rules/default.toml` (a contract test
 | SIG-004 | `company_matches_signer` | VersionInfo `CompanyName` consistent with signer organisation | +8 | |
 | LOC-001 | `path_program_files_or_system` | Path class `system` or `program_files` | +5 | |
 | KNOW-001 | `recognised_software` | File name (and vendor text, when present) match `rules/known_software.toml` and path class is `system` or `program_files`; also suppresses SIG-014 | +25 | |
+| VER-001 | `outdated_version` | Recognised software (KNOW-001 conditions) behind the catalogue's `latest` release; exclusive group `version_freshness`, highest priority wins | −5 | |
+| VER-002 | `far_behind_version` | As above, below the catalogue's `min_supported` | −15 | |
+| VER-003 | `known_vulnerable_version` | As above, below the catalogue's `vulnerable_below` | −30 | |
 | REP-001 | `vt_clean_established` | VirusTotal enabled: 0 detections, first seen ≥ 30 days | +10 | |
 
 SIG-001, SIG-002 and SIG-003 are mutually exclusive (`exclusive_group = "signer_trust"`, highest `priority` that matches wins: SIG-001 = 3, SIG-002 = 2, SIG-003 = 1).

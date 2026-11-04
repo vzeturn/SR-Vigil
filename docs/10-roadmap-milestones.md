@@ -157,7 +157,7 @@ Design: [docs/15-behaviour-and-reputation.md](15-behaviour-and-reputation.md).
 
 Design: [docs/16-version-freshness.md](16-version-freshness.md).
 
-- [ ] Add version fields to `rules/known_software.toml`; signals VER-001/002/003 with fixtures and mutation checks.
+- [x] Version fields in `rules/known_software.toml`; signals VER-001/002/003 with fixtures and mutation checks.
 - [ ] Cloudflare cron Worker that builds and signs the catalogue snapshot (winget-pkgs, OSV, CISA KEV).
 - [ ] Client fetch, Ed25519 verification with `kid` rotation, cache in `%ProgramData%\Vigil`, opt-in setting.
 - [ ] Detail view "installed X, latest Y" with a vendor download link.

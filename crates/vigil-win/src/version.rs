@@ -32,6 +32,7 @@ pub fn read(path: &str) -> Option<VersionInfo> {
         product: get("ProductName"),
         original_filename: get("OriginalFilename"),
         legal_copyright: get("LegalCopyright"),
+        file_version: get("FileVersion"),
     })
 }
 

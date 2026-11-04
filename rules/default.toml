@@ -58,6 +58,36 @@ when = { known_software = true, path_class = ["system", "program_files"] }
 score = 25
 
 [[rule]]
+id = "VER-001"
+name = "outdated_version"
+kind = "signal"
+description = "Recognised software that is behind the newest release"
+when = { known_software = true, path_class = ["system", "program_files"], version_status = "outdated" }
+score = -5
+exclusive_group = "version_freshness"
+priority = 1
+
+[[rule]]
+id = "VER-002"
+name = "far_behind_version"
+kind = "signal"
+description = "Recognised software older than the vendor's oldest supported release"
+when = { known_software = true, path_class = ["system", "program_files"], version_status = "far_behind" }
+score = -15
+exclusive_group = "version_freshness"
+priority = 2
+
+[[rule]]
+id = "VER-003"
+name = "known_vulnerable_version"
+kind = "signal"
+description = "Recognised software at a release with a serious known vulnerability"
+when = { known_software = true, path_class = ["system", "program_files"], version_status = "vulnerable" }
+score = -30
+exclusive_group = "version_freshness"
+priority = 3
+
+[[rule]]
 id = "LOC-001"
 name = "path_program_files_or_system"
 kind = "signal"

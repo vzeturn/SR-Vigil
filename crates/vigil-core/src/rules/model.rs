@@ -58,6 +58,18 @@ pub enum SignatureState {
     UntrustedRoot,
 }
 
+/// How far an installed, catalogue-recognised program is behind its newest release (`docs/16 §5`).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum VersionStatus {
+    /// No catalogue data, unreadable version, or current: nothing to report.
+    #[default]
+    Unknown,
+    Outdated,
+    FarBehind,
+    Vulnerable,
+}
+
 /// Path classes from `docs/03 §7`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -118,6 +130,7 @@ pub struct When {
     pub company_conflicts_signer: Option<bool>,
     pub claims_pinned_publisher: Option<bool>,
     pub known_software: Option<bool>,
+    pub version_status: Option<VersionStatus>,
     pub lolbin: Option<bool>,
     pub has_outbound: Option<bool>,
     pub dest_public: Option<bool>,
