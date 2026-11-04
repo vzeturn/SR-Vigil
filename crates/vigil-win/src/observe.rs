@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet};
 
 use vigil_core::analysis::path::{PathEnv, expand, normalize};
 use vigil_core::eval::{Evaluation, evaluate};
-use vigil_core::observe::{Behaviour, Context, Observation, build_facts};
+use vigil_core::observe::{Behaviour, Context, Observation, SignerInfo, VersionInfo, build_facts};
 use vigil_core::rules::{Lolbins, Publishers, RulePack, SignatureState, SystemProcesses};
 
 use crate::{trust, version};
@@ -93,12 +93,25 @@ pub fn evaluate_image(
     parent: Option<&str>,
     pid: Option<u32>,
 ) -> Evaluation {
+    evaluate_image_detailed(ctx, pack, path, parent, pid).0
+}
+
+/// Like [`evaluate_image`], but also returns the signature and version evidence it was based on.
+#[must_use]
+pub fn evaluate_image_detailed(
+    ctx: &Context,
+    pack: &RulePack,
+    path: &str,
+    parent: Option<&str>,
+    pid: Option<u32>,
+) -> (Evaluation, SignerInfo, VersionInfo) {
     let signer = trust::verify(path);
+    let version = version::read(path).unwrap_or_default();
     let scan_memory = crate::memory::enabled() && !signer.valid();
     let obs = Observation {
         path: path.to_string(),
         parent_path: parent.map(str::to_string),
-        version: version::read(path).unwrap_or_default(),
+        version: version.clone(),
         behaviour: Behaviour {
             unsigned_writable_module: pid
                 .is_some_and(|p| crate::modules::has_unsigned_writable_module(ctx, p)),
@@ -106,12 +119,12 @@ pub fn evaluate_image(
                 && pid.is_some_and(crate::memory::has_unbacked_exec_memory),
             ..Behaviour::default()
         },
-        signer,
+        signer: signer.clone(),
         vt_detections: None,
         vt_first_seen_days: None,
         user_denylisted: false,
         user_allowed: false,
         vigil_self: false,
     };
-    evaluate(pack, &build_facts(ctx, &obs))
+    (evaluate(pack, &build_facts(ctx, &obs)), signer, version)
 }

@@ -7,6 +7,7 @@ use windows::Win32::Foundation::{CloseHandle, FILETIME, HANDLE, UNICODE_STRING};
 use windows::Win32::System::Diagnostics::ToolHelp::{
     CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS,
 };
+use windows::Win32::System::ProcessStatus::{GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS};
 use windows::Win32::System::Threading::{
     GetProcessTimes, OpenProcess, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION,
     QueryFullProcessImageNameW,
@@ -26,6 +27,12 @@ pub struct ProcessInfo {
     pub image: Option<String>,
     /// Creation time as 100 ns ticks since 1601 (`FILETIME`).
     pub start_time: Option<u64>,
+    /// Threads in the process.
+    pub threads: u32,
+    /// Working-set bytes (0 when the process cannot be opened).
+    pub ram_bytes: u64,
+    /// Total CPU time (kernel + user) in 100 ns ticks.
+    pub cpu_ticks: u64,
 }
 
 pub(crate) struct Handle(pub(crate) HANDLE);
@@ -90,6 +97,41 @@ pub fn query(pid: u32) -> (Option<String>, Option<u64>) {
     (image, start)
 }
 
+/// Working-set bytes and total CPU time (100 ns ticks) of `pid`; zeros when it cannot be opened.
+#[must_use]
+pub fn usage(pid: u32) -> (u64, u64) {
+    // SAFETY: plain Win32 call; the returned handle is owned and closed by `Handle`.
+    let Ok(h) = (unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) }) else {
+        return (0, 0);
+    };
+    let h = Handle(h);
+    let mut mem = PROCESS_MEMORY_COUNTERS {
+        cb: u32::try_from(size_of::<PROCESS_MEMORY_COUNTERS>()).unwrap_or(0),
+        ..Default::default()
+    };
+    // SAFETY: `mem.cb` is its size and the pointer refers to a live, writable struct.
+    let ram = unsafe { GetProcessMemoryInfo(h.0, &raw mut mem, mem.cb) }
+        .map_or(0, |()| mem.WorkingSetSize as u64);
+    let (mut created, mut exited, mut kernel, mut user) = (
+        FILETIME::default(),
+        FILETIME::default(),
+        FILETIME::default(),
+        FILETIME::default(),
+    );
+    // SAFETY: all four out-pointers refer to live, writable `FILETIME`s.
+    let cpu = unsafe {
+        GetProcessTimes(
+            h.0,
+            &raw mut created,
+            &raw mut exited,
+            &raw mut kernel,
+            &raw mut user,
+        )
+    }
+    .map_or(0, |()| filetime(kernel) + filetime(user));
+    (ram, cpu)
+}
+
 /// `ProcessCommandLineInformation` (Windows 8.1+): the kernel copies the command line out, so no
 /// PEB walk and only `PROCESS_QUERY_LIMITED_INFORMATION` is needed.
 const PROCESS_COMMAND_LINE_INFORMATION: i32 = 60;
@@ -141,12 +183,16 @@ pub fn snapshot() -> Result<Vec<ProcessInfo>, Error> {
     let mut more = unsafe { Process32FirstW(snap.0, &raw mut entry) }.is_ok();
     while more {
         let (image, start_time) = query(entry.th32ProcessID);
+        let (ram_bytes, cpu_ticks) = usage(entry.th32ProcessID);
         out.push(ProcessInfo {
             pid: entry.th32ProcessID,
             ppid: entry.th32ParentProcessID,
             name: utf16_to_string(&entry.szExeFile),
             image,
             start_time,
+            threads: entry.cntThreads,
+            ram_bytes,
+            cpu_ticks,
         });
         // SAFETY: same invariants as `Process32FirstW` above.
         more = unsafe { Process32NextW(snap.0, &raw mut entry) }.is_ok();
@@ -197,6 +243,9 @@ mod tests {
             name: String::new(),
             image: None,
             start_time: Some(start),
+            threads: 0,
+            ram_bytes: 0,
+            cpu_ticks: 0,
         }
     }
 
