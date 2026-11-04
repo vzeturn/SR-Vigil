@@ -111,3 +111,6 @@ desktop.ini
 
 # Installer output
 /dist/
+
+# SBOMs are release artifacts
+*.cdx.json

@@ -23,11 +23,14 @@ allow = [
   "CC0-1.0",
   "CDLA-Permissive-2.0",
   "0BSD",
+  "MIT-0",
 ]
 
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
+# Workspace crates depend on each other by path (never published to crates.io).
+allow-wildcard-paths = true
 
 # Dependency graph from docs/02 §2: core depends on no other Vigil crate.
 # store/ipc/ai depend only on core; the checks below are enforced by `xtask`-independent tests in CI.
