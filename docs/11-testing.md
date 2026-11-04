@@ -114,3 +114,8 @@ Disposable Windows 10 and Windows 11 VM snapshots, standard user plus an admin a
 4. **Upgrade**: install a newer MSI over the old one; data and decisions are kept, service keeps running.
 5. **Uninstall**: remove via Apps; then `netsh wfp show filters file=f.xml` has no `Vigil` provider, sublayer or filter, and `sc query VigilSvc` reports it missing. `%ProgramData%\Vigil` is kept by design.
 6. **Manual cleanup**: `vigil-svc.exe --cleanup` (elevated) prints `removed N persistent filter(s)` and is safe to repeat.
+
+## Version catalogue checks (M12)
+
+- Automated: `cargo test -p vigil-core catalogue` (signature, tamper, rollback), `cargo test -p vigil-svc catalogue` (unverified bytes never cached), `node --test` in `catalogue/`.
+- Manual: enable "version catalogue" in Settings, restart the service, confirm `%ProgramData%\Vigil\catalogue.json` appears and an outdated recognised program shows "installed → latest" in Processes. Corrupt one byte of the cache and restart: the file is ignored and the embedded data is used.

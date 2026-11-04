@@ -48,3 +48,9 @@ Keep the private key in an HSM or a CI secret store; never commit it. An unsigne
 3. Sign the MSI offline or in a protected environment, verify with `signtool verify /pa`.
 4. Run the manual VM checks in `docs/11-testing.md` §9–10 on Windows 10 and 11.
 5. Publish the GitHub release with MSI, `.sha256` and SBOM.
+
+## 5. Version catalogue (M12)
+
+- The client's catalogue endpoint defaults to the project Worker; set the repository variable `VIGIL_CATALOGUE_URL` to override it at build time.
+- The Worker (`catalogue/`) is deployed separately with `wrangler deploy`; secrets and key rotation are in `catalogue/README.md`. CI runs its tests (`catalogue-tests` job).
+- Release gate: before tagging, `curl` the endpoint and confirm the envelope verifies with the key in `rules/catalogue_keys.toml`.

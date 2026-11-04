@@ -27,6 +27,8 @@ jobs:
         env:
           # Repository variable (not a secret): the public URL of the shared AI endpoint. Empty = no shared option.
           VIGIL_PROXY_URL: ${{ vars.VIGIL_PROXY_URL }}
+          # Optional override of the signed version catalogue endpoint (defaults to the project Worker).
+          VIGIL_CATALOGUE_URL: ${{ vars.VIGIL_CATALOGUE_URL }}
         run: ./installer/build.ps1 -Version ${{ startsWith(github.ref_name, 'v') && github.ref_name || '0.0.0' }}
         shell: pwsh
       - name: SBOM
