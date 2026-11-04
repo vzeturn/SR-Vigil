@@ -146,6 +146,19 @@ fn pinned_microsoft_signer_requires_root_match() {
 }
 
 #[test]
+fn unsigned_writable_module_fires_mod_001() {
+    let mut o = obs(
+        r"C:\Program Files\Acme\acme.exe",
+        None,
+        ms_signer(),
+        "Acme Corp",
+    );
+    assert!(!verdict(&o).2.contains(&"MOD-001".to_string()));
+    o.behaviour.unsigned_writable_module = true;
+    assert!(verdict(&o).2.contains(&"MOD-001".to_string()));
+}
+
+#[test]
 fn lolbin_outbound_is_capped() {
     let mut o = obs(
         r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe",

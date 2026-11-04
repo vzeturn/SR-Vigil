@@ -134,7 +134,7 @@ pub async fn run(shared: Arc<Shared>, pack: Arc<RulePack>) -> anyhow::Result<()>
         };
         sync_processes(&shared, &procs);
 
-        let mut pending: Vec<(Key, String, Option<String>)> = Vec::new();
+        let mut pending: Vec<(Key, String, Option<String>, u32)> = Vec::new();
         {
             let parents = process::parent_of(&procs);
             for p in &procs {
@@ -144,11 +144,11 @@ pub async fn run(shared: Arc<Shared>, pack: Arc<RulePack>) -> anyhow::Result<()>
                 let parent = parents.get(&p.pid).and_then(|pp| pp.image.clone());
                 let key = (normalize(image), parent.as_deref().map(normalize));
                 if !cache.contains_key(&key) && !pending.iter().any(|(k, ..)| *k == key) {
-                    pending.push((key, image.to_string(), parent));
+                    pending.push((key, image.to_string(), parent, p.pid));
                 }
             }
         }
-        for (key, image, parent) in pending {
+        for (key, image, parent, pid) in pending {
             let (ctx, pack, hashes, sh) = (
                 Arc::clone(&ctx),
                 Arc::clone(&pack),
@@ -158,7 +158,7 @@ pub async fn run(shared: Arc<Shared>, pack: Arc<RulePack>) -> anyhow::Result<()>
             let img = image.clone();
             let par = parent.clone();
             let v = tokio::task::spawn_blocking(move || {
-                let ev = evaluate_image(&ctx, &pack, &img, par.as_deref());
+                let ev = evaluate_image(&ctx, &pack, &img, par.as_deref(), Some(pid));
                 let identity = persist(&sh, &hashes, &img, &ev);
                 Verdicted {
                     verdict: verdict_name(ev.verdict),

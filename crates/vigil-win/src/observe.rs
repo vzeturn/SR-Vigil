@@ -91,13 +91,18 @@ pub fn evaluate_image(
     pack: &RulePack,
     path: &str,
     parent: Option<&str>,
+    pid: Option<u32>,
 ) -> Evaluation {
     let obs = Observation {
         path: path.to_string(),
         parent_path: parent.map(str::to_string),
         signer: trust::verify(path),
         version: version::read(path).unwrap_or_default(),
-        behaviour: Behaviour::default(),
+        behaviour: Behaviour {
+            unsigned_writable_module: pid
+                .is_some_and(|p| crate::modules::has_unsigned_writable_module(ctx, p)),
+            ..Behaviour::default()
+        },
         vt_detections: None,
         vt_first_seen_days: None,
         user_denylisted: false,

@@ -34,7 +34,7 @@ pub fn run(json: bool) -> anyhow::Result<()> {
         let parent = parents.get(&p.pid).and_then(|pp| pp.image.clone());
         let ev = cache
             .entry((normalize(image), parent.clone()))
-            .or_insert_with(|| evaluate_image(&ctx, &pack, image, parent.as_deref()));
+            .or_insert_with(|| evaluate_image(&ctx, &pack, image, parent.as_deref(), Some(p.pid)));
         rows.push((p.pid, p.name.clone(), image.to_string(), ev.clone()));
     }
     rows.sort_by(|a, b| a.3.score.cmp(&b.3.score).then(a.0.cmp(&b.0)));

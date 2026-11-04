@@ -173,6 +173,14 @@ when = { unbacked_exec_memory = true }
 score = -40
 
 [[rule]]
+id = "MOD-001"
+name = "unsigned_writable_module"
+kind = "signal"
+description = "A module loaded from a user-writable path has no valid signature (sideloading, T14)"
+when = { unsigned_writable_module = true }
+score = -30
+
+[[rule]]
 id = "REP-010"
 name = "vt_low_detections"
 kind = "signal"

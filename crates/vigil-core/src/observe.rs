@@ -38,7 +38,9 @@ impl SignerInfo {
         }
     }
 
-    fn valid(&self) -> bool {
+    /// Embedded or catalog signature verified.
+    #[must_use]
+    pub fn valid(&self) -> bool {
         matches!(
             self.state,
             SignatureState::ValidEmbedded | SignatureState::ValidCatalog
@@ -65,6 +67,8 @@ pub struct Behaviour {
     pub public_dest_no_dns: bool,
     pub risky_port_or_tld: bool,
     pub unbacked_exec_memory: bool,
+    /// A module loaded from a user-writable path has no valid signature (T14).
+    pub unsigned_writable_module: bool,
 }
 
 /// Everything known about one running or candidate image.
@@ -198,6 +202,7 @@ pub fn build_facts(ctx: &Context, obs: &Observation) -> Facts {
         risky_port_or_tld: obs.behaviour.risky_port_or_tld,
         typosquat: !signer.valid() && is_typosquat(&name, &ctx.canonical_names()),
         unbacked_exec_memory: obs.behaviour.unbacked_exec_memory,
+        unsigned_writable_module: obs.behaviour.unsigned_writable_module,
         vt_detections: obs.vt_detections,
         vt_first_seen_days: obs.vt_first_seen_days,
         user_denylisted: obs.user_denylisted,

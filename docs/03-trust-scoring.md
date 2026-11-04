@@ -54,6 +54,7 @@ SIG-001, SIG-002 and SIG-003 are mutually exclusive (`exclusive_group = "signer_
 | BEH-003 | `public_dest_no_dns` | Public IP destination with no preceding DNS resolution for that PID within 60 s | −10 | |
 | BEH-004 | `risky_port_or_tld` | Destination port in the risky list or DNS name TLD in the risky list (`config/default-policy.toml`) | −10 | |
 | BEH-005 | `unbacked_exec_memory` | Executable private memory region not backed by an image file (M6, optional) | −40 | |
+| MOD-001 | `unsigned_writable_module` | A module loaded by the process from a user-writable path has no valid signature (DLL sideloading, T14). Checked once per new image, from the loaded-module list | −30 | |
 | REP-010 | `vt_low_detections` | VirusTotal 1–4 detections | −20 | |
 | REP-011 | `vt_high_detections` | VirusTotal 5–9 detections | −60 | |
 
@@ -152,7 +153,7 @@ guard           = "never_kill"   # guard rules only
 | `signer_pinned`, `signer_ms_root`, `os_signed`, `at_canonical_path`, `name_in_canonical_set`, `parent_ok`, `parent_check_applies`, `never_kill_set` | bool |
 | `company_matches_signer`, `company_conflicts_signer`, `claims_pinned_publisher` | bool |
 | `path_class` | one class from §7, or a list of classes |
-| `lolbin`, `has_outbound`, `dest_public`, `beaconing`, `public_dest_no_dns`, `risky_port_or_tld`, `typosquat`, `unbacked_exec_memory` | bool |
+| `lolbin`, `has_outbound`, `dest_public`, `beaconing`, `public_dest_no_dns`, `risky_port_or_tld`, `typosquat`, `unbacked_exec_memory`, `unsigned_writable_module` | bool |
 | `vt_detections_gte`, `vt_detections_lte`, `vt_first_seen_days_gte` | integer; false when VirusTotal is disabled or has no result |
 | `user_denylisted`, `user_allowed`, `vigil_self` | bool |
 

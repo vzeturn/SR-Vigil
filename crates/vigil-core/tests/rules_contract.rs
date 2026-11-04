@@ -76,7 +76,7 @@ fn every_doc_rule_exists_in_pack_and_vice_versa() {
         doc_ids, pack_ids,
         "rule ids differ between docs/03 §2 and rules/default.toml"
     );
-    assert_eq!(pack.rules.len(), 31);
+    assert_eq!(pack.rules.len(), 32);
 }
 
 #[test]

@@ -100,7 +100,7 @@ fn thresholds_must_equal_consts() {
 fn missing_override_dir_means_defaults() {
     let store = RuleStore::from_embedded().unwrap();
     let dir = scratch("missing").join("nope");
-    assert_eq!(store.reload(&dir).unwrap().rules.len(), 31);
+    assert_eq!(store.reload(&dir).unwrap().rules.len(), 32);
 }
 
 #[test]

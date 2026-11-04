@@ -125,6 +125,7 @@ pub struct When {
     pub risky_port_or_tld: Option<bool>,
     pub typosquat: Option<bool>,
     pub unbacked_exec_memory: Option<bool>,
+    pub unsigned_writable_module: Option<bool>,
     pub vt_detections_gte: Option<u32>,
     pub vt_detections_lte: Option<u32>,
     pub vt_first_seen_days_gte: Option<u32>,
