@@ -147,6 +147,7 @@ export const en = {
   },
   table: {
     search: 'Search',
+    actions: 'Actions',
     allVerdicts: 'All verdicts',
     name: 'Name',
     pid: 'PID',
@@ -361,6 +362,7 @@ export const vi: Messages = {
   },
   table: {
     search: 'Tìm kiếm',
+    actions: 'Thao tác',
     allVerdicts: 'Mọi kết luận',
     name: 'Tên',
     pid: 'PID',

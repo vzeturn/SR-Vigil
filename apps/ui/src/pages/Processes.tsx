@@ -29,7 +29,8 @@ export function Processes() {
     { header: t('table.score'), width: '70px', cell: (p) => p.score ?? '' },
     { header: t('table.verdict'), width: '150px', cell: (p) => <VerdictChip verdict={p.verdict} /> },
     {
-      header: '',
+      header: t('table.actions'),
+      hideHeader: true,
       width: '90px',
       cell: (p) => (
         <button type="button" className="btn" onClick={() => setTarget(p)}>

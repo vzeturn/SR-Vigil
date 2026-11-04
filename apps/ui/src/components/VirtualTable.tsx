@@ -5,6 +5,8 @@ const ROW_HEIGHT = 36;
 
 export interface Column<T> {
   header: string;
+  /** Keep the header for assistive tech but do not draw it (action columns). */
+  hideHeader?: boolean;
   width: string;
   cell: (row: T) => ReactNode;
 }
@@ -36,7 +38,7 @@ export function VirtualTable<T>({ rows, columns, rowKey, empty, label }: Virtual
     <div className="card" role="table" aria-label={label} aria-rowcount={rows.length}>
       <div className="grid-head" role="row" style={{ gridTemplateColumns: template }}>
         {columns.map((c) => (
-          <span key={c.header} role="columnheader">
+          <span key={c.header} role="columnheader" className={c.hideHeader ? 'sr-only' : undefined}>
             {c.header}
           </span>
         ))}

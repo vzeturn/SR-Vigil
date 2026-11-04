@@ -54,7 +54,8 @@ export function Startup() {
     },
     { header: t('startup.status'), width: '110px', cell: (r) => t(`startup.states.${r.status}`) },
     {
-      header: '',
+      header: t('table.actions'),
+      hideHeader: true,
       width: '220px',
       cell: (r) => (
         <span className="row-actions">
