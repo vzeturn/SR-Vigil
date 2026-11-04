@@ -67,7 +67,7 @@ pub fn verify(path: &str) -> SignerInfo {
         Outcome::NoSignature => match verify_catalog(path) {
             Some(Outcome::Valid(c)) => info(SignatureState::ValidCatalog, &c, true),
             Some(Outcome::Bad(s, c)) => info(s, &c, true),
-            _ => SignerInfo::unsigned(),
+            _ => crate::msix::signer(path).unwrap_or_else(SignerInfo::unsigned),
         },
     }
 }

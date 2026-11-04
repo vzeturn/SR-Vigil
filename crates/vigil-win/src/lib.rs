@@ -10,6 +10,7 @@ pub mod harden;
 pub mod hash;
 pub mod kill;
 pub mod modules;
+pub mod msix;
 pub mod net;
 pub mod observe;
 pub mod persist;
