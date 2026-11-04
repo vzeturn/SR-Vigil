@@ -53,7 +53,7 @@ SIG-001, SIG-002 and SIG-003 are mutually exclusive (`exclusive_group = "signer_
 | BEH-002 | `beaconing` | ≥ 6 connections to the same destination in 30 min with interval coefficient of variation < 0.15 | −30 | |
 | BEH-003 | `public_dest_no_dns` | Public IP destination with no preceding DNS resolution for that PID within 60 s | −10 | |
 | BEH-004 | `risky_port_or_tld` | Destination port in the risky list or DNS name TLD in the risky list (`config/default-policy.toml`) | −10 | |
-| BEH-005 | `unbacked_exec_memory` | Executable private memory region not backed by an image file (M6, optional) | −40 | |
+| BEH-005 | `unbacked_exec_memory` | Executable private memory region not backed by an image file (optional: set `VIGIL_MEMORY_SCAN=1`; only scanned for processes whose own image is not validly signed, because JIT engines also use RWX memory) | −40 | |
 | MOD-001 | `unsigned_writable_module` | A module loaded by the process from a user-writable path has no valid signature (DLL sideloading, T14). Checked once per new image, from the loaded-module list | −30 | |
 | REP-010 | `vt_low_detections` | VirusTotal 1–4 detections | −20 | |
 | REP-011 | `vt_high_detections` | VirusTotal 5–9 detections | −60 | |

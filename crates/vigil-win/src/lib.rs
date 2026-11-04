@@ -9,6 +9,7 @@ pub mod etw;
 pub mod harden;
 pub mod hash;
 pub mod kill;
+pub mod memory;
 pub mod modules;
 pub mod msix;
 pub mod net;

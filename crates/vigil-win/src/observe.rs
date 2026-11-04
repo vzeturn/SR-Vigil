@@ -93,16 +93,20 @@ pub fn evaluate_image(
     parent: Option<&str>,
     pid: Option<u32>,
 ) -> Evaluation {
+    let signer = trust::verify(path);
+    let scan_memory = crate::memory::enabled() && !signer.valid();
     let obs = Observation {
         path: path.to_string(),
         parent_path: parent.map(str::to_string),
-        signer: trust::verify(path),
         version: version::read(path).unwrap_or_default(),
         behaviour: Behaviour {
             unsigned_writable_module: pid
                 .is_some_and(|p| crate::modules::has_unsigned_writable_module(ctx, p)),
+            unbacked_exec_memory: scan_memory
+                && pid.is_some_and(crate::memory::has_unbacked_exec_memory),
             ..Behaviour::default()
         },
+        signer,
         vt_detections: None,
         vt_first_seen_days: None,
         user_denylisted: false,

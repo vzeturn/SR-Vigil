@@ -125,7 +125,7 @@ Standing rule for every milestone: `cargo fmt --check`, `cargo clippy -D warning
 
 **Deliver**
 - WiX v4 MSI: service install, ACLs, self-pin, Start Menu/tray autostart, upgrade-safe, clean uninstall (removes dynamic and persistent filters).
-- Self-protection checklist (`docs/08 §5`), module-signature check for Safe processes in user-writable paths (T14), BEH-005 unbacked executable memory (optional flag).
+- Self-protection checklist (`docs/08 §5`), module-signature check for Safe processes in user-writable paths (T14), BEH-005 unbacked executable memory (done: `vigil-win::memory`, opt-in via `VIGIL_MEMORY_SCAN=1`).
 - Inbound visibility/blocking option (FR-017), import/export (FR-018), geo map, accessibility audit, performance pass.
 - Release signing instructions, SBOM (`cargo cyclonedx`), `cargo deny`/`audit` gates.
 
