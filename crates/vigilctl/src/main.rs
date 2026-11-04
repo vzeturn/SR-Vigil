@@ -27,6 +27,12 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
+    /// List reclaimable junk; deletes only the categories named with --clean.
+    Junk {
+        /// Category ids to delete (for example `user_temp`).
+        #[arg(long, value_name = "ID")]
+        clean: Vec<String>,
+    },
     /// Show the running service's mode, health and verdict counts.
     Status {
         /// Emit machine-readable JSON instead of text.
@@ -87,6 +93,17 @@ enum ServiceCmd {
 fn main() -> anyhow::Result<()> {
     match Cli::parse().command {
         Command::Scan { json } => scan::run(json),
+        Command::Junk { clean } => {
+            if clean.is_empty() {
+                for c in vigil_win::junk::scan() {
+                    println!("{:<14} {:>7} files {:>7} MB", c.id, c.files, c.bytes >> 20);
+                }
+            } else {
+                let freed = vigil_win::junk::clean(&clean);
+                println!("freed {} MB", freed >> 20);
+            }
+            Ok(())
+        }
         Command::Status { json } => status::run(json),
         Command::Panic => control::panic(),
         Command::Mode {
