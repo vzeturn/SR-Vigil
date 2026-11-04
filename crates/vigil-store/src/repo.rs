@@ -162,6 +162,56 @@ pub fn latest_evaluation(
         .optional()?)
 }
 
+/// Id of the most recently seen executable stored under `path` (case-insensitive).
+pub fn executable_id_by_path(conn: &Connection, path: &str) -> Result<Option<i64>, StoreError> {
+    Ok(conn
+        .query_row(
+            "SELECT id FROM executables WHERE lower(path) = lower(?1) ORDER BY last_seen DESC LIMIT 1",
+            params![path],
+            |r| r.get(0),
+        )
+        .optional()?)
+}
+
+fn paths(
+    conn: &Connection,
+    sql: &str,
+    p: impl rusqlite::Params,
+) -> Result<Vec<String>, StoreError> {
+    let mut stmt = conn.prepare(sql)?;
+    let rows = stmt.query_map(p, |r| r.get::<_, String>(0))?;
+    Ok(rows.collect::<Result<_, _>>()?)
+}
+
+/// Paths of every known executable signed by `thumbprint`.
+pub fn paths_by_thumbprint(conn: &Connection, thumbprint: &str) -> Result<Vec<String>, StoreError> {
+    paths(
+        conn,
+        "SELECT DISTINCT path FROM executables WHERE signer_thumbprint = ?1",
+        params![thumbprint],
+    )
+}
+
+/// Paths of every known executable whose latest evaluation has `verdict`.
+pub fn paths_with_verdict(conn: &Connection, verdict: &str) -> Result<Vec<String>, StoreError> {
+    paths(
+        conn,
+        "SELECT DISTINCT e.path FROM executables e WHERE
+           (SELECT v.verdict FROM evaluations v WHERE v.executable_id = e.id
+            ORDER BY v.evaluated_at DESC, v.id DESC LIMIT 1) = ?1",
+        params![verdict],
+    )
+}
+
+/// Number of unresolved pending items.
+pub fn pending_count(conn: &Connection) -> Result<u32, StoreError> {
+    Ok(conn.query_row(
+        "SELECT COUNT(*) FROM pending WHERE resolved_at IS NULL",
+        [],
+        |r| r.get(0),
+    )?)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

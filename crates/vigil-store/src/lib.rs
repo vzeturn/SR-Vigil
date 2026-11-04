@@ -2,6 +2,8 @@
 #![allow(clippy::missing_errors_doc)]
 //! SQLite persistence: connection setup, schema migrations and repositories.
 
+pub mod audit;
+pub mod decisions;
 pub mod repo;
 
 use rusqlite::Connection;
@@ -19,6 +21,10 @@ pub enum StoreError {
     Sqlite(#[from] rusqlite::Error),
     #[error("database schema version {found} is newer than supported version {SCHEMA_VERSION}")]
     TooNew { found: i64 },
+    #[error("stored value is invalid: {0}")]
+    Corrupt(String),
+    #[error("timestamp error: {0}")]
+    Time(String),
 }
 
 /// Open an in-memory database with connection pragmas applied and the schema migrated.

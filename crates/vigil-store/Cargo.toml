@@ -12,3 +12,9 @@ workspace = true
 [dependencies]
 rusqlite.workspace = true
 thiserror.workspace = true
+serde_json.workspace = true
+time.workspace = true
+vigil-core = { path = "../vigil-core" }
+
+[dev-dependencies]
+time = { workspace = true, features = ["macros"] }
