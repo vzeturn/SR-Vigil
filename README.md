@@ -1,83 +1,83 @@
-# Vigil — Windows Process & Connection Trust Guard
+# Vigil
 
-> **VI:** Phần mềm an ninh endpoint viết bằng Rust, kiểm tra mọi process và kết nối mạng của máy Windows, chấm điểm độ tin cậy, tự động cho phép / chặn / hỏi người dùng, có thể nhờ Claude đánh giá thay.
-> **EN:** A Rust endpoint-security tool that inspects every process and network connection on a Windows host, scores trustworthiness, and automatically allows, blocks, or asks the user — optionally delegating decisions to Claude.
+**Know what runs on your Windows PC and what it talks to — Safe, Unknown or Malicious, with a reason for every call.**
 
----
+Vigil is an open-source, user-mode endpoint tool for Windows 10 1809+ / 11. It watches every process and network connection, scores each executable identity from 0 to 100 with an explainable rule engine, and enforces policy: allow, block, or ask you. An AI second opinion (Claude) is optional and can never override a hard rule.
 
-## 1. Tóm tắt (VI)
+> **Status: early development (pre-1.0).** Milestones M0 (rule engine foundations) and the scoring core of M1 are implemented and tested; the Windows collectors, service, enforcement and UI are in progress. See [Roadmap](docs/10-roadmap-milestones.md). Do not rely on it for protection yet.
 
-### Giá trị
-- Giảm rủi ro mã độc và dịch vụ lạ gọi ra Internet mà không cần mua EDR đầy đủ.
-- Mọi quyết định đều có **lý do giải thích được** (signal + điểm), có audit log, có thể kiểm toán (ISO/IEC 27001:2022 A.8.7, A.8.15, A.8.16, A.8.20).
-- Chạy hoàn toàn ở user-mode (không cần viết kernel driver) và local-first: AI là tùy chọn.
+> **VI:** Vigil là công cụ bảo vệ endpoint chạy hoàn toàn ở user-mode cho Windows: phân loại mọi process và kết nối mạng thành Safe / Unknown / Malicious, giải thích được từng quyết định, tự chặn hoặc hỏi người dùng; AI (Claude) chỉ là ý kiến tham khảo tùy chọn. Dự án đang phát triển, chưa dùng làm lớp bảo vệ chính.
 
-### Ba mức kết luận
+## Why Vigil
 
-| Verdict | Điểm | Hành vi khi `enforce` |
+- **Explainable.** Every verdict lists the signals that fired and their score deltas. No black box.
+- **Hard rules win.** Tampered signature, system-name masquerade, wrong parent process, publisher impersonation and revoked certificates override any score and any AI output.
+- **User-mode only.** No kernel driver. Enforcement uses Windows Filtering Platform *filters*, `TerminateProcess` and the Service Control Manager.
+- **Fails safe for usability.** The catch-all block filter is session-scoped, so a crashed service never leaves the machine offline. Unknown apps stay blocked while it runs.
+- **Local-first and private.** No telemetry, no auto-update. The only network calls are the optional Anthropic API and optional VirusTotal, both off by default.
+- **No silent destruction.** Nothing is deleted automatically; persistence items are disabled reversibly after your approval.
+
+## How it classifies
+
+| Verdict | Score | In `enforce` mode |
 |---|---|---|
-| **Safe** | ≥ 80 | Cho qua, không hỏi. Publisher tin cậy nhưng vẫn bị kiểm tra giả mạo. |
-| **Unknown** | 30–79 | Chặn mạng, hiện popup **Allow / Block / Kill**. |
-| **Malicious** | ≤ 29 hoặc khớp hard rule | Chặn ngay, kill process, khóa chặn bật lại. |
+| **Safe** | ≥ 80 | Allowed without prompting (still checked for forgery). |
+| **Unknown** | 30–79 | Network blocked, you choose Allow / Block / Kill. |
+| **Malicious** | ≤ 29 or a hard rule | Blocked and terminated. |
 
-### Kiến trúc một đoạn
-Windows service `VigilSvc` (Rust, chạy SYSTEM) thu thập sự kiện bằng ETW, chấm điểm bằng rule engine (chữ ký số, chống giả mạo, hành vi), thi hành bằng Windows Filtering Platform (WFP) và `TerminateProcess`. UI Tauri v2 (React) giao tiếp với service qua named pipe `\\.\pipe\vigil-control`. Claude (Messages API) chỉ nhận metadata đã ẩn danh hóa và chỉ được trả JSON theo schema cố định; hard rule luôn thắng AI.
+Modes: `observe` (log only), `learning` (build a baseline), `enforce`. Authority order: Vigil's own binaries and the never-kill guard › hard rules › your decisions › AI verdict › score. Details: [docs/03-trust-scoring.md](docs/03-trust-scoring.md).
 
-### Bắt đầu với Claude Code (3 bước)
-1. Mở terminal tại thư mục này (Windows 10 1809+/11, đã cài Rust stable, Node 22+, pnpm, WebView2).
-2. Chạy `claude`, rồi gõ: `/milestone M0`.
-3. Duyệt kết quả theo checklist ở `docs/12-handoff-prompts.md`, lặp lại với `M1` … `M6`.
+## Architecture
 
-### Bộ tài liệu
+```
+ ETW (process / network / DNS)          Tauri v2 + React UI
+          │                                     │  invoke / events
+ ┌────────▼─────────┐   named pipe   ┌──────────▼─────────┐
+ │ VigilSvc (SYSTEM)│◄──────────────►│ UI (Rust side owns │
+ │ collect · score  │ \\.\pipe\      │ the pipe)          │
+ │ enforce · audit  │ vigil-control  └────────────────────┘
+ └───┬──────────┬───┘
+     │ WFP filters, TerminateProcess        optional: Anthropic API · VirusTotal
+     ▼
+ SQLite (hash-chained audit log)
+```
 
-| File | Nội dung |
+| Crate | Role |
 |---|---|
-| `CLAUDE.md` | Chỉ dẫn cố định cho Claude Code (ràng buộc, lệnh, quy ước) |
-| `docs/00-overview.md` | Tầm nhìn, phạm vi, thuật ngữ |
-| `docs/01-requirements.md` | Yêu cầu chức năng / phi chức năng (FR/NFR) |
-| `docs/02-architecture.md` | Thành phần, crate, luồng dữ liệu, state machine |
-| `docs/03-trust-scoring.md` | Mô hình chấm điểm, hard rule, chống giả mạo |
-| `docs/04-enforcement-wfp.md` | WFP, kill, chống bật lại, persistence audit |
-| `docs/05-ipc-protocol.md` | Giao thức named pipe service ↔ UI |
-| `docs/06-ai-advisor.md` | Tích hợp Claude, redaction, chống prompt injection |
-| `docs/07-ui-spec.md` | Đặc tả UI/UX, design tokens, màn hình |
-| `docs/08-threat-model.md` | Mô hình mối đe dọa, ánh xạ ISO 27001 |
-| `docs/09-data-model.md` | SQLite, retention, audit hash chain |
-| `docs/10-roadmap-milestones.md` | Milestone M0–M6 và tiêu chí nghiệm thu |
-| `docs/11-testing.md` | Chiến lược kiểm thử, ca kiểm thử, CI |
-| `docs/12-handoff-prompts.md` | Prompt bàn giao từng milestone cho Claude Code |
-| `schemas/` | JSON Schema cho IPC, schema verdict của AI, SQL schema |
-| `rules/` | Rule mặc định, danh sách publisher, process hệ thống, LOLBin |
-| `config/default-policy.toml` | Chính sách mặc định của service |
+| `vigil-core` | Pure scoring, policy, masquerade and beaconing logic. No OS dependency; tested on any platform. |
+| `vigil-store` | SQLite persistence and audit chain. |
+| `vigil-ipc` | Named-pipe framing and protocol types. |
+| `vigil-ai` | Claude client, redaction, verdict-schema validation. |
+| `vigil-win` | The only crate with `unsafe`: ETW, WFP, `WinVerifyTrust`, process control. |
+| `vigil-svc` / `vigilctl` | Windows service host and admin CLI. |
+| `apps/ui` | Tauri v2 desktop app (vi / en). |
 
----
+Full design: [docs/](docs/) (requirements, architecture, enforcement, IPC, AI advisor, threat model, data model, testing).
 
-## 2. Summary (EN)
+## Build from source
 
-**Vigil** is a Windows service (`VigilSvc`) plus a Tauri v2 UI. The service collects process and network telemetry via ETW, verifies Authenticode/catalog signatures, scores each executable identity from 0 to 100 with an explainable rule engine, and enforces policy with WFP filters and process termination. Unknown executables are blocked from the network until a user (or Claude, if configured) approves them. Hard rules (tampered signature, masquerading system binary, wrong parent process, revoked certificate, publisher impersonation) always override scores and AI output.
+Requirements: Windows 10 1809+/11, Rust stable (see `rust-toolchain.toml`), Visual Studio 2022 Build Tools with the Windows SDK, Node 22+, pnpm, WebView2.
 
-- **Language/stack:** Rust (service, core, IPC, store, AI client) · Tauri v2 + React + TypeScript + Tailwind (UI) · SQLite.
-- **Scope:** user-mode only; no kernel driver; outbound enforcement first, inbound visibility second.
-- **Start:** see `docs/12-handoff-prompts.md`. Milestones: `docs/10-roadmap-milestones.md`.
-
-## 3. Repository layout
-
+```powershell
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace                 # core/store/ipc/ai run on any OS
+cargo run -p vigilctl -- status
+pnpm -C apps/ui install; pnpm -C apps/ui tauri dev
 ```
-vigil/
-├── CLAUDE.md                  # standing instructions for Claude Code
-├── .claude/                   # slash commands + permissions
-├── Cargo.toml                 # workspace
-├── crates/
-│   ├── vigil-core/            # pure logic: types, scoring, policy (cross-platform)
-│   ├── vigil-store/           # SQLite persistence, audit chain
-│   ├── vigil-ipc/             # named-pipe framing + protocol types
-│   ├── vigil-ai/              # Claude client, redaction, cache
-│   ├── vigil-win/             # ETW, WFP, WinVerifyTrust, process control (cfg(windows))
-│   ├── vigil-svc/             # service binary (SCM host + orchestrator)
-│   └── vigilctl/              # admin/debug CLI
-├── apps/ui/                   # Tauri v2 app (created in M2)
-├── rules/                     # default rule pack (embedded at build time)
-├── config/                    # default policy
-├── schemas/                   # JSON Schema + SQL
-└── docs/                      # design documents
-```
+
+End users will receive a self-contained installer and install nothing else (tracked in M6).
+
+## Security
+
+Vigil handles privileged operations and an API key, so it is built defensively:
+
+- The Anthropic API key lives only in the service, encrypted with DPAPI; it is never sent over IPC, logged, or shown in the UI.
+- Process names, paths, command lines and DNS names are treated as untrusted data: bound SQL parameters, no shell interpolation, redacted and schema-constrained AI prompts.
+- The control pipe is restricted to administrators; the data directory `%ProgramData%\Vigil` is SYSTEM + Administrators only.
+
+Found a vulnerability? Please follow [SECURITY.md](SECURITY.md) and do not open a public issue.
+
+## Contributing
+
+Read [CLAUDE.md](CLAUDE.md) for the non-negotiable constraints and conventions, then the relevant doc under `docs/`. Commits use `area: imperative summary`. `fmt`, `clippy -D warnings` and tests must pass. Never commit secrets, API keys, certificates or machine data — the `.gitignore` is deliberately strict.
