@@ -7,6 +7,7 @@ pub mod enforce;
 pub mod events;
 pub mod handler;
 pub mod kill;
+pub mod persist;
 pub mod state;
 
 #[cfg(windows)]

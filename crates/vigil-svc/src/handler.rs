@@ -79,6 +79,10 @@ impl ConnHandler {
                     .ok_or_else(|| invalid("start_time is required"))?,
             ),
             "process.kill" => s.kill_process(params, "user"),
+            "persistence.scan" => {
+                s.persistence_scan(params.get("target_image_path").and_then(Value::as_str))
+            }
+            "persistence.apply" => s.persistence_apply(params, "user"),
             "connection.list" => s.list_connections(params),
             "rule.list" => Ok(s.rules()),
             "trust.list" => Ok(s.trust()),

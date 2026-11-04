@@ -43,6 +43,12 @@ pub trait ProcessControl: Send + Sync {
     /// Terminate `pid` only if its start time still equals `started`.
     fn terminate(&self, pid: u32, started: u64) -> KillOutcome;
     fn sha256(&self, path: &str) -> Option<String>;
+    /// Persistence entries currently present on the machine.
+    fn persist_scan(&self) -> Vec<vigil_store::persistence::Found>;
+    /// Disable an entry; returns the backup that [`Self::persist_restore`] needs.
+    fn persist_disable(&self, kind: &str, location: &str) -> Result<String, String>;
+    fn persist_restore(&self, kind: &str, location: &str, backup: &str) -> Result<(), String>;
+    fn persist_delete(&self, kind: &str, location: &str) -> Result<(), String>;
 }
 
 fn action(ok: bool, code: Option<&str>, detail: &str) -> Value {
@@ -66,7 +72,7 @@ impl Shared {
             .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(c);
     }
 
-    fn control(&self) -> Option<Arc<dyn ProcessControl>> {
+    pub(crate) fn control(&self) -> Option<Arc<dyn ProcessControl>> {
         self.control
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)

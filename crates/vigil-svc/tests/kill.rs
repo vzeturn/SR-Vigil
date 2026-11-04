@@ -3,6 +3,7 @@
 use std::sync::{Arc, Mutex};
 
 use serde_json::json;
+use vigil_store::persistence::Found;
 use vigil_store::repo::{Executable, NewEvaluation, insert_evaluation, upsert_executable};
 use vigil_svc::kill::{KillOutcome, ProcessControl, Snap};
 use vigil_svc::state::{Options, ProcRow, Shared};
@@ -13,6 +14,17 @@ const BAD: &str = r"C:\Temp\bad.exe";
 struct Fake {
     procs: Mutex<Vec<Snap>>,
     killed: Mutex<Vec<u32>>,
+    items: Mutex<Vec<Found>>,
+}
+
+fn found(kind: &str, loc: &str) -> Found {
+    Found {
+        kind: kind.into(),
+        location: loc.into(),
+        image_path: Some(BAD.into()),
+        command: Some(BAD.into()),
+        risk_note: None,
+    }
 }
 
 impl Fake {
@@ -35,6 +47,21 @@ impl ProcessControl for Fake {
         self.procs.lock().unwrap().retain(|p| p.pid != pid);
         self.killed.lock().unwrap().push(pid);
         KillOutcome::Terminated
+    }
+    fn persist_scan(&self) -> Vec<Found> {
+        self.items.lock().unwrap().clone()
+    }
+    fn persist_disable(&self, _: &str, loc: &str) -> Result<String, String> {
+        self.items.lock().unwrap().retain(|f| f.location != loc);
+        Ok(format!("was:{loc}"))
+    }
+    fn persist_restore(&self, kind: &str, loc: &str, backup: &str) -> Result<(), String> {
+        assert_eq!(backup, format!("was:{loc}"));
+        self.items.lock().unwrap().push(found(kind, loc));
+        Ok(())
+    }
+    fn persist_delete(&self, _: &str, _: &str) -> Result<(), String> {
+        Ok(())
     }
     fn sha256(&self, path: &str) -> Option<String> {
         // A renamed copy keeps the same content hash.
@@ -181,4 +208,56 @@ fn auto_kill_does_nothing_outside_enforce() {
     s.put_process(row(800, BAD, Some(&id)));
     assert_eq!(s.auto_kill_malicious(), 0, "observe mode never kills");
     assert!(fake.killed.lock().unwrap().is_empty());
+}
+
+#[test]
+fn t_pers_01_scan_disable_restore_delete_follow_the_state_machine() {
+    let (s, fake, _) = setup();
+    fake.items
+        .lock()
+        .unwrap()
+        .push(found("run_key", "HKCU-Run-x"));
+    let scan = s.persistence_scan(Some(BAD)).unwrap();
+    let id = scan["findings"][0]["id"].as_str().unwrap().to_string();
+    assert_eq!(scan["findings"][0]["status"], "found");
+
+    let apply =
+        |action: &str| s.persistence_apply(&json!({ "item_id": id, "action": action }), "user");
+    assert_eq!(
+        apply("restore").unwrap()["ok"],
+        false,
+        "nothing to restore yet"
+    );
+    assert!(apply("delete").is_err(), "delete needs a prior disable");
+    assert_eq!(apply("disable").unwrap()["ok"], true);
+    assert!(fake.items.lock().unwrap().is_empty());
+    assert_eq!(apply("restore").unwrap()["ok"], true);
+    assert_eq!(fake.items.lock().unwrap().len(), 1);
+    assert_eq!(apply("disable").unwrap()["ok"], true);
+    assert_eq!(apply("delete").unwrap()["ok"], true);
+
+    let page = s.audit_query(&json!({})).unwrap();
+    assert_eq!(page["chain_ok"], true);
+    let n = page["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|e| e["kind"] == "persistence_action")
+        .count();
+    assert_eq!(n, 4);
+}
+
+#[test]
+fn persistence_never_touches_a_protected_system_image() {
+    let (s, fake, _) = setup();
+    let mut f = found("service", "service:lsass");
+    f.image_path = Some(r"C:\Windows\System32\lsass.exe".into());
+    fake.items.lock().unwrap().push(f);
+    let scan = s.persistence_scan(None).unwrap();
+    let id = scan["findings"][0]["id"].as_str().unwrap();
+    let r = s
+        .persistence_apply(&json!({ "item_id": id, "action": "disable" }), "user")
+        .unwrap();
+    assert_eq!(r["error_code"], "protected_target");
+    assert_eq!(fake.items.lock().unwrap().len(), 1);
 }
