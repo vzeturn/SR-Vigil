@@ -35,7 +35,7 @@ Standing rule for every milestone: `cargo fmt --check`, `cargo clippy -D warning
 
 **Deliver**
 - `vigil-win`: ETW sessions (`ferrisetw`) for Kernel-Process, Kernel-Network, DNS-Client; snapshot reconciler; `QueryFullProcessImageNameW`; command line via `NtQueryInformationProcess`/PEB read; parent chain with start-time check.
-  - Status (UI tray): M2 ships tray with Open/Quit (localized from the frontend). Pending count badge, Mode submenu and Panic arrive with M3 (they need enforcement and events).
+  - Status (UI tray): M2 ships tray with Open/Quit (localized from the frontend). M3 adds the pending count (tray tooltip), the Mode submenu and Panic.
   - Status: M2 ships the unprivileged slice only (process snapshot + `GetExtendedTcpTable` polling, 500 ms). ETW collection (instant events, DNS names) is deferred to M3 and needs elevation.
   - `trust.list` returns `thumbprint: ""` for org-pinned builtin publishers.
 - Hashing + `WinVerifyTrust` wrapper (embedded + catalog), signer extraction, VersionInfo.
@@ -72,7 +72,9 @@ Standing rule for every milestone: `cargo fmt --check`, `cargo clippy -D warning
 - WFP engine, dynamic/persistent providers, sublayers, permit/deny/catch-all filters, net-event subscription, `rebuild_then_arm`, system bootstrap check.
 - Pending/decision flow end to end, scopes/expiry, `apply_to` publisher, re-verification (FR-020).
 - Popup window, Pending screen, review wizard, tray menu, Audit screen with hash chain and `chain_ok`.
-- `enforcement.panic`, `vigilctl panic`.
+- `enforcement.panic`, `vigilctl panic`, `vigilctl mode`.
+
+**Status:** implemented and covered by automated tests with a fake filter engine (`crates/vigil-svc/tests/enforce.rs`); the real WFP path (`vigil-win::wfp`, `vigil-svc::winfilter`) compiles and is lint-clean but needs the elevated VM checks in `docs/11 §WFP` before the first four acceptance boxes below can be ticked. Deferred and tracked here: ETW collection, WFP failure retry backoff (docs/04 §7), daily audit anchor and Windows Event Log anchor.
 
 **Acceptance**
 - [ ] Unsigned test binary in `%TEMP%` is blocked from a non-loopback destination, popup appears, `Allow 1h` permits the next attempt, expiry re-blocks.

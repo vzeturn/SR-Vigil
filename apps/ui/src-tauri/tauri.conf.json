@@ -18,6 +18,19 @@
         "height": 800,
         "minWidth": 960,
         "minHeight": 600
+      },
+      {
+        "label": "popup",
+        "title": "Vigil",
+        "url": "index.html#popup",
+        "width": 440,
+        "height": 420,
+        "resizable": false,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "focus": false,
+        "visible": false
       }
     ],
     "security": {
@@ -26,8 +39,17 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["msi"],
-    "icon": ["icons/icon.ico", "icons/icon.png"],
-    "windows": { "webviewInstallMode": { "type": "embedBootstrapper" } }
+    "targets": [
+      "msi"
+    ],
+    "icon": [
+      "icons/icon.ico",
+      "icons/icon.png"
+    ],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "embedBootstrapper"
+      }
+    }
   }
 }

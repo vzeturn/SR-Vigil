@@ -24,6 +24,13 @@ const ALLOWED: &[&str] = &[
     "trust.list",
     "settings.get",
     "settings.set",
+    "pending.list",
+    "decision.submit",
+    "decision.list",
+    "decision.revoke",
+    "audit.query",
+    "enforcement.panic",
+    "process.get",
 ];
 
 pub struct Rpc {
@@ -68,14 +75,19 @@ async fn session(
                    "protocol": vigil_ipc::PROTOCOL}),
         )
         .await?;
-    let _ = app.emit("vigil://link", json!({"up": true, "role": hello["role"]}));
+    let role = hello["role"].clone();
+    let _ = client
+        .call("subscribe", json!({"topics": ["pending"]}))
+        .await;
     let mut tick = tokio::time::interval(SNAPSHOT_EVERY);
     loop {
         tokio::select! {
             _ = tick.tick() => {
                 let snap = snapshot(client).await?;
+                // Re-announced every tick so a window created after the first event still learns the role.
+                let _ = app.emit("vigil://link", json!({"up": true, "role": role}));
                 let _ = app.emit("vigil://snapshot", snap);
-                client.notifications.clear();
+                forward_pending(app, client);
             }
             Some(rpc) = rx.recv() => match client.call(&rpc.method, rpc.params).await {
                 Ok(v) => { let _ = rpc.reply.send(Ok(v)); }
@@ -86,6 +98,20 @@ async fn session(
     }
 }
 
+/// Queued service notifications: only `pending_created` matters to the shell (popup + UI refresh).
+fn forward_pending(app: &AppHandle, client: &mut Client<NamedPipeClient>) {
+    let mut created = false;
+    for n in client.notifications.drain(..) {
+        if n.method == "event.pending_created" {
+            created = true;
+            let _ = app.emit("vigil://pending", n.params);
+        }
+    }
+    if created {
+        crate::popup::on_pending(app);
+    }
+}
+
 async fn snapshot(client: &mut Client<NamedPipeClient>) -> Result<Value, CallError> {
     let status = client.call("status.get", json!({})).await?;
     let processes = collect(client, "process.list").await?;
@@ -93,7 +119,10 @@ async fn snapshot(client: &mut Client<NamedPipeClient>) -> Result<Value, CallErr
     Ok(json!({"status": status, "processes": processes, "connections": connections}))
 }
 
-async fn collect(client: &mut Client<NamedPipeClient>, method: &str) -> Result<Vec<Value>, CallError> {
+async fn collect(
+    client: &mut Client<NamedPipeClient>,
+    method: &str,
+) -> Result<Vec<Value>, CallError> {
     let mut items = Vec::new();
     let mut cursor: Option<String> = None;
     for _ in 0..MAX_PAGES {

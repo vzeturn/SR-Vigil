@@ -1680,6 +1680,7 @@ name = "vigil-core"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "serde_json",
  "sha2",
  "thiserror",
  "toml",
@@ -1700,7 +1701,10 @@ name = "vigil-store"
 version = "0.1.0"
 dependencies = [
  "rusqlite",
+ "serde_json",
  "thiserror",
+ "time",
+ "vigil-core",
 ]
 
 [[package]]
