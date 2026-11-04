@@ -101,6 +101,8 @@ For rows decided by a hard rule the table shows only the deciding rule; every ot
 
 - `rules/publishers.toml` defines built-in publishers by **subject organisation + required issuer chain** (not by hard-coded thumbprints in source).
 - At install and on demand, `vigilctl trust bootstrap` (and the installer) reads reference binaries listed in each entry's `bootstrap_from` and records the observed **leaf and intermediate thumbprints** into `%ProgramData%\Vigil\publishers.lock`. Pins are then matched by thumbprint family so certificate renewals by the same CA chain do not create prompts, while a different CA issuing the same subject text does not match.
+
+> **Open finding (M1 scan on a real machine):** when none of a publisher's `bootstrap_from` binaries exists (for example Intel LMS lives in `DriverStore`, not under `%ProgramFiles%`), the publisher has no pins, `signer_pinned` stays false and HR-007 flags genuine, validly signed software as `malicious`. Proposed fix, pending approval because it changes hard-rule semantics: HR-007 only applies to publishers with at least one pin; an un-pinned publisher claim falls back to the ordinary valid-signer signals.
 - The admin can add/remove pins in the UI (Rules & Trust) → stored in `trust_publishers` with audit.
 - Pin match requires: valid signature **and** subject organisation equal **and** chain issuer in the entry's allowed issuers **and** not revoked.
 

@@ -8,3 +8,12 @@ license.workspace = true
 
 [lints]
 workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+serde_json.workspace = true
+vigil-core = { path = "../vigil-core" }
+
+[target.'cfg(windows)'.dependencies]
+vigil-win = { path = "../vigil-win" }
