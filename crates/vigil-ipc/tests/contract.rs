@@ -72,9 +72,8 @@ fn envelopes_validate_against_the_schema() {
 
 struct Echo;
 
-#[allow(clippy::unused_async)]
-
 impl Handler for Echo {
+    #[allow(clippy::unused_async_trait_impl)]
     async fn call(&self, role: Role, method: &str, _p: Value) -> Result<Value, RpcError> {
         Ok(json!({ "method": method, "admin": role == Role::Admin }))
     }
