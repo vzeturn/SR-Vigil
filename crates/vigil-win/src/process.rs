@@ -58,21 +58,34 @@ pub fn query(pid: u32) -> (Option<String>, Option<u64>) {
     let mut len = u32::try_from(buf.len()).unwrap_or(32_768);
     // SAFETY: `buf` is valid for `len` u16s and `len` is updated to the written length.
     let image = unsafe {
-        QueryFullProcessImageNameW(h.0, PROCESS_NAME_WIN32, PWSTR(buf.as_mut_ptr()), &mut len)
+        QueryFullProcessImageNameW(
+            h.0,
+            PROCESS_NAME_WIN32,
+            PWSTR(buf.as_mut_ptr()),
+            &raw mut len,
+        )
     }
     .ok()
     .map(|()| String::from_utf16_lossy(&buf[..len as usize]));
 
-    let (mut c, mut e, mut k, mut u) = (
+    let (mut created, mut exited, mut kernel, mut user) = (
         FILETIME::default(),
         FILETIME::default(),
         FILETIME::default(),
         FILETIME::default(),
     );
     // SAFETY: all four out-pointers refer to live, writable `FILETIME`s.
-    let start = unsafe { GetProcessTimes(h.0, &mut c, &mut e, &mut k, &mut u) }
-        .ok()
-        .map(|()| filetime(c));
+    let start = unsafe {
+        GetProcessTimes(
+            h.0,
+            &raw mut created,
+            &raw mut exited,
+            &raw mut kernel,
+            &raw mut user,
+        )
+    }
+    .ok()
+    .map(|()| filetime(created));
     (image, start)
 }
 
@@ -86,7 +99,7 @@ pub fn snapshot() -> Result<Vec<ProcessInfo>, Error> {
     };
     let mut out = Vec::new();
     // SAFETY: `entry.dwSize` is set and `snap` is a valid snapshot handle.
-    let mut more = unsafe { Process32FirstW(snap.0, &mut entry) }.is_ok();
+    let mut more = unsafe { Process32FirstW(snap.0, &raw mut entry) }.is_ok();
     while more {
         let (image, start_time) = query(entry.th32ProcessID);
         out.push(ProcessInfo {
@@ -97,7 +110,7 @@ pub fn snapshot() -> Result<Vec<ProcessInfo>, Error> {
             start_time,
         });
         // SAFETY: same invariants as `Process32FirstW` above.
-        more = unsafe { Process32NextW(snap.0, &mut entry) }.is_ok();
+        more = unsafe { Process32NextW(snap.0, &raw mut entry) }.is_ok();
     }
     Ok(out)
 }
@@ -132,10 +145,10 @@ mod tests {
         assert!(p.start_time.is_some());
     }
 
-    fn p(pid: u32, ppid: u32, start: u64) -> ProcessInfo {
+    fn proc_at(pid: u32, parent: u32, start: u64) -> ProcessInfo {
         ProcessInfo {
             pid,
-            ppid,
+            ppid: parent,
             name: String::new(),
             image: None,
             start_time: Some(start),
@@ -144,7 +157,11 @@ mod tests {
 
     #[test]
     fn reused_parent_pid_is_rejected() {
-        let procs = [p(10, 4, 100), p(20, 10, 200), p(30, 10, 50)];
+        let procs = [
+            proc_at(10, 4, 100),
+            proc_at(20, 10, 200),
+            proc_at(30, 10, 50),
+        ];
         let m = parent_of(&procs);
         assert_eq!(m[&20].pid, 10);
         assert!(!m.contains_key(&30), "parent started after child");

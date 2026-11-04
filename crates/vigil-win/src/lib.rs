@@ -6,7 +6,7 @@
 
 pub mod hash;
 pub mod process;
-// pub mod trust;
+pub mod trust;
 pub mod version;
 
 /// Errors from the Windows layer.

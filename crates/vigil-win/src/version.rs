@@ -17,7 +17,7 @@ pub fn read(path: &str) -> Option<VersionInfo> {
     let file = PCWSTR(wpath.as_ptr());
     let mut handle = 0u32;
     // SAFETY: `file` is a NUL-terminated UTF-16 string that outlives the call.
-    let size = unsafe { GetFileVersionInfoSizeW(file, Some(&mut handle)) };
+    let size = unsafe { GetFileVersionInfoSizeW(file, Some(&raw mut handle)) };
     if size == 0 {
         return None;
     }
@@ -41,7 +41,14 @@ fn translation(data: &[u8]) -> Option<u32> {
     let mut ptr: *mut c_void = std::ptr::null_mut();
     let mut len = 0u32;
     // SAFETY: `data` is a version block from `GetFileVersionInfoW`; `ptr`/`len` are valid out-params.
-    let ok = unsafe { VerQueryValueW(data.as_ptr().cast(), PCWSTR(sub.as_ptr()), &mut ptr, &mut len) };
+    let ok = unsafe {
+        VerQueryValueW(
+            data.as_ptr().cast(),
+            PCWSTR(sub.as_ptr()),
+            &raw mut ptr,
+            &raw mut len,
+        )
+    };
     if !ok.as_bool() || len < 4 || ptr.is_null() {
         return None;
     }
@@ -58,7 +65,14 @@ fn query_string(data: &[u8], lang: u32, name: &str) -> String {
     let mut ptr: *mut c_void = std::ptr::null_mut();
     let mut len = 0u32;
     // SAFETY: as in `translation`.
-    let ok = unsafe { VerQueryValueW(data.as_ptr().cast(), PCWSTR(sub.as_ptr()), &mut ptr, &mut len) };
+    let ok = unsafe {
+        VerQueryValueW(
+            data.as_ptr().cast(),
+            PCWSTR(sub.as_ptr()),
+            &raw mut ptr,
+            &raw mut len,
+        )
+    };
     if !ok.as_bool() || len == 0 || ptr.is_null() {
         return String::new();
     }
