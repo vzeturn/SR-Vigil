@@ -50,6 +50,14 @@ when = { signature = "valid", company_matches_signer = true }
 score = 8
 
 [[rule]]
+id = "KNOW-001"
+name = "recognised_software"
+kind = "signal"
+description = "Recognised well-known software installed under a system or Program Files location"
+when = { known_software = true, path_class = ["system", "program_files"] }
+score = 25
+
+[[rule]]
 id = "LOC-001"
 name = "path_program_files_or_system"
 kind = "signal"

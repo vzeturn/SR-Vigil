@@ -21,6 +21,7 @@ pub struct Facts {
     pub company_matches_signer: bool,
     pub company_conflicts_signer: bool,
     pub claims_pinned_publisher: bool,
+    pub known_software: bool,
     pub lolbin: bool,
     pub has_outbound: bool,
     pub dest_public: bool,
@@ -55,6 +56,7 @@ impl Default for Facts {
             company_matches_signer: false,
             company_conflicts_signer: false,
             claims_pinned_publisher: false,
+            known_software: false,
             lolbin: false,
             has_outbound: false,
             dest_public: false,
@@ -129,6 +131,7 @@ fn matches(w: &When, f: &Facts) -> bool {
         && flag(w.company_matches_signer, f.company_matches_signer)
         && flag(w.company_conflicts_signer, f.company_conflicts_signer)
         && flag(w.claims_pinned_publisher, f.claims_pinned_publisher)
+        && flag(w.known_software, f.known_software)
         && flag(w.lolbin, f.lolbin)
         && flag(w.has_outbound, f.has_outbound)
         && flag(w.dest_public, f.dest_public)

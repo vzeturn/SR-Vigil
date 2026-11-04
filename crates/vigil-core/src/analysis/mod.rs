@@ -2,6 +2,7 @@
 
 pub mod beacon;
 pub mod geo;
+pub mod known;
 pub mod masquerade;
 pub mod names;
 pub mod path;

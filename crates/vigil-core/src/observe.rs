@@ -164,7 +164,16 @@ pub fn build_facts(ctx: &Context, obs: &Observation) -> Facts {
     let name = basename(&path).to_string();
     let masq = masquerade::check(&ctx.system, &ctx.vars, &path, parent.as_deref());
     let signer = &obs.signer;
-    let company = if signer.valid() {
+    let known = crate::analysis::known::lookup(
+        &name,
+        &[
+            obs.version.company.as_str(),
+            obs.version.product.as_str(),
+            obs.version.original_filename.as_str(),
+        ],
+    )
+    .is_some();
+    let company = if signer.valid() && !known {
         compare_company(&obs.version.company, signer.org.as_deref().unwrap_or(""))
     } else {
         crate::analysis::names::CompanyCheck::default()
@@ -188,6 +197,7 @@ pub fn build_facts(ctx: &Context, obs: &Observation) -> Facts {
         never_kill_set: masq.never_kill_set,
         company_matches_signer: company.matches,
         company_conflicts_signer: company.conflicts,
+        known_software: known,
         claims_pinned_publisher: claims_publisher(&metadata, &ctx.all_publisher_names()),
         lolbin: ctx
             .lolbins

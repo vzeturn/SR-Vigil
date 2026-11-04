@@ -117,6 +117,7 @@ pub struct When {
     pub company_matches_signer: Option<bool>,
     pub company_conflicts_signer: Option<bool>,
     pub claims_pinned_publisher: Option<bool>,
+    pub known_software: Option<bool>,
     pub lolbin: Option<bool>,
     pub has_outbound: Option<bool>,
     pub dest_public: Option<bool>,

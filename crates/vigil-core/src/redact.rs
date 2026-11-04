@@ -63,6 +63,8 @@ pub struct Input {
     /// `(signal id, delta)`.
     pub signals: Vec<(String, i32)>,
     pub hard_rules: Vec<String>,
+    /// Catalogue match `(label, what)` for well-known desktop software, by name and vendor text.
+    pub known: Option<(String, String)>,
     pub cmdline: Option<String>,
     /// The signed-in user name and machine/domain names to remove from every string.
     pub username: String,
@@ -293,6 +295,12 @@ pub fn build(input: &Input, send_cmdline: bool) -> Value {
         "rule_result".into(),
         json!({ "score": input.score, "signals": signals, "hard_rules": hard }),
     );
+    if let Some((label, what)) = &input.known {
+        out.insert(
+            "known_software".into(),
+            json!({ "label": scrub(label), "what": scrub(what) }),
+        );
+    }
     if let (true, Some(c)) = (send_cmdline, input.cmdline.as_deref()) {
         let scrubbed = scrub_cmdline(&strip_identity(c, user, hosts));
         let fp = hex16(&Sha256::digest(c.as_bytes()));
@@ -382,6 +390,14 @@ mod tests {
         let v = build(&i, false);
         assert_eq!(v["destination"]["class"], "public");
         assert_eq!(v["destination"]["dns"], "example.com");
+    }
+
+    #[test]
+    fn known_software_is_sent_only_when_matched() {
+        let mut i = base("zqdave");
+        assert!(build(&i, false).get("known_software").is_none());
+        i.known = Some(("ShareX".into(), "Screen capture tool".into()));
+        assert_eq!(build(&i, false)["known_software"]["label"], "ShareX");
     }
 
     #[test]

@@ -610,6 +610,14 @@ impl Shared {
             score: i32::from(ev.score),
             signals,
             hard_rules: ev.hard_rule.iter().cloned().collect(),
+            known: vigil_core::analysis::known::lookup(
+                exe.path.rsplit(['\\', '/']).next().unwrap_or_default(),
+                &[
+                    exe.company.as_deref().unwrap_or_default(),
+                    exe.product.as_deref().unwrap_or_default(),
+                ],
+            )
+            .map(|k| (k.label.clone(), k.what.clone())),
             username: user_from_path(&exe.path),
             hostnames: ["COMPUTERNAME", "USERDOMAIN"]
                 .iter()

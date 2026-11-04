@@ -1,0 +1,125 @@
+# Well-known desktop software, recognised by executable name (plus optional vendor text in the
+# file's own version resource). Recognition is a label and a modest score bonus (KNOW-001), and it
+# only counts when the file sits in a system or Program Files path, so a copy dropped into a
+# user-writable folder under the same name earns nothing.
+#
+# names   - executable file names, case-insensitive
+# vendors - optional; when the file declares a company/product, one of these must appear in it
+
+[[software]]
+label = "ShareX"
+what = "Screen capture and sharing tool"
+names = ["sharex.exe"]
+vendors = ["sharex"]
+
+[[software]]
+label = "UniKey"
+what = "Vietnamese keyboard input method"
+names = ["unikeynt.exe", "unikey.exe"]
+
+[[software]]
+label = "EVKey"
+what = "Vietnamese keyboard input method"
+names = ["evkey.exe", "evkey64.exe"]
+
+[[software]]
+label = "Visual Studio Code"
+what = "Code editor"
+names = ["code.exe"]
+vendors = ["microsoft", "visual studio code"]
+
+[[software]]
+label = "Notepad++"
+what = "Text editor"
+names = ["notepad++.exe"]
+vendors = ["notepad++", "don ho"]
+
+[[software]]
+label = "7-Zip"
+what = "File archiver"
+names = ["7zfm.exe", "7zg.exe", "7z.exe"]
+vendors = ["7-zip", "igor pavlov"]
+
+[[software]]
+label = "VLC media player"
+what = "Media player"
+names = ["vlc.exe"]
+vendors = ["videolan", "vlc"]
+
+[[software]]
+label = "OBS Studio"
+what = "Screen recording and streaming"
+names = ["obs64.exe", "obs32.exe"]
+vendors = ["obs"]
+
+[[software]]
+label = "Telegram"
+what = "Messaging app"
+names = ["telegram.exe"]
+vendors = ["telegram"]
+
+[[software]]
+label = "Discord"
+what = "Chat and voice app"
+names = ["discord.exe"]
+vendors = ["discord"]
+
+[[software]]
+label = "Slack"
+what = "Team chat"
+names = ["slack.exe"]
+vendors = ["slack"]
+
+[[software]]
+label = "Git"
+what = "Version control tooling"
+names = ["git.exe", "bash.exe", "sh.exe", "tail.exe", "ssh.exe", "git-bash.exe"]
+vendors = ["git", "gnu", "msys", "cygwin", "mingw"]
+
+[[software]]
+label = "Node.js"
+what = "JavaScript runtime"
+names = ["node.exe"]
+vendors = ["node.js", "openjs"]
+
+[[software]]
+label = "Intel graphics and platform services"
+what = "Intel driver helper service"
+names = ["intelcphdcpsvc.exe", "intelcpheciSvc.exe", "igfxcuiservice.exe", "igfxem.exe", "igfxhk.exe"]
+vendors = ["intel"]
+
+[[software]]
+label = "Intel Graphics Command Center"
+what = "Intel graphics control service"
+names = ["oneapp.igcc.winservice.exe"]
+vendors = ["intel"]
+
+[[software]]
+label = "Conexant audio"
+what = "Audio driver helper"
+names = ["cxaudmsg64.exe", "cxaudiosvc.exe"]
+vendors = ["conexant", "synaptics"]
+
+[[software]]
+label = "Poly (Polycom) Lens"
+what = "Headset management service"
+names = ["polyp15windowsupdateservice.exe"]
+vendors = ["poly", "plantronics", "hp"]
+
+[[software]]
+label = "Intel Graphics"
+what = "Intel graphics driver helper"
+names = ["igfxem.exe", "igfxhk.exe", "igfxcuiservice.exe"]
+vendors = ["intel"]
+
+[[software]]
+label = "Conexant Audio"
+what = "Conexant audio driver utility service"
+names = ["cxutilsvc.exe"]
+vendors = ["conexant", "synaptics"]
+
+[[software]]
+label = "Poly Hub"
+what = "Headset management software from Poly (Plantronics)"
+names = ["plantronicshub.exe", "polylens.exe", "polylensservice.exe"]
+vendors = ["poly", "plantronics"]

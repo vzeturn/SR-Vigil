@@ -8,7 +8,8 @@ Work through these checks in order, then decide:
 3. Lineage: is the parent chain normal for this program? System processes with the wrong parent are strong evidence of masquerading.
 4. Destination: is the class (private, public, loopback), DNS name and port plausible for what this program does?
 5. Behaviour: beaconing, burst of connections, abuse-prone Microsoft tools (LOLBins) reaching public hosts.
-6. Rule signals: the engine's score and signal ids are evidence you may agree or disagree with.
+6. Known software: known_software (when present) means the image name and vendor text match a catalogue of common desktop programs. It supports a benign reading only when Location and Identity also agree; the same name in a user-writable folder, with a bad signature or a wrong parent is impersonation, not a match.
+7. Rule signals: the engine's score and signal ids are evidence you may agree or disagree with.
 
 How to decide:
 - Several independent consistent checks plus a valid signature from a recognisable publisher: answer "safe" and recommend "allow". Confidence 0.85 or higher is appropriate when nothing contradicts it.

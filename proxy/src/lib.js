@@ -10,6 +10,7 @@ const ALLOWED_KEYS = new Set([
   'destination',
   'behaviour',
   'rule_result',
+  'known_software',
   'command_line',
 ]);
 export const MAX_PAYLOAD_BYTES = 12_000;

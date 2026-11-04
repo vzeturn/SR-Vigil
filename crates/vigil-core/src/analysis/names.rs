@@ -111,7 +111,17 @@ pub fn compare_company(company: &str, signer_org: &str) -> CompanyCheck {
     if s.starts_with("microsoft windows hardware") {
         return CompanyCheck::default();
     }
-    let loosely = c == s || c.contains(&s) || s.contains(&c);
+    // Same leading brand word ("intel r" vs "intel") means the same vendor.
+    let brand = |x: &str| {
+        x.split(' ')
+            .next()
+            .filter(|w| w.len() >= 4)
+            .map(str::to_owned)
+    };
+    let loosely = c == s
+        || c.contains(&s)
+        || s.contains(&c)
+        || brand(&c).is_some_and(|w| brand(&s).as_deref() == Some(w.as_str()));
     CompanyCheck {
         matches: loosely,
         conflicts: !loosely,
@@ -164,6 +174,9 @@ mod tests {
         assert!(compare_company("Microsoft Corporation", "Microsoft Corporation").matches);
         assert!(compare_company("Google", "Google LLC").matches);
         assert!(compare_company("Acme Tools", "Microsoft Corporation").conflicts);
+        assert!(compare_company("Intel(R) Corporation", "Intel Corp.").matches);
+        assert!(compare_company("Polycom Inc.", "Polycom, Inc. Systems").matches);
+        assert!(compare_company("Microsoft Tools", "Microsoft Corporation").matches);
         assert_eq!(
             compare_company(
                 "Intel Corporation",
