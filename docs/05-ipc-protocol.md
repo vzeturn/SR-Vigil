@@ -65,7 +65,7 @@ JSON-RPC 2.0 subset: `{"jsonrpc":"2.0","id":<int|string>,"method":"...","params"
 | `trust.revoke` | A | `{publisher_id}` → `{}` |
 | `persistence.scan` | A | `{target_image_path?}` → `{findings: PersistenceItem[]}` |
 | `persistence.apply` | A | `{item_id, action: "disable"|"restore"|"delete"}` → `ActionResult` |
-| `ai.config.get` | R | `{}` → `{enabled, mode, model, escalation_model, thresholds, has_key, budget}` (never the key) |
+| `ai.config.get` | R | `{}` → `{enabled, mode, model, escalation_model, thresholds, has_key, source, shared_available, budget}` (never the key or the install token) |
 | `ai.config.set` | A | `{enabled?, mode?, model?, escalation_model?, api_key?, thresholds?, budget?}` → `AiConfig` |
 | `ai.preview` | A | `{identity_id}` → `{payload, payload_sha256}` (exactly the redacted bytes that would be sent) |
 | `ai.test` | A | `{}` → `{ok, latency_ms, model}` |

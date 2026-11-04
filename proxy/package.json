@@ -1,0 +1,8 @@
+{
+  "name": "vigil-ai-endpoint",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/lib.test.js"
+  }
+}

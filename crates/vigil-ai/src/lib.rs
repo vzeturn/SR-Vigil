@@ -7,7 +7,7 @@ mod error;
 mod limits;
 mod opinion;
 
-pub use client::{Advisor, Config, SYSTEM_PROMPT, user_message};
+pub use client::{Advisor, Config, SYSTEM_PROMPT, proxy_spec, user_message};
 pub use error::AiError;
 pub use limits::Limiter;
 pub use opinion::{Opinion, validate};

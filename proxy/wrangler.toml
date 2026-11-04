@@ -1,0 +1,21 @@
+name = "vigil-ai"
+main = "src/index.js"
+compatibility_date = "2026-01-01"
+
+# Secrets (never in this file): wrangler secret put ANTHROPIC_API_KEY ; wrangler secret put TOKEN_SECRET
+[vars]
+# Emergency stop: set to "1" and redeploy (or change in the dashboard) to refuse every call.
+DISABLED = "0"
+PER_INSTALL_MINUTE = "6"
+PER_INSTALL_DAY = "60"
+GLOBAL_CALLS_DAY = "4000"
+REGISTER_PER_IP_DAY = "5"
+REGISTER_GLOBAL_DAY = "2000"
+
+[[durable_objects.bindings]]
+name = "QUOTA"
+class_name = "Quota"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Quota"]

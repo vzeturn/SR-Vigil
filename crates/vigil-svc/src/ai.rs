@@ -24,6 +24,7 @@ use zeroize::Zeroizing;
 use crate::state::Shared;
 
 const KEY: &str = "ai.key";
+const TOKEN: &str = "ai.token";
 const ENTROPY: &str = "ai.entropy";
 const CONFIG: &str = "ai.config";
 const TTL_DECIDED: Duration = Duration::days(7);
@@ -45,7 +46,24 @@ pub trait AiBackend: Send + Sync {
         present: &'a [String],
     ) -> BoxFut<'a, Result<(Opinion, String), AiError>>;
     fn calls_today(&self) -> u32;
+    /// Assess through the shared endpoint with an install token (no API key on this machine).
+    fn assess_shared<'a>(
+        &'a self,
+        _cfg: &'a AiSettings,
+        _token: &'a SecretString,
+        _payload: &'a Value,
+        _present: &'a [String],
+    ) -> BoxFut<'a, Result<(Opinion, String), AiError>> {
+        Box::pin(async { Err(AiError::NoKey) })
+    }
+    /// Obtain this installation's token from the shared endpoint.
+    fn register_shared(&self) -> BoxFut<'_, Result<SecretString, AiError>> {
+        Box::pin(async { Err(AiError::NoKey) })
+    }
 }
+
+/// Shared endpoint baked in at release build time (`VIGIL_PROXY_URL`); `None` for local builds.
+pub const SHARED_URL: Option<&str> = option_env!("VIGIL_PROXY_URL");
 
 /// Key sealing primitive supplied by the platform.
 pub trait KeyVault: Send + Sync {
@@ -88,6 +106,7 @@ impl LiveBackend {
             escalation_model: (!s.escalation_model.is_empty()).then(|| s.escalation_model.clone()),
             escalate_below: s.escalate_below,
             daily_budget: s.daily_call_budget,
+            proxy_url: SHARED_URL.map(str::to_string),
             ..vigil_ai::Config::default()
         })?);
         *g = Some((id, Arc::clone(&a)));
@@ -118,6 +137,26 @@ impl AiBackend for LiveBackend {
             .as_ref()
             .map_or(0, |(_, a)| a.calls_today())
     }
+    fn assess_shared<'a>(
+        &'a self,
+        cfg: &'a AiSettings,
+        token: &'a SecretString,
+        payload: &'a Value,
+        present: &'a [String],
+    ) -> BoxFut<'a, Result<(Opinion, String), AiError>> {
+        Box::pin(async move {
+            self.advisor(cfg)?
+                .assess_shared(token, payload, present)
+                .await
+        })
+    }
+    fn register_shared(&self) -> BoxFut<'_, Result<SecretString, AiError>> {
+        Box::pin(async move {
+            self.advisor(&AiSettings::default())?
+                .register_shared()
+                .await
+        })
+    }
 }
 
 /// Persisted AI settings (the key is stored separately, sealed).
@@ -135,6 +174,8 @@ pub struct AiSettings {
     pub send_cmdline: bool,
     pub daily_call_budget: u32,
     pub acknowledged: bool,
+    /// `own_key` (the user's Anthropic key) or `shared` (the project's endpoint, no key needed).
+    pub source: String,
 }
 
 impl Default for AiSettings {
@@ -150,6 +191,7 @@ impl Default for AiSettings {
             send_cmdline: false,
             daily_call_budget: 500,
             acknowledged: false,
+            source: "own_key".into(),
         }
     }
 }
@@ -157,6 +199,10 @@ impl Default for AiSettings {
 impl AiSettings {
     fn active(&self) -> bool {
         self.enabled && self.mode != "off"
+    }
+
+    fn shared(&self) -> bool {
+        self.source == "shared"
     }
 }
 
@@ -249,6 +295,15 @@ impl Shared {
             .is_some()
     }
 
+    /// Whether the configured source can be used right now.
+    fn ai_ready(&self, s: &AiSettings) -> bool {
+        if s.shared() {
+            SHARED_URL.is_some()
+        } else {
+            self.ai_has_key()
+        }
+    }
+
     pub(crate) fn ai_status(&self) -> Value {
         let s = self.ai_settings();
         json!({ "enabled": s.active(), "mode": if s.active() { s.mode.as_str() } else { "off" } })
@@ -271,6 +326,7 @@ impl Shared {
             "auto_threshold": s.auto_threshold, "escalate_below": s.escalate_below,
             "auto_kill": s.auto_kill, "send_cmdline": s.send_cmdline,
             "daily_call_budget": s.daily_call_budget,
+            "source": s.source, "shared_available": SHARED_URL.is_some(),
             "calls_today": self.ai_backend().map_or(0, |b| b.calls_today()),
         })
     }
@@ -343,6 +399,19 @@ impl Shared {
                 .ok_or_else(|| bad("mode must be off, advisor or auto"))?;
             s.mode = m.to_string();
         }
+        if let Some(v) = obj.get("source") {
+            let src = v
+                .as_str()
+                .filter(|m| ["own_key", "shared"].contains(m))
+                .ok_or_else(|| bad("source must be own_key or shared"))?;
+            if src == "shared" && SHARED_URL.is_none() {
+                return Err(RpcError::new(
+                    INVALID_STATE,
+                    "this build has no shared AI endpoint",
+                ));
+            }
+            s.source = src.to_string();
+        }
         if let Some(v) = obj.get("daily_call_budget") {
             s.daily_call_budget = v
                 .as_u64()
@@ -381,6 +450,7 @@ impl Shared {
                 s.daily_call_budget != before.daily_call_budget,
             ),
             ("acknowledged", s.acknowledged != before.acknowledged),
+            ("source", s.source != before.source),
         ] {
             if differs {
                 changed.push(name);
@@ -400,7 +470,7 @@ impl Shared {
             }
             None => {}
         }
-        if s.enabled && !self.ai_has_key() {
+        if s.enabled && !self.ai_ready(&s) {
             return Err(RpcError::new(
                 INVALID_STATE,
                 "an API key is required to enable AI",
@@ -427,6 +497,10 @@ impl Shared {
     }
 
     fn store_key(&self, b: &dyn AiBackend, key: &str) -> Result<(), RpcError> {
+        self.store_secret(b, KEY, key)
+    }
+
+    fn store_secret(&self, b: &dyn AiBackend, name: &str, key: &str) -> Result<(), RpcError> {
         let fail = |e: String| {
             tracing::error!(error = %e, "could not seal the AI key");
             RpcError::new(vigil_ipc::proto::INTERNAL_ERROR, "could not store the key")
@@ -441,15 +515,33 @@ impl Shared {
             e
         });
         let sealed = b.seal(key.as_bytes(), &entropy).map_err(fail)?;
-        self.with_store(|c| store::setting_put(c, KEY, &sealed));
+        self.with_store(|c| store::setting_put(c, name, &sealed));
         Ok(())
     }
 
-    fn unseal_key(&self, b: &dyn AiBackend) -> Result<SecretString, AiFail> {
+    /// The credential for the configured source: the user's key, or this install's token
+    /// (registered lazily on first use and sealed like a key).
+    async fn credential(&self, b: &dyn AiBackend, s: &AiSettings) -> Result<SecretString, AiFail> {
+        if !s.shared() {
+            return self.unseal_secret(b, KEY);
+        }
+        if let Ok(t) = self.unseal_secret(b, TOKEN) {
+            return Ok(t);
+        }
+        let token = b.register_shared().await.map_err(AiFail::Ai)?;
+        {
+            use secrecy::ExposeSecret;
+            self.store_secret(b, TOKEN, token.expose_secret())
+                .map_err(|_| AiFail::NoKey)?;
+        }
+        Ok(token)
+    }
+
+    fn unseal_secret(&self, b: &dyn AiBackend, name: &str) -> Result<SecretString, AiFail> {
         let (cipher, entropy) = self
             .with_store(|c| {
                 Ok::<_, vigil_store::StoreError>((
-                    store::setting_get(c, KEY)?,
+                    store::setting_get(c, name)?,
                     store::setting_get(c, ENTROPY)?,
                 ))
             })
@@ -586,16 +678,18 @@ impl Shared {
             if let Some(j) = hit.and_then(|j| serde_json::from_str::<(Opinion, String)>(&j).ok()) {
                 (j.0, j.1, true)
             } else {
-                let key = self.unseal_key(&*b)?;
+                let key = self.credential(&*b, &s).await?;
                 let _slot = self
                     .ai_slots
                     .acquire()
                     .await
                     .map_err(|_| AiFail::Disabled)?;
-                let (op, model) = b
-                    .assess(&s, &key, &p.value, &p.present)
-                    .await
-                    .map_err(AiFail::Ai)?;
+                let (op, model) = if s.shared() {
+                    b.assess_shared(&s, &key, &p.value, &p.present).await
+                } else {
+                    b.assess(&s, &key, &p.value, &p.present).await
+                }
+                .map_err(AiFail::Ai)?;
                 let ttl = if op.verdict == "unknown" {
                     TTL_UNKNOWN
                 } else {
@@ -673,11 +767,16 @@ impl Shared {
         let s = self.ai_settings();
         let t0 = Instant::now();
         let (ok, model) = match self.ai_backend() {
-            Some(b) => match self.unseal_key(&*b) {
+            Some(b) => match self.credential(&*b, &s).await {
                 Ok(key) => {
                     let probe = json!({ "image_name": "notepad.exe", "signature": { "status": "valid_embedded", "org": "Microsoft Corporation" },
                                         "score": 90, "signals": [] });
-                    match b.assess(&s, &key, &probe, &[]).await {
+                    let r = if s.shared() {
+                        b.assess_shared(&s, &key, &probe, &[]).await
+                    } else {
+                        b.assess(&s, &key, &probe, &[]).await
+                    };
+                    match r {
                         Ok((_, m)) => (true, m),
                         Err(e) => {
                             tracing::warn!(code = e.code(), "AI connection test failed");

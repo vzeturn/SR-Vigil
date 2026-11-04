@@ -1160,6 +1160,16 @@
         },
         "calls_today": {
           "type": "integer"
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "own_key",
+            "shared"
+          ]
+        },
+        "shared_available": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,
@@ -1174,7 +1184,9 @@
         "auto_kill",
         "send_cmdline",
         "daily_call_budget",
-        "calls_today"
+        "calls_today",
+        "source",
+        "shared_available"
       ]
     },
     "ProcessDetail": {

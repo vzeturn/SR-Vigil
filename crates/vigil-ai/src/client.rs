@@ -22,6 +22,8 @@ pub struct Config {
     pub timeout: Duration,
     pub daily_budget: u32,
     pub per_minute: u32,
+    /// Shared endpoint (https only). `None` means this build has no shared key.
+    pub proxy_url: Option<String>,
 }
 
 impl Default for Config {
@@ -34,6 +36,7 @@ impl Default for Config {
             timeout: Duration::from_secs(8),
             daily_budget: 500,
             per_minute: 10,
+            proxy_url: None,
         }
     }
 }
@@ -45,6 +48,19 @@ pub fn user_message(payload: &Value) -> String {
     format!(
         "<untrusted_telemetry>\n{json}\n</untrusted_telemetry>\nAssess this executable and call submit_verdict."
     )
+}
+
+/// What the shared endpoint (`proxy/`) must send upstream; `proxy/src/spec.json` mirrors this
+/// exactly and a gate test fails when they drift.
+#[must_use]
+pub fn proxy_spec() -> Value {
+    json!({
+        "system": SYSTEM_PROMPT,
+        "tool": TOOL,
+        "tool_schema": tool_schema(),
+        "user_template": user_message(&Value::String("{payload}".into()))
+            .replace("\"{payload}\"", "{payload}"),
+    })
 }
 
 /// Messages API client with local budgets.
@@ -89,7 +105,7 @@ impl Advisor {
         present: &[String],
     ) -> Result<(Opinion, String), AiError> {
         let first = self.call(key, &self.cfg.model, payload, present).await?;
-        if first.confidence < self.cfg.escalate_below
+        if self.needs_escalation(&first)
             && let Some(m) = self
                 .cfg
                 .escalation_model
@@ -100,6 +116,102 @@ impl Advisor {
             return Ok((second, m.clone()));
         }
         Ok((first, self.cfg.model.clone()))
+    }
+
+    /// A stronger model gets a second look when the first is unsure or undecided.
+    fn needs_escalation(&self, first: &Opinion) -> bool {
+        first.confidence < self.cfg.escalate_below || first.verdict == "unknown"
+    }
+
+    /// Same assessment through the project's shared endpoint (`docs/06 §10`): no API key on this
+    /// machine, only an install token. The endpoint owns the prompt, schema and models; the answer is
+    /// still validated here exactly like a direct one.
+    ///
+    /// # Errors
+    /// [`AiError::NoKey`] when no shared endpoint is configured, otherwise any [`AiError`].
+    pub async fn assess_shared(
+        &self,
+        token: &SecretString,
+        payload: &Value,
+        present: &[String],
+    ) -> Result<(Opinion, String), AiError> {
+        let first = self.call_shared(token, "fast", payload, present).await?;
+        if self.needs_escalation(&first.0)
+            && let Ok(second) = self.call_shared(token, "deep", payload, present).await
+        {
+            return Ok(second);
+        }
+        Ok(first)
+    }
+
+    async fn call_shared(
+        &self,
+        token: &SecretString,
+        tier: &str,
+        payload: &Value,
+        present: &[String],
+    ) -> Result<(Opinion, String), AiError> {
+        let base = self.cfg.proxy_url.as_deref().ok_or(AiError::NoKey)?;
+        if !base.starts_with("https://") {
+            return Err(AiError::NoKey);
+        }
+        self.limiter
+            .lock()
+            .map_err(|_| AiError::Budget)?
+            .acquire(now_secs())?;
+        let resp = self
+            .http
+            .post(format!("{}/v1/assess", base.trim_end_matches('/')))
+            .bearer_auth(token.expose_secret())
+            .json(&json!({ "tier": tier, "payload": payload }))
+            .send()
+            .await
+            .map_err(|e| {
+                if e.is_timeout() {
+                    AiError::Timeout
+                } else {
+                    AiError::Transport
+                }
+            })?;
+        let status = resp.status().as_u16();
+        if status != 200 {
+            return Err(AiError::Status(status));
+        }
+        let v: Value = resp
+            .json()
+            .await
+            .map_err(|_| AiError::InvalidOutput("body".into()))?;
+        let model = v["model"].as_str().unwrap_or("shared").to_string();
+        Ok((validate(&v["verdict"], present)?, model))
+    }
+
+    /// Obtain an install token from the shared endpoint (one per installation).
+    ///
+    /// # Errors
+    /// Any [`AiError`]; a refusal (rate limit, disabled endpoint) is a [`AiError::Status`].
+    pub async fn register_shared(&self) -> Result<SecretString, AiError> {
+        let base = self.cfg.proxy_url.as_deref().ok_or(AiError::NoKey)?;
+        if !base.starts_with("https://") {
+            return Err(AiError::NoKey);
+        }
+        let resp = self
+            .http
+            .post(format!("{}/v1/register", base.trim_end_matches('/')))
+            .send()
+            .await
+            .map_err(|_| AiError::Transport)?;
+        if resp.status().as_u16() != 200 {
+            return Err(AiError::Status(resp.status().as_u16()));
+        }
+        let v: Value = resp
+            .json()
+            .await
+            .map_err(|_| AiError::InvalidOutput("body".into()))?;
+        v["token"]
+            .as_str()
+            .filter(|t| (20..=200).contains(&t.len()))
+            .map(|t| SecretString::from(t.to_string()))
+            .ok_or_else(|| AiError::InvalidOutput("token".into()))
     }
 
     async fn call(

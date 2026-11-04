@@ -109,3 +109,7 @@ Key: `sha256(identity_key + rule_pack_version + dest_class + model)`; TTL 7 days
 ## 10. Data-protection note (ISO/IEC 27001 A.5.23, ISO/IEC 27701)
 
 AI use is a cloud-service data transfer. The settings page links to the redaction contract, defaults to `off`, requires the admin to acknowledge the data categories sent, and writes an audit record whenever AI settings change.
+
+## 11. Shared endpoint (optional)
+
+Builds with `VIGIL_PROXY_URL` offer `source = "shared"`: the service registers once (`/v1/register`), seals the returned install token with DPAPI like an API key, and sends `{tier, payload}` to `/v1/assess`. The payload is the same redacted object as direct calls; the endpoint (`proxy/`) builds the system prompt, forced tool, model and `max_tokens` itself, and `proxy/src/spec.json` is gated against the client by `cargo test -p vigil-ai --test proxy_spec`. Quotas (per install, per IP at registration, global daily) and a kill switch bound the cost. Limit: the endpoint cannot cryptographically prove the caller is the genuine app, so it restricts the *shape* and *volume* of what a caller can do with the key. Authority order is unchanged: hard rules still beat the AI verdict.
