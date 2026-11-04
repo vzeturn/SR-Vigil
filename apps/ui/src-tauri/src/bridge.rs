@@ -34,6 +34,11 @@ const ALLOWED: &[&str] = &[
     "process.kill",
     "persistence.scan",
     "persistence.apply",
+    "ai.config.get",
+    "ai.config.set",
+    "ai.preview",
+    "ai.test",
+    "ai.explain",
 ];
 
 pub struct Rpc {

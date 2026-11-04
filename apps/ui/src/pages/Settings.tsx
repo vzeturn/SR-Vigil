@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { getBridge } from '../bridge';
+import type { AiConfig, AiMode } from '../types';
 import { LANGUAGES, setLang, type Lang } from '../i18n';
 import { useVigil } from '../store';
 
@@ -22,6 +24,97 @@ export function loadTheme() {
   } catch {
     /* default to the OS theme */
   }
+}
+
+function AiCard() {
+  const { t } = useTranslation();
+  const [cfg, setCfg] = useState<AiConfig | null>(null);
+  const [key, setKey] = useState('');
+  const [ack, setAck] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  useEffect(() => {
+    void getBridge()
+      .then((b) => b.rpc<AiConfig>('ai.config.get', {}))
+      .then(setCfg)
+      .catch(() => undefined);
+  }, []);
+
+  if (!cfg) return null;
+
+  const save = async (patch: Partial<AiConfig> & { api_key?: string }) => {
+    try {
+      const next = await (await getBridge()).rpc<AiConfig>('ai.config.set', {
+        ...patch,
+        acknowledge_data_categories: ack,
+      });
+      setCfg(next);
+      setKey('');
+      setMsg(t('ai.saved'));
+    } catch (e) {
+      setMsg(t('ai.failed', { code: e instanceof Error ? e.message : String(e) }));
+    }
+  };
+
+  const test = async () => {
+    try {
+      const r = await (await getBridge()).rpc<{ ok: boolean; latency_ms: number; model: string }>('ai.test', {});
+      setMsg(r.ok ? t('ai.testOk', { ms: r.latency_ms, model: r.model }) : t('ai.testFail'));
+    } catch {
+      setMsg(t('ai.testFail'));
+    }
+  };
+
+  return (
+    <section className="card">
+      <h2>{t('ai.title')}</h2>
+      <p className="muted">{t('ai.intro')}</p>
+      <label>
+        {t('ai.mode')}
+        <select
+          value={cfg.mode}
+          onChange={(e) => {
+            const mode = e.target.value as AiMode;
+            void save({ mode, enabled: mode !== 'off', ...(key ? { api_key: key } : {}) });
+          }}
+        >
+          <option value="off">{t('ai.off')}</option>
+          <option value="advisor">{t('ai.advisor')}</option>
+          <option value="auto">{t('ai.auto')}</option>
+        </select>
+      </label>
+      <label>
+        {t('ai.key')}
+        <input
+          type="password"
+          autoComplete="off"
+          value={key}
+          placeholder={t('ai.keyPlaceholder')}
+          onChange={(e) => setKey(e.target.value)}
+        />
+      </label>
+      {cfg.has_key && <p className="muted">{t('ai.keySaved')}</p>}
+      <label>
+        <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} /> {t('ai.ack')}
+      </label>
+      <div className="row">
+        <button type="button" onClick={() => void save(key ? { api_key: key } : {})}>
+          {t('ai.save')}
+        </button>
+        <button type="button" disabled={!cfg.has_key} onClick={() => void test()}>
+          {t('ai.test')}
+        </button>
+        {cfg.has_key && (
+          <button type="button" onClick={() => void save({ api_key: '', enabled: false, mode: 'off' })}>
+            {t('ai.keyRemove')}
+          </button>
+        )}
+      </div>
+      <p className="muted" role="status">
+        {msg || t('ai.calls', { n: cfg.calls_today })}
+      </p>
+    </section>
+  );
 }
 
 export function Settings() {
@@ -63,6 +156,7 @@ export function Settings() {
           <option value="dark">{t('settings.themeDark')}</option>
         </select>
       </section>
+      <AiCard />
       <section className="card">
         <h2>{t('settings.about')}</h2>
         <p className="muted">

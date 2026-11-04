@@ -1,5 +1,5 @@
 import type { Bridge } from './bridge';
-import type { AuditEntry, DecisionParams, PendingItem, PersistenceItem, ProcessInfo, Snapshot, Verdict } from './types';
+import type { AiConfig, AuditEntry, DecisionParams, PendingItem, PersistenceItem, ProcessInfo, Snapshot, Verdict } from './types';
 
 const HASH = 'a'.repeat(64);
 
@@ -76,7 +76,33 @@ export function createMockBridge(rows = 200): Bridge {
     },
   ];
 
+  let ai: AiConfig = {
+    enabled: false,
+    mode: 'off',
+    model: 'claude-haiku-5-5',
+    escalation_model: 'claude-sonnet-5-5',
+    has_key: false,
+    auto_threshold: 0.9,
+    escalate_below: 0.75,
+    auto_kill: false,
+    send_cmdline: false,
+    daily_call_budget: 500,
+    calls_today: 0,
+  };
+
   const handlers: Record<string, (params: unknown) => unknown> = {
+    'ai.config.get': () => ai,
+    'ai.config.set': (params) => {
+      const { api_key, acknowledge_data_categories, ...rest } = params as Partial<AiConfig> & {
+        api_key?: string;
+        acknowledge_data_categories?: boolean;
+      };
+      const has_key = api_key === undefined ? ai.has_key : api_key !== '';
+      if (rest.enabled && !(has_key && acknowledge_data_categories)) throw new Error('invalid_state');
+      ai = { ...ai, ...rest, has_key };
+      return ai;
+    },
+    'ai.test': () => ({ ok: ai.has_key, latency_ms: 120, model: ai.model }),
     'process.kill': () => ({ ok: true, detail: 'terminated' }),
     'persistence.scan': () => ({ findings: persistence.map((p) => ({ ...p })) }),
     'persistence.apply': (params) => {

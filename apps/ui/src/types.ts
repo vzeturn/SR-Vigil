@@ -124,6 +124,23 @@ export interface AiOpinion {
   model: string;
 }
 
+export type AiMode = 'off' | 'advisor' | 'auto';
+
+/** `ai.config.get` result. The API key is write-only: only `has_key` is ever returned. */
+export interface AiConfig {
+  enabled: boolean;
+  mode: AiMode;
+  model: string;
+  escalation_model: string;
+  has_key: boolean;
+  auto_threshold: number;
+  escalate_below: number;
+  auto_kill: boolean;
+  send_cmdline: boolean;
+  daily_call_budget: number;
+  calls_today: number;
+}
+
 export interface PendingItem {
   id: string;
   identity: Identity;
