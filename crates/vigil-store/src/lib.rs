@@ -1,6 +1,8 @@
 #![forbid(unsafe_code)]
 #![allow(clippy::missing_errors_doc)]
-//! SQLite persistence: connection setup and schema migrations.
+//! SQLite persistence: connection setup, schema migrations and repositories.
+
+pub mod repo;
 
 use rusqlite::Connection;
 
