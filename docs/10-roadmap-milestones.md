@@ -116,6 +116,11 @@ Standing rule for every milestone: `cargo fmt --check`, `cargo clippy -D warning
 - [ ] Auto never decides when a hard rule fired, never kills by default, and honours thresholds/stability gate.
 - [ ] Live harness (manual): false-safe ≤ 1%, injection success 0%, schema-valid ≥ 99%.
 
+**Status (M5)**
+- Verified by tests: stub-server fallbacks with audit rows (`crates/vigil-svc/tests/ai.rs`, `crates/vigil-ai/tests/stub.rs`); preview hash equals payload sent; redaction property tests (`vigil-core`); Auto gates (hard rule, no-kill default, threshold); key never returned or audited.
+- Not verified: live harness (needs `ANTHROPIC_API_KEY`, run manually); live model IDs/parameters (`docs/06 §9`).
+- Deferred: VirusTotal client (REP-001/010/011, HR-005); command-line capture for the payload (not available from the current process sensor); `vigilctl ai` subcommands.
+
 ## M6 — Hardening, installer, polish
 
 **Deliver**

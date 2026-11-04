@@ -9,6 +9,10 @@ license.workspace = true
 [lints]
 workspace = true
 
+[features]
+# Manual harness that calls the real API (needs ANTHROPIC_API_KEY in the environment).
+live = []
+
 [dependencies]
 serde.workspace = true
 serde_json.workspace = true

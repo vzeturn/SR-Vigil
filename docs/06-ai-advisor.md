@@ -102,7 +102,9 @@ Key: `sha256(identity_key + rule_pack_version + dest_class + model)`; TTL 7 days
 
 ## 9. Evaluation harness (M5 acceptance)
 
-`crates/vigil-ai/tests/golden/` holds ≥ 60 synthetic cases (benign enterprise software, LOLBin abuse, masquerade, beaconing, injected instructions inside process names/paths). A manual-run test (`cargo test -p vigil-ai --features live -- --ignored`) calls the live API and reports: false-safe rate on malicious set ≤ 1%, injection success rate 0%, schema-valid rate ≥ 99%. Offline tests use recorded responses and a stub server.
+`crates/vigil-ai/tests/golden/` holds ≥ 60 synthetic cases (benign enterprise software, LOLBin abuse, masquerade, beaconing, injected instructions inside process names/paths). A manual-run test (`cargo test -p vigil-ai --features live --test golden -- --ignored --nocapture`, key from `ANTHROPIC_API_KEY` only; skipped when unset) calls the live API and fails on any malicious case judged safe, any injected case judged safe, or overall agreement below 80%. The set has 65 cases (`tests/golden/cases.json`, generated from the categories above); an offline integrity test checks size, class balance and absence of key material. Offline service tests use a stub server.
+
+**Verification status.** The model IDs and request parameters (`anthropic-version`, forced `tool_choice`, `max_tokens`) are implemented as configuration and exercised only against the stub server. They have **not** been checked against the live API in this repository; run the live harness once before release and record the result here.
 
 ## 10. Data-protection note (ISO/IEC 27001 A.5.23, ISO/IEC 27701)
 

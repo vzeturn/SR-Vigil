@@ -102,7 +102,17 @@ export function createMockBridge(rows = 200): Bridge {
       ai = { ...ai, ...rest, has_key };
       return ai;
     },
-    'ai.test': () => ({ ok: ai.has_key, latency_ms: 120, model: ai.model }),
+    'ai.explain': () => {
+      if (!ai.enabled) throw new Error('ai_unavailable');
+      return {
+        verdict: 'unknown',
+        confidence: 0.6,
+        recommended_action: 'ask_user',
+        reasons: ['Unsigned binary in a user-writable folder'],
+        model: ai.model,
+      };
+    },
+    'ai.test':() => ({ ok: ai.has_key, latency_ms: 120, model: ai.model }),
     'process.kill': () => ({ ok: true, detail: 'terminated' }),
     'persistence.scan': () => ({ findings: persistence.map((p) => ({ ...p })) }),
     'persistence.apply': (params) => {

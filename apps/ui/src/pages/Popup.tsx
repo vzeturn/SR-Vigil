@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { hidePopup } from '../bridge';
+import { getBridge, hidePopup } from '../bridge';
+import type { AiOpinion } from '../types';
 import { DecisionControls } from '../components/DecisionControls';
 import { destinationText, itemName } from '../components/pendingView';
 import { VerdictChip } from '../components/VerdictChip';
@@ -17,6 +18,23 @@ export function Popup() {
   const total = pending?.length ?? 0;
   const at = Math.min(index, Math.max(total - 1, 0));
   const item = pending?.[at];
+  const [asked, setAsked] = useState<Record<string, AiOpinion>>({});
+  const [asking, setAsking] = useState(false);
+  const [aiError, setAiError] = useState(false);
+  const opinion = item ? (item.ai_opinion ?? asked[item.identity.id]) : undefined;
+
+  const askAi = async (identityId: string) => {
+    setAsking(true);
+    setAiError(false);
+    try {
+      const o = await (await getBridge()).rpc<AiOpinion>('ai.explain', { identity_id: identityId });
+      setAsked((m) => ({ ...m, [identityId]: o }));
+    } catch {
+      setAiError(true);
+    } finally {
+      setAsking(false);
+    }
+  };
 
   useEffect(() => {
     // Queue drained after having items: nothing left to ask, so get out of the way.
@@ -55,11 +73,17 @@ export function Popup() {
               </li>
             ))}
           </ul>
-          {item.ai_opinion && (
+          {opinion && (
             <div className="muted">
-              {t('popup.ai', { verdict: t(`verdict.${item.ai_opinion.verdict}`), reason: item.ai_opinion.reasons[0] })}
+              {t('popup.ai', { verdict: t(`verdict.${opinion.verdict}`), reason: opinion.reasons[0] })}
             </div>
           )}
+          {!opinion && (
+            <button type="button" className="btn" disabled={asking} onClick={() => void askAi(item.identity.id)}>
+              {asking ? t('popup.aiAsking') : t('popup.aiAsk')}
+            </button>
+          )}
+          {aiError && <div className="muted" role="status">{t('popup.aiUnavailable')}</div>}
           <DecisionControls key={item.id} item={item} shortcutsArmed={armed} />
         </>
       )}
