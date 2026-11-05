@@ -707,6 +707,10 @@
         "created_at": {
           "type": "string",
           "format": "date-time"
+        },
+        "alert": {
+          "type": "boolean",
+          "description": "True when this item is an established incident that may interrupt the user (popup, toast); otherwise it waits quietly in the Pending list."
         }
       },
       "additionalProperties": false,

@@ -113,7 +113,25 @@ impl Shared {
             },
             "ai_opinion": self.ai_opinion_json(p.executable_id),
             "created_at": p.created_at,
+            // Only an established incident interrupts the user; everything else waits in the list.
+            "alert": ev.verdict == "malicious",
         }))
+    }
+
+    /// Escalate an open pending item to an alert once the advisor confidently calls it malicious.
+    pub(crate) fn escalate_pending(&self, exe_id: i64) {
+        let rows = self
+            .with_store(decisions::list_pending)
+            .and_then(Result::ok);
+        let item = rows
+            .into_iter()
+            .flatten()
+            .find(|p| p.executable_id == exe_id && p.resolved_at.is_none())
+            .and_then(|p| self.pending_item(&p));
+        if let Some(mut item) = item {
+            item["alert"] = json!(true);
+            self.emit("pending", "event.pending_created", item);
+        }
     }
 
     /// `pending.list`: unresolved items, oldest first.
@@ -234,7 +252,25 @@ impl Shared {
         let id = id_param(params, "decision_id")?
             .ok_or_else(|| RpcError::new(INVALID_PARAMS, "decision_id is required"))?;
         let revoked = self
-            .with_store(|c| decisions::revoke_decision(c, id, OffsetDateTime::now_utc()))
+            .with_store(|c| {
+                let now = OffsetDateTime::now_utc();
+                let exe = decisions::get_decision(c, id)?
+                    .and_then(|d| {
+                        vigil_store::repo::executable_by_id(c, d.executable_id).transpose()
+                    })
+                    .transpose()?;
+                let done = decisions::revoke_decision(c, id, now)?;
+                // A kill's respawn block lives until the user lifts it: revoking releases it too.
+                if done && let Some(exe) = exe {
+                    let ts = crate::state::now();
+                    for b in vigil_store::blocks::active(c)? {
+                        if b.sha256 == exe.sha256 || b.path.eq_ignore_ascii_case(&exe.path) {
+                            vigil_store::blocks::remove(c, b.id, &ts)?;
+                        }
+                    }
+                }
+                Ok::<_, vigil_store::StoreError>(done)
+            })
             .ok_or_else(no_store)?
             .map_err(store_err)?;
         if !revoked {

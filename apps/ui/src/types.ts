@@ -184,6 +184,8 @@ export interface PendingItem {
   destination: Destination;
   ai_opinion?: AiOpinion | null;
   created_at: string;
+  /** Established incident: may interrupt the user. Otherwise the item waits in the list. */
+  alert?: boolean;
 }
 
 export interface DecisionParams {

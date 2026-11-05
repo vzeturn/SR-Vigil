@@ -805,6 +805,7 @@ impl Shared {
             Err(AiFail::Disabled) => Err(RpcError::new(INVALID_STATE, "AI is turned off")),
             Err(AiFail::NoData) => Err(RpcError::new(NOT_FOUND, "no such evaluated identity")),
             Err(f) => {
+                tracing::warn!(error = ?f, identity = id, "ai assessment failed");
                 self.audit(
                     "ai",
                     AuditKind::AiDecision,
@@ -986,6 +987,10 @@ impl Shared {
             Ok((a, score, hard_rule)) => {
                 // Authority follows the service mode: observe warns, learning suggests (the
                 // opinion rides on the pending item), enforce executes within the gates.
+                // Only a confident malicious opinion interrupts the user; the rest stays quiet.
+                if a.opinion.verdict == "malicious" && a.opinion.confidence >= s.auto_threshold {
+                    self.escalate_pending(exe_id);
+                }
                 if s.mode == "auto" && self.mode_and_health().0 == "enforce" {
                     self.ai_auto(exe_id, s, &a, score, hard_rule);
                 }

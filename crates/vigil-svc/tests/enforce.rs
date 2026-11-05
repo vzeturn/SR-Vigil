@@ -198,6 +198,11 @@ fn blocked_connection_becomes_one_pending_item() {
         1
     );
     assert_eq!(s.status()["counts"]["pending"], 1);
+    assert_eq!(
+        s.list_pending().unwrap()["items"][0]["alert"],
+        false,
+        "an unknown program waits quietly; only an established incident interrupts"
+    );
     let unknown = DropInfo {
         app_path: r"C:\nope.exe".into(),
         ..d

@@ -118,7 +118,8 @@ fn forward_pending(app: &AppHandle, client: &mut Client<NamedPipeClient>) {
         let params = n.params.unwrap_or(Value::Null);
         match n.method.as_str() {
             "event.pending_created" => {
-                created = true;
+                // Popup/toast only for an established incident; other items wait in the Pending list.
+                created |= params["alert"].as_bool().unwrap_or(false);
                 let _ = app.emit("vigil://pending", params);
             }
             "event.ai_digest" => {
