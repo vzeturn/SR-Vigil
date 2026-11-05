@@ -34,11 +34,13 @@ Each new process gets `origin`, computed in user mode when first seen:
 
 | origin | evidence |
 |---|---|
-| `user` | parent is the shell (`explorer.exe`, Start/Search host, taskbar, Jump List) **and** the interactive session saw input within 5 s (`GetLastInputInfo`) **and** the process owns or is about to own a visible window |
+| `user` | parent is the shell (`explorer.exe`, Start/Search host, taskbar, Jump List) **and** the interactive session saw input within 5 s (`GetLastInputInfo`) (a brand-new process has no window yet, so no window check) |
 | `script` | parent is `cmd`, `powershell`, `wscript`, `mshta`, `python`, a build tool, or another unknown/unsigned program |
 | `autostart` | matches a Run key, startup folder or scheduled task entry (`persistence_items`) |
 | `service` | parent is `services.exe` / `svchost.exe` / Task Scheduler |
-| `agent` | parent is a signed app that is an IDE/agent (baseline says it routinely spawns shells) |
+| `agent` | parent is validly signed and the baseline shows it has started ≥ 10 children here |
+
+Anything else is `script`, the safe default: it never opens a question. Implemented in `vigil_core::origin`; the observer stamps `ProcessInfo.origin` when a process is first seen and records signed parents in `baselines` (migration 0002).
 
 `origin` is a UX gate, not a security gate: malware can imitate `user`, so hard rules and the
 authority order are unchanged and `user` origin never lowers a score.

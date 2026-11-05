@@ -40,6 +40,8 @@ pub struct ProcRow {
     pub score: Option<u8>,
     /// "Installed X, latest Y" when this is a recognised program that is behind.
     pub freshness: Option<Value>,
+    /// Who started it: `user`, `script`, `autostart`, `service` or `agent` (`docs/18 §3`).
+    pub origin: Option<&'static str>,
 }
 
 impl ProcRow {
@@ -49,6 +51,7 @@ impl ProcRow {
             "pid": self.pid, "start_time": self.start_time, "ppid": self.ppid,
             "name": self.name, "path": self.path, "identity_id": self.identity_id,
             "verdict": self.verdict, "score": self.score, "freshness": self.freshness,
+            "origin": self.origin,
         })
     }
 }
@@ -766,6 +769,14 @@ impl Shared {
 
     /// Verdict of the owning process for connection rows (set by the observer before `sync`).
     #[must_use]
+    /// Identity id of a live process, once it has been evaluated.
+    pub(crate) fn identity_of(&self, pid: u32) -> Option<String> {
+        lock(&self.inner)
+            .processes
+            .get(&pid)
+            .and_then(|p| p.identity_id.clone())
+    }
+
     pub fn process_verdict(&self, pid: u32) -> Option<String> {
         lock(&self.inner)
             .processes
@@ -801,6 +812,7 @@ mod tests {
             verdict: None,
             score: None,
             freshness: None,
+            origin: None,
         }
     }
 

@@ -97,6 +97,16 @@ pub fn latest_backup(conn: &Connection, id: i64) -> Result<Option<String>, Store
         .optional()?)
 }
 
+/// Whether this image is listed as an autostart entry (any kind that is not deleted).
+pub fn is_autostart_image(conn: &Connection, path: &str) -> Result<bool, StoreError> {
+    Ok(conn.query_row(
+        "SELECT EXISTS (SELECT 1 FROM persistence_items
+                        WHERE lower(image_path) = lower(?1) AND status != 'deleted')",
+        [path],
+        |r| r.get(0),
+    )?)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

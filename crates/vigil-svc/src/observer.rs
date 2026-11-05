@@ -294,8 +294,51 @@ fn sync_processes(shared: &Shared, procs: &[ProcessInfo]) {
             verdict: None,
             score: None,
             freshness: None,
+            origin: origin_of(shared, p, parents.get(&p.pid)),
         });
     }
+}
+
+/// Who started `p`, from its parent, the autostart list and recent input (`docs/18 §3`).
+/// Signed parents also feed the local baseline of what they normally start.
+fn origin_of(
+    shared: &Shared,
+    p: &ProcessInfo,
+    parent: Option<&&ProcessInfo>,
+) -> Option<&'static str> {
+    let parent = parent?;
+    let parent_exe = shared
+        .identity_of(parent.pid)
+        .and_then(|id| id.parse::<i64>().ok())
+        .and_then(|id| shared.with_store(|c| vigil_store::repo::executable_by_id(c, id)))
+        .and_then(Result::ok)
+        .flatten();
+    let signed = parent_exe
+        .as_ref()
+        .is_some_and(|e| e.signature_status.starts_with("valid"));
+    let pkey = parent_exe.as_ref().map(|e| e.sha256.as_str());
+    let spawns = pkey
+        .and_then(|k| shared.with_store(|c| vigil_store::baselines::spawns(c, k)))
+        .and_then(Result::ok)
+        .unwrap_or(0);
+    let autostart = p.image.as_deref().is_some_and(|img| {
+        shared
+            .with_store(|c| vigil_store::persistence::is_autostart_image(c, img))
+            .and_then(Result::ok)
+            .unwrap_or(false)
+    });
+    let origin = vigil_core::origin::classify(&vigil_core::origin::Evidence {
+        parent_name: &parent.name,
+        parent_signed: signed,
+        autostart,
+        input_age_secs: vigil_win::input::idle_secs(),
+        parent_spawns: spawns,
+    });
+    if signed && let Some(k) = pkey {
+        let child = p.name.to_ascii_lowercase();
+        let _ = shared.with_store(|c| vigil_store::baselines::record(c, k, &child, &now()));
+    }
+    Some(origin.as_str())
 }
 
 fn sync_connections(shared: &Shared) {

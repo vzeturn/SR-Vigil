@@ -30,6 +30,7 @@ export interface ProcessInfo {
   verdict?: Verdict | null;
   score?: number | null;
   /** Set when this is a recognised program that is behind the newest release. */
+  origin?: "user" | "script" | "autostart" | "service" | "agent" | null;
   freshness?: {
     product: string;
     installed: string;

@@ -44,6 +44,7 @@ fn shared() -> Arc<Shared> {
         verdict: None,
         score: None,
         freshness: None,
+        origin: None,
     });
     let id = s
         .with_store(|c| {
@@ -145,6 +146,7 @@ async fn emitted_events_match_the_schema() {
         verdict: None,
         score: None,
         freshness: None,
+        origin: None,
     });
     sh.remove_process(1, "2026-01-01T00:00:00Z");
     sh.sync_connections(vec![]);

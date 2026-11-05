@@ -8,6 +8,7 @@ pub mod dpapi;
 pub mod etw;
 pub mod harden;
 pub mod hash;
+pub mod input;
 pub mod junk;
 pub mod kill;
 pub mod memory;

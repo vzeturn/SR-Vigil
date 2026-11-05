@@ -4,6 +4,7 @@
 
 pub mod ai;
 pub mod audit;
+pub mod baselines;
 pub mod blocks;
 pub mod decisions;
 pub mod persistence;
@@ -14,8 +15,11 @@ use rusqlite::Connection;
 /// Migration 0001 (`schemas/db.sql`), embedded.
 pub const SCHEMA_0001: &str = include_str!("../../../schemas/db.sql");
 
+/// Migration 0002 (`schemas/db-0002.sql`): local baselines.
+pub const SCHEMA_0002: &str = include_str!("../../../schemas/db-0002.sql");
+
 /// Schema version this build expects (`PRAGMA user_version`).
-pub const SCHEMA_VERSION: i64 = 1;
+pub const SCHEMA_VERSION: i64 = 2;
 
 /// Store failures.
 #[derive(Debug, thiserror::Error)]
@@ -66,6 +70,11 @@ pub fn migrate(conn: &mut Connection) -> Result<(), StoreError> {
         tx.execute_batch(SCHEMA_0001)?;
         tx.commit()?;
     }
+    if found < 2 {
+        let tx = conn.transaction()?;
+        tx.execute_batch(SCHEMA_0002)?;
+        tx.commit()?;
+    }
     Ok(())
 }
 
@@ -89,6 +98,7 @@ mod tests {
         let t = tables(&conn);
         for expected in [
             "audit_log",
+            "baselines",
             "decisions",
             "evaluations",
             "executables",

@@ -490,6 +490,22 @@
           "items": {
             "type": "string"
           }
+        },
+        "origin": {
+          "anyOf": [
+            {
+              "enum": [
+                "user",
+                "script",
+                "autostart",
+                "service",
+                "agent"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
