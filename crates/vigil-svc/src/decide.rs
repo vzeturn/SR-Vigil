@@ -154,7 +154,59 @@ impl Shared {
             .with_store(|c| decisions::list_active(c, OffsetDateTime::now_utc()))
             .ok_or_else(no_store)?
             .map_err(store_err)?;
-        Ok(json!({ "items": rows.iter().map(decision_json).collect::<Vec<_>>() }))
+        let items: Vec<Value> = rows.iter().map(|d| self.decision_detail(d)).collect();
+        Ok(json!({ "items": items }))
+    }
+
+    /// A decision plus what the user needs to judge a kill: the program, why it scored as it did,
+    /// the advisor's view and how often the respawn guard had to act.
+    fn decision_detail(&self, d: &Decision) -> Value {
+        let mut v = decision_json(d);
+        let (exe, ev, kills) = self
+            .with_store(|c| {
+                let exe = vigil_store::repo::executable_by_id(c, d.executable_id)?;
+                let ev = vigil_store::repo::latest_evaluation(c, d.executable_id)?;
+                let kills = match &exe {
+                    Some(e) => vigil_store::blocks::find(c, &e.path, Some(&e.sha256))?
+                        .map_or(0, |b| b.respawn_kills),
+                    None => 0,
+                };
+                Ok::<_, vigil_store::StoreError>((exe, ev, kills))
+            })
+            .and_then(Result::ok)
+            .unwrap_or((None, None, 0));
+        v["identity"] = exe.map_or(Value::Null, |e| {
+            json!({ "path": e.path, "publisher": e.publisher, "product": e.product,
+                    "signature_status": e.signature_status })
+        });
+        v["evaluation"] = ev.map_or(Value::Null, |e| {
+            let signals: Value =
+                serde_json::from_str(&e.signals_json).unwrap_or_else(|_| json!([]));
+            json!({ "score": e.score, "verdict": e.verdict, "hard_rule": e.hard_rule,
+                    "signals": signals })
+        });
+        v["ai_opinion"] = self.ai_opinion_json(d.executable_id);
+        v["respawn_kills"] = json!(kills);
+        v
+    }
+
+    /// `decision.exception`: lift a kill and pin an `allow` for the same program.
+    /// Hard rules and Vigil's own protections still apply on top of the exception.
+    pub fn decision_exception(&self, params: &Value) -> Result<Value, RpcError> {
+        let id = id_param(params, "decision_id")?
+            .ok_or_else(|| RpcError::new(INVALID_PARAMS, "decision_id is required"))?;
+        let exe_id = self
+            .with_store(|c| decisions::get_decision(c, id))
+            .ok_or_else(no_store)?
+            .map_err(store_err)?
+            .filter(|d| d.revoked_at.is_none())
+            .map(|d| d.executable_id)
+            .ok_or_else(|| RpcError::new(NOT_FOUND, "no such active decision"))?;
+        self.revoke_decision(&json!({ "decision_id": id }))?;
+        self.submit_decision(&json!({
+            "identity_id": exe_id.to_string(), "action": "allow", "scope": "forever",
+            "apply_to": "file", "note": "exception: kill lifted by the user",
+        }))
     }
 
     /// `decision.submit`: record the decision, resolve matching pending items, audit it.

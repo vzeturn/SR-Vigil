@@ -227,6 +227,24 @@ async fn decision_flow_matches_the_schema_and_is_audited() {
     assert_eq!(audit["items"][0]["kind"], "decision");
 
     let id = res["decision"]["id"].clone();
+    let listed = c.call("decision.list", json!({})).await.unwrap();
+    validate(
+        &s["x-methods"]["decision.list"]["result"],
+        "decision.list",
+        &listed,
+    );
+    assert!(listed["items"][0]["respawn_kills"].is_u64());
+    let exc = c
+        .call("decision.exception", json!({"decision_id": id}))
+        .await
+        .unwrap();
+    validate(
+        &s["x-methods"]["decision.exception"]["result"],
+        "decision.exception",
+        &exc,
+    );
+    assert_eq!(exc["decision"]["action"], "allow");
+    let id = exc["decision"]["id"].clone();
     c.call("decision.revoke", json!({"decision_id": id}))
         .await
         .unwrap();
@@ -236,5 +254,13 @@ async fn decision_flow_matches_the_schema_and_is_audited() {
         .iter()
         .map(|e| e["kind"].as_str().unwrap().to_owned())
         .collect();
-    assert_eq!(kinds, ["decision", "decision_revoked"]);
+    assert_eq!(
+        kinds,
+        [
+            "decision",
+            "decision_revoked",
+            "decision",
+            "decision_revoked"
+        ]
+    );
 }

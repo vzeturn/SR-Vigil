@@ -195,6 +195,22 @@ export interface DecisionParams {
   apply_to: ApplyTo;
 }
 
+/** `decision.list` item: a stored decision plus what is needed to review a kill. */
+export interface DecisionItem {
+  id: string;
+  identity_id: string;
+  action: Action;
+  scope: Scope;
+  apply_to: ApplyTo;
+  by: string;
+  note?: string | null;
+  created_at: string;
+  identity: { path: string; publisher?: string | null; product?: string | null; signature_status: SignatureStatus } | null;
+  evaluation: { score: number; verdict: Verdict; hard_rule?: string | null; signals: Signal[] } | null;
+  ai_opinion?: AiOpinion | null;
+  respawn_kills: number;
+}
+
 export interface AuditEntry {
   seq: number;
   ts: string;

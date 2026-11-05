@@ -4,6 +4,7 @@ import {
   ListChecks,
   Network,
   Power,
+  OctagonX,
   ScrollText,
   Settings as Cog,
   ShieldCheck,
@@ -13,6 +14,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { enableProtection, syncTrayLabels, syncTrayPending } from './bridge';
 import { LiveScan } from './components/LiveScan';
+import { Kills } from './pages/Kills';
 import { Audit } from './pages/Audit';
 import { Connections } from './pages/Connections';
 import { Overview } from './pages/Overview';
@@ -29,6 +31,7 @@ const PAGES = {
   pending: { icon: Bell, view: Pending },
   processes: { icon: ListChecks, view: Processes },
   connections: { icon: Network, view: Connections },
+  kills: { icon: OctagonX, view: Kills },
   startup: { icon: Power, view: Startup },
   audit: { icon: ScrollText, view: Audit },
   rules: { icon: ShieldCheck, view: RulesTrust },

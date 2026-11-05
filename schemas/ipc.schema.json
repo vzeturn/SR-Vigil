@@ -111,21 +111,59 @@
     "AiUsage": {
       "type": "object",
       "properties": {
-        "assessed": { "type": "integer", "minimum": 0 },
-        "calls": { "type": "integer", "minimum": 0 },
-        "cached": { "type": "integer", "minimum": 0 },
-        "tokens_in": { "type": "integer", "minimum": 0 },
-        "tokens_out": { "type": "integer", "minimum": 0 },
-        "allowed": { "type": "integer", "minimum": 0 },
-        "blocked": { "type": "integer", "minimum": 0 },
-        "killed": { "type": "integer", "minimum": 0 },
-        "left_to_user": { "type": "integer", "minimum": 0 },
-        "cost_usd": { "type": "number", "minimum": 0 }
+        "assessed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "calls": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cached": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tokens_in": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tokens_out": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "allowed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "blocked": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "killed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "left_to_user": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cost_usd": {
+          "type": "number",
+          "minimum": 0
+        }
       },
       "additionalProperties": false,
       "required": [
-        "assessed", "calls", "cached", "tokens_in", "tokens_out",
-        "allowed", "blocked", "killed", "left_to_user", "cost_usd"
+        "assessed",
+        "calls",
+        "cached",
+        "tokens_in",
+        "tokens_out",
+        "allowed",
+        "blocked",
+        "killed",
+        "left_to_user",
+        "cost_usd"
       ]
     },
     "Topic": {
@@ -352,15 +390,34 @@
             {
               "type": "object",
               "properties": {
-                "product": { "type": "string" },
-                "installed": { "type": "string" },
-                "latest": { "type": "string" },
-                "status": { "enum": ["outdated", "far_behind", "vulnerable"] }
+                "product": {
+                  "type": "string"
+                },
+                "installed": {
+                  "type": "string"
+                },
+                "latest": {
+                  "type": "string"
+                },
+                "status": {
+                  "enum": [
+                    "outdated",
+                    "far_behind",
+                    "vulnerable"
+                  ]
+                }
               },
               "additionalProperties": false,
-              "required": ["product", "installed", "latest", "status"]
+              "required": [
+                "product",
+                "installed",
+                "latest",
+                "status"
+              ]
             },
-            { "type": "null" }
+            {
+              "type": "null"
+            }
           ]
         },
         "user_sid": {
@@ -783,6 +840,79 @@
               "type": "null"
             }
           ]
+        },
+        "identity": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "publisher": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "product": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "signature_status": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "signature_status"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "evaluation": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "score": {
+                  "type": "integer"
+                },
+                "verdict": {
+                  "type": "string"
+                },
+                "hard_rule": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "signals": {
+                  "type": "array"
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "score",
+                "verdict",
+                "signals"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ai_opinion": {},
+        "respawn_kills": {
+          "type": "integer",
+          "minimum": 0
         }
       },
       "additionalProperties": false,
@@ -1619,29 +1749,58 @@
       "params": {
         "type": "object",
         "properties": {
-          "pid": { "type": "integer" },
-          "start_time": { "type": "string", "format": "date-time" }
+          "pid": {
+            "type": "integer"
+          },
+          "start_time": {
+            "type": "string",
+            "format": "date-time"
+          }
         },
         "additionalProperties": false,
-        "required": ["pid", "start_time"]
+        "required": [
+          "pid",
+          "start_time"
+        ]
       },
       "result": {
         "type": "object",
         "properties": {
-          "access": { "enum": ["ok", "denied"] },
+          "access": {
+            "enum": [
+              "ok",
+              "denied"
+            ]
+          },
           "items": {
             "type": "array",
             "items": {
               "type": "object",
-              "properties": { "name": { "type": "string" }, "path": { "type": "string" } },
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string"
+                }
+              },
               "additionalProperties": false,
-              "required": ["name", "path"]
+              "required": [
+                "name",
+                "path"
+              ]
             }
           },
-          "truncated": { "type": "boolean" }
+          "truncated": {
+            "type": "boolean"
+          }
         },
         "additionalProperties": false,
-        "required": ["access", "items", "truncated"]
+        "required": [
+          "access",
+          "items",
+          "truncated"
+        ]
       }
     },
     "process.kill": {
@@ -1829,6 +1988,24 @@
         "type": "object",
         "properties": {},
         "additionalProperties": false
+      }
+    },
+    "decision.exception": {
+      "role": "admin",
+      "params": {
+        "type": "object",
+        "properties": {
+          "decision_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "decision_id"
+        ]
+      },
+      "result": {
+        "$ref": "#/$defs/DecisionResult"
       }
     },
     "identity.get": {

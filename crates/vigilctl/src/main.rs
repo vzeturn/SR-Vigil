@@ -61,6 +61,9 @@ enum Command {
     Decisions {
         #[arg(long)]
         revoke: Option<String>,
+        /// Lift a kill and pin an allow exception for the same program.
+        #[arg(long, conflicts_with = "revoke")]
+        except: Option<String>,
     },
     /// Kill a process (and optionally its tree) and keep it from respawning (needs an elevated shell).
     Kill {
@@ -127,7 +130,9 @@ fn main() -> anyhow::Result<()> {
             mode,
             escalate_below,
         } => control::ai(mode.as_deref(), escalate_below),
-        Command::Decisions { revoke } => control::decisions(revoke.as_deref()),
+        Command::Decisions { revoke, except } => {
+            control::decisions(revoke.as_deref(), except.as_deref())
+        }
         Command::Kill {
             pid,
             start_time,

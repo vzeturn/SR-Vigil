@@ -55,8 +55,9 @@ JSON-RPC 2.0 subset: `{"jsonrpc":"2.0","id":<int|string>,"method":"...","params"
 | `connection.list` | R | `{filter?, cursor?, limit?}` → `{items: ConnectionInfo[], next_cursor?}` |
 | `pending.list` | R | `{}` → `{items: PendingItem[]}` |
 | `decision.submit` | A | `{pending_id?, identity_id?, action, scope, apply_to, note?}` → `DecisionResult` |
-| `decision.list` | R | `{}` → `{items: Decision[]}` |
+| `decision.list` | R | `{}` → `{items: Decision[]}`; each item also carries `identity` (path, publisher, product, signature_status), `evaluation` (score, verdict, hard_rule, signals), `ai_opinion` and `respawn_kills`, so a kill can be reviewed without further calls |
 | `decision.revoke` | A | `{decision_id}` → `{}` |
+| `decision.exception` | A | `{decision_id}` → `DecisionResult`; revokes the decision (and its respawn block) and records an `allow`/`forever`/`file` decision for the same program. Hard rules and never-kill still apply |
 | `identity.get` | R | `{identity_id}` → `IdentityDetail` (signals, history) |
 | `rule.list` | R | `{}` → `{rule_pack_version, rules: Rule[]}` |
 | `rule.upsert` | A | `{rule}` → `Rule` (written as override; validated) |

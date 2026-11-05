@@ -28,6 +28,7 @@ const ALLOWED: &[&str] = &[
     "decision.submit",
     "decision.list",
     "decision.revoke",
+    "decision.exception",
     "audit.query",
     "enforcement.panic",
     "process.get",
