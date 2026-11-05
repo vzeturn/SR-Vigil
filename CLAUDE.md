@@ -6,6 +6,7 @@ You are implementing **Vigil**, a Windows endpoint tool that classifies every pr
 
 1. **User-mode only.** Never write or propose a kernel driver or WFP callout driver. Enforcement uses WFP *filters* (not callouts), `TerminateProcess`, and the Service Control Manager.
 2. **Hard rules beat everything.** Order of authority: `HA-001 (Vigil's own binaries)` and `SG-001 never-kill guard` > `hard rules (HR-*)` > `user decisions (HA-002)` > `AI verdict` > `score`. AI can never override a hard rule and can never be the sole reason to kill a process (see `docs/06-ai-advisor.md`).
+   AI authority follows the mode (user decision): `observe` warns, `learning` suggests, `enforce` executes within the `docs/06 §4` gates. Process storms (self-replication, script-host floods) are killed in **every** mode by `storm_scan` (`docs/04 §8`); verified-safe and never-kill programs are exempt.
 3. **Fail open on service failure, fail closed on unknown apps.** The catch-all block filter is a *dynamic* (session-scoped) WFP filter so a crashed service never leaves the machine offline. Explicit user/hard-rule denies are persistent.
 4. **No silent destructive actions.** Never delete files, registry keys, scheduled tasks or services automatically. Disable (reversible, with backup row in DB) only after user approval; delete only after a second explicit approval.
 5. **Never kill or block the never-kill set** (`rules/system_processes.toml`, `never_kill = true`) unless HR-001, HR-002 or HR-003 fired. Protected/PPL processes: report `protected_target`, do not retry.
@@ -13,7 +14,7 @@ You are implementing **Vigil**, a Windows endpoint tool that classifies every pr
 7. **Secrets.** The Anthropic API key is stored only in the service, encrypted with DPAPI (machine scope + entropy). It is never returned over IPC, never logged, never sent to the UI. Use `secrecy::SecretString` and `zeroize`.
 8. **`unsafe` is allowed only in `vigil-win`**, each block with a `// SAFETY:` comment, wrapped in a safe API. Other crates use `#![forbid(unsafe_code)]`.
 9. **No placeholder text** in shipped code, docs, UI strings or configs. If something is deliberately deferred, write it as a tracked item in `docs/10-roadmap-milestones.md`.
-10. **No network calls except** the Anthropic API (when enabled), the project's optional shared AI endpoint (`proxy/`, only when the user picks "shared" and the build sets `VIGIL_PROXY_URL`) optional VirusTotal (when enabled) the optional destination-reputation service (when enabled, see `docs/15`) and the read-only download of the signed version catalogue (opt-in, GET only, nothing uploaded, signature verified before use, see `docs/16`). No telemetry, no auto-update in v1.
+10. **No network calls except** the Anthropic API (when enabled), the project's optional shared AI endpoint (`proxy/`, used by default, opt-out, when the build sets `VIGIL_PROXY_URL`; `auto_kill` stays off) optional VirusTotal (when enabled) the optional destination-reputation service (when enabled, see `docs/15`) and the read-only download of the signed version catalogue (opt-in, GET only, nothing uploaded, signature verified before use, see `docs/16`). No telemetry, no auto-update in v1.
 
 ## Fixed constants (single source of truth: `crates/vigil-core/src/consts.rs`, mirrored in `docs/03` and `schemas/`)
 

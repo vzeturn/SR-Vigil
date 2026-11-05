@@ -115,6 +115,10 @@ Actions (all require explicit user approval, all audited):
 - **Delete**: only available after Disable and a second confirmation; never for items whose image is in the never-kill/system set.
 - Vigil never deletes files on disk in v1.
 
+### Malicious containment (outside `observe`)
+
+When a program becomes Malicious by **rules** (not by AI alone), `raise_malicious` queues the pending item and immediately records a persistent, revocable `Block` decision (`by = rule`, scope `forever`, `apply_to = file`, audit outcome `contained`). The network is cut at once; killing stays the user's choice in the popup. The never-kill set is skipped unless HR-001, HR-002 or HR-003 fired. `observe` mode never contains. Covered by `malicious_is_contained_by_a_block_outside_observe` and `observe_mode_never_contains`. Enforce mode keeps its separate `auto_kill_malicious` (section 3).
+
 ## 6. Modes and arming
 
 | Transition | Rule |
@@ -133,3 +137,13 @@ Actions (all require explicit user approval, all audited):
 | Service crash | Dynamic filters vanish (fail-open); persistent denies remain; SCM restarts service; `rebuild_then_arm`. |
 | Evaluator exception for an identity | Treat as Unknown (not Safe), log with identity key, continue. |
 | Clock jump | Decision expiry uses monotonic + wall clock check; prefer the earlier expiry. |
+
+## 8. Process storms (all modes)
+
+`storm_scan` (observer tick) asks `vigil_core::storm::detect` for parents whose live children show self-replication (≥ 12 children running the parent's own image, or ≥ 6 nested same-image generations) or a launch flood (≥ 10 script hosts / LOLBins such as `cmd`, `powershell`, `wscript`, `mshta`, `rundll32`). The parent's whole tree is killed (leaves first) and its image blocked, **in every mode, including `observe`**, because a block alone does not stop a program that keeps spawning.
+
+Exempt: verified-safe programs (a browser legitimately runs many same-image children) and the never-kill set (SG-001). Both exemptions are gated by tests in `tests/kill.rs`. The kill writes the usual audit row and the block can be revoked like any other.
+
+**Adaptive thresholds.** The standing limits above are the safe default for slow, simple cases. Speed tightens them: ≥ 5 same-image children (or ≥ 4 script hosts) born within 10 s of each other trip immediately, so a fast clone is killed in one tick while the same count spread over minutes is left alone. A Safe program is exempt only from the sibling-clone count; a nested chain or a script-host flood reclassifies it Malicious (signal `STM-001`) and it is killed like any other. 
+
+**AI judgement below the thresholds.** A not-yet-Safe parent with ≥ 3 copies or script hosts, short of every kill threshold, is put to the advisor once per run (signal `STM-002`, "Repeated child launches"). In `enforce` with AI mode `auto`, a `malicious` opinion at confidence ≥ `auto_threshold` reclassifies it and kills the tree (actor `ai`, audit `storm_kill`); otherwise the opinion is only recorded (`storm_noted`) and the user decides. Safe and never-kill programs are never asked about.

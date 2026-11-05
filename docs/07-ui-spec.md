@@ -57,6 +57,8 @@ Motion: 180 ms ease-out for state changes, spring (stiffness 260, damping 26) fo
 - Health card: ETW, WFP, store, AI states with last error.
 - Data: `status.get`, subscriptions `processes`, `connections`, `verdicts`, `health`.
 
+Progressive disclosure: the Overview stays simple. Scores explain themselves on hover (`ScoreTip`: baseline 50, each signal, band, hard rule). "Show N more" expands the attention list; each country expands to its connections, and each connection opens a path map (connection, program with path, signer, launch chain, files it uses). Files come from `process.modules`, read on demand only; without administrator rights or for protected programs the UI shows "Missing permission" instead of an empty list.
+
 ### 4.2 Processes
 - Virtualized tree-table (parent → child), columns: Name · PID · Verdict chip · Score · Publisher · Path · Connections · Started. Filters: verdict, signed/unsigned, path class, has-connections, text search.
 - Row expands inline to show signals. Context menu: Kill, Kill tree, Block, Allow…, Open file location, Copy hash, Look up hash (VirusTotal link).

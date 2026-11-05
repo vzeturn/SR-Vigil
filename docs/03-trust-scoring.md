@@ -54,7 +54,7 @@ SIG-001, SIG-002 and SIG-003 are mutually exclusive (`exclusive_group = "signer_
 | SIG-020 | `typosquat_name` | Image name within Levenshtein distance ≤ 2 of a canonical/popular name, or uses confusable characters, and is not that name | −50 | |
 | LOC-010 | `network_share_or_removable` | Path on UNC share or removable drive | −15 | |
 | BEH-001 | `lolbin_outbound` | LOLBin (`rules/lolbins.toml`) with an outbound connection to a public destination, unless a `context_allow` entry matches the verified parent chain (e.g. Intune/SCCM agents whose own verdict is Safe) | −25 | 70 |
-| BEH-002 | `beaconing` | ≥ 6 connections to the same destination in 30 min with interval coefficient of variation < 0.15 | −30 | |
+| STM-002 | `beaconing` | ≥ 6 connections to the same destination in 30 min with interval coefficient of variation < 0.15 | −30 | |
 | BEH-003 | `public_dest_no_dns` | Public IP destination with no preceding DNS resolution for that PID within 60 s | −10 | |
 | BEH-004 | `risky_port_or_tld` | Destination port in the risky list or DNS name TLD in the risky list (`config/default-policy.toml`) | −10 | |
 | BEH-005 | `unbacked_exec_memory` | Executable private memory region not backed by an image file (optional: set `VIGIL_MEMORY_SCAN=1`; only scanned for processes whose own image is not validly signed, because JIT engines also use RWX memory) | −40 | |
@@ -92,7 +92,7 @@ SIG-001, SIG-002 and SIG-003 are mutually exclusive (`exclusive_group = "signer_
 | Per-user signed app in AppData (e.g. chat client) | SIG-003, SIG-004 | 83 | safe |
 | Signed, unpinned, VersionInfo conflicts with signer | SIG-003, SIG-014 | 50 | unknown |
 | Unsigned tool in Downloads → public host with DNS | SIG-010 | 35 | unknown |
-| Unsigned in Temp, beaconing | SIG-010, BEH-002 | 5 | malicious |
+| Unsigned in Temp, beaconing | SIG-010, STM-002 | 5 | malicious |
 | `svch0st.exe` unsigned in Temp | SIG-010, SIG-020 | 0 | malicious |
 | `svchost.exe` in `C:\Users\x\AppData\Local\Temp` | HR-002 | 0 | malicious |
 | `powershell.exe` (MS-signed) → public host | SIG-001, SIG-004, LOC-001, BEH-001 | 70 (capped) | unknown |

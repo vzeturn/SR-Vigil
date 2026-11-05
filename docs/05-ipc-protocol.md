@@ -49,6 +49,7 @@ JSON-RPC 2.0 subset: `{"jsonrpc":"2.0","id":<int|string>,"method":"...","params"
 | `status.get` | R | `{}` → `Status` (mode, health, counts, rule_pack_version, ai state, learning_started_at) |
 | `mode.set` | A | `{mode, override_learning_minimum?}` → `Status` |
 | `process.list` | R | `{filter?, cursor?, limit?}` → `{items: ProcessInfo[], next_cursor?}` |
+| `process.modules` | A | `{pid, start_time}` → `{access: ok\|denied, items[{name, path}], truncated}`; files the process has loaded, read on demand (capped at 200). `denied` when Windows refuses (protected process); the UI shows it as missing permission, never as empty |
 | `process.get` | R | `{pid, start_time}` → `ProcessDetail` (evaluation, parent chain, connections, hosted services) |
 | `process.kill` | A | `{pid, start_time, tree?, block?: bool}` → `ActionResult` |
 | `connection.list` | R | `{filter?, cursor?, limit?}` → `{items: ConnectionInfo[], next_cursor?}` |
@@ -65,6 +66,7 @@ JSON-RPC 2.0 subset: `{"jsonrpc":"2.0","id":<int|string>,"method":"...","params"
 | `trust.revoke` | A | `{publisher_id}` → `{}` |
 | `persistence.scan` | A | `{target_image_path?}` → `{findings: PersistenceItem[]}` |
 | `persistence.apply` | A | `{item_id, action: "disable"|"restore"|"delete"}` → `ActionResult` |
+| `ai.activity` | R | `{}` → `{today, week, month}`, each an `AiUsage` counter set (tokens are as reported by the API; the dollar figure is an estimate; the shared endpoint reports calls only) |
 | `ai.config.get` | R | `{}` → `{enabled, mode, model, escalation_model, thresholds, has_key, source, shared_available, budget}` (never the key or the install token) |
 | `ai.config.set` | A | `{enabled?, mode?, model?, escalation_model?, api_key?, thresholds?, budget?}` → `AiConfig` |
 | `ai.preview` | A | `{identity_id}` → `{payload, payload_sha256}` (exactly the redacted bytes that would be sent) |
@@ -88,6 +90,7 @@ JSON-RPC 2.0 subset: `{"jsonrpc":"2.0","id":<int|string>,"method":"...","params"
 | `processes` | `event.process_started`, `event.process_exited` | `ProcessInfo` / `{pid, start_time, exit_time}` |
 | `connections` | `event.connection_opened`, `event.connection_closed` | `ConnectionInfo` |
 | `verdicts` | `event.verdict_changed` | `{identity_id, old, new, score, signals[]}` |
+| `ai` | `event.ai_digest` | `AiUsage` (last 24 h: assessed, calls, cached, tokens, allowed/blocked/killed, left_to_user, approximate cost); sent at most once a day, only when the AI did something |
 | `pending` | `event.pending_created`, `event.pending_resolved` | `PendingItem` / `{pending_id, action, by}` |
 | `enforcement` | `event.enforcement_changed` | `{mode, filters_armed, reason}` |
 | `alerts` | `event.alert` | `{severity, kind, message_key, identity_id?, data}` |

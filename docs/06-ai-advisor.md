@@ -6,7 +6,7 @@
 
 | Mode | Behaviour |
 |---|---|
-| `off` (default) | No AI calls. |
+| `off` | No AI calls. |
 | `advisor` | For each Unknown Pending item, request an opinion; display `verdict`, `confidence`, `reasons` in the popup and details. User still decides. |
 | `auto` | If the opinion passes the auto-decision gates (§4) the service applies it as a decision with `by = "ai"`; otherwise falls back to Pending for the user. |
 
@@ -39,6 +39,8 @@ Only the fields below are ever sent. Everything else is dropped.
 The payload is built by `vigil-core::redact` (pure, unit-tested with property tests: no `%USERPROFILE%` username, no RFC1918 IP, no string longer than limits). The UI shows the exact payload that would be sent ("Preview AI payload" button) and the settings page states what leaves the machine (ISO/IEC 27701 data-minimisation evidence).
 
 ## 4. Safety gates for Auto mode
+
+**Authority follows the service mode.** AI is on in every mode (`ai.mode = auto`), but how far it may go depends on `mode`: `observe` only warns (the opinion is shown), `learning` suggests (the opinion rides on the pending item and the user decides), `enforce` executes the decision within the gates below.
 
 All of the following must hold, otherwise the item goes to the user:
 
@@ -106,8 +108,15 @@ Key: `sha256(identity_key + rule_pack_version + dest_class + model)`; TTL 7 days
 
 ## 10. Data-protection note (ISO/IEC 27001 A.5.23, ISO/IEC 27701)
 
-AI use is a cloud-service data transfer. The settings page links to the redaction contract, defaults to `off`, requires the admin to acknowledge the data categories sent, and writes an audit record whenever AI settings change.
+AI use is a cloud-service data transfer. The settings page links to the redaction contract, is opt-out in builds that embed `VIGIL_PROXY_URL` (AI on, source `shared`, data categories pre-acknowledged and shown in Settings) and opt-in (`off`, acknowledgement required) in builds without it; it and writes an audit record whenever AI settings change.
 
 ## 11. Shared endpoint (optional)
 
 Builds with `VIGIL_PROXY_URL` offer `source = "shared"`: the service registers once (`/v1/register`), seals the returned install token with DPAPI like an API key, and sends `{tier, payload}` to `/v1/assess`. The payload is the same redacted object as direct calls; the endpoint (`proxy/`) builds the system prompt, forced tool, model and `max_tokens` itself, and `proxy/src/spec.json` is gated against the client by `cargo test -p vigil-ai --test proxy_spec`. Quotas (per install, per IP at registration, global daily) and a kill switch bound the cost. Limit: the endpoint cannot cryptographically prove the caller is the genuine app, so it restricts the *shape* and *volume* of what a caller can do with the key. Authority order is unchanged: hard rules still beat the AI verdict.
+
+## 12. Usage ledger, daily digest and proactive assessment
+
+- Every assessment, cache hit, token count (as reported by the API) and automatic decision is tallied per day in the settings key `ai.usage` (62 days kept). `ai.activity` returns today / 7 days / 30 days; the dollar figure is an estimate at Haiku-class rates. The shared endpoint reports calls only.
+- At most once every 24 h, and only if the AI did something, the service emits `event.ai_digest` (topic `ai`); the UI shows it as a system notification and the Overview card shows the same numbers live.
+- The default mode is `auto`, but in builds without `VIGIL_PROXY_URL` nothing runs until the admin enables AI and acknowledges the data categories (§10); proxy builds ship with AI on. `auto_kill` stays off.
+- New Unknown programs are assessed proactively (never decided) using at most half of `daily_call_budget`; Malicious findings are always assessed first and, if the AI is unavailable, left to the user as a pending item.
