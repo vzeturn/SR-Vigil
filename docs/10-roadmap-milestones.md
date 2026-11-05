@@ -163,6 +163,12 @@ Design: [docs/16-version-freshness.md](16-version-freshness.md).
 - [ ] Detail view "installed X, latest Y" with a vendor download link.
 - [ ] Catalogue schema carries winget id, installer hash and end-of-support so a later user-approved clean-update flow (M13, needs its own design) can build on it.
 
+## M13 — Kill review, launch origin, root cause (design in `docs/18`)
+
+Reviewable and revocable kills with exceptions and false-positive reports, a local baseline
+database, launch-origin detection, suspend-and-ask on re-open, launcher attribution with one
+root-cause popup. Build order is in `docs/18 §7`.
+
 ## Backlog (post-v1, tracked)
 
 - Inbound blocking option (FR-017): `ALE_AUTH_RECV_ACCEPT` filters, off by default.
