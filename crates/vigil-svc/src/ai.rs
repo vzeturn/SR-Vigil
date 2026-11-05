@@ -255,6 +255,17 @@ impl AiFail {
             Self::Ai(e) => e.code(),
         }
     }
+
+    /// One-word cause shown to the user (`rate_limited`, `network`, ...).
+    #[must_use]
+    pub fn reason(&self) -> &'static str {
+        match self {
+            Self::Ai(e) => e.reason(),
+            Self::Disabled => "off",
+            Self::NoKey => "no_key",
+            Self::NoData => "no_data",
+        }
+    }
 }
 
 /// An opinion together with how it was obtained.
@@ -802,7 +813,7 @@ impl Shared {
             .ok_or_else(|| bad("identity_id is required"))?;
         match self.ai_assess(id, true).await {
             Ok((a, ..)) => Ok(opinion_json(&a.opinion, a.cached)),
-            Err(AiFail::Disabled) => Err(RpcError::new(INVALID_STATE, "AI is turned off")),
+            Err(AiFail::Disabled) => Err(RpcError::new(INVALID_STATE, "off")),
             Err(AiFail::NoData) => Err(RpcError::new(NOT_FOUND, "no such evaluated identity")),
             Err(f) => {
                 tracing::warn!(error = ?f, identity = id, "ai assessment failed");
@@ -810,9 +821,9 @@ impl Shared {
                     "ai",
                     AuditKind::AiDecision,
                     Some(&id.to_string()),
-                    &json!({ "outcome": "unavailable", "reason": f.code() }),
+                    &json!({ "outcome": "unavailable", "reason": f.code(), "cause": f.reason() }),
                 );
-                Err(RpcError::new(AI_UNAVAILABLE, f.code()))
+                Err(RpcError::new(AI_UNAVAILABLE, f.reason()))
             }
         }
     }
@@ -982,7 +993,7 @@ impl Shared {
                 "ai",
                 AuditKind::AiDecision,
                 Some(&exe_id.to_string()),
-                &json!({ "outcome": "pending", "reason": f.code() }),
+                &json!({ "outcome": "pending", "reason": f.code(), "cause": f.reason() }),
             ),
             Ok((a, score, hard_rule)) => {
                 // Authority follows the service mode: observe warns, learning suggests (the

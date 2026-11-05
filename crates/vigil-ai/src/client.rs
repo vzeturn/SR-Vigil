@@ -72,7 +72,14 @@ pub struct Advisor {
     limiter: Mutex<Limiter>,
     tokens_in: AtomicU64,
     tokens_out: AtomicU64,
+    /// Unix second until which the shared endpoint is left alone after it answered 429.
+    cooldown_until: AtomicU64,
 }
+
+/// The shared endpoint admits 6 quota units a minute per install (a deep call costs 2); stay under.
+const SHARED_PER_MINUTE: u32 = 5;
+/// How long to leave the shared endpoint alone after a 429.
+const COOLDOWN_SECS: u64 = 300;
 
 fn now_secs() -> u64 {
     SystemTime::now()
@@ -88,13 +95,19 @@ impl Advisor {
             .timeout(cfg.timeout)
             .build()
             .map_err(|_| AiError::Transport)?;
-        let limiter = Mutex::new(Limiter::new(cfg.daily_budget, cfg.per_minute));
+        let per_minute = if cfg.proxy_url.is_some() {
+            cfg.per_minute.min(SHARED_PER_MINUTE)
+        } else {
+            cfg.per_minute
+        };
+        let limiter = Mutex::new(Limiter::new(cfg.daily_budget, per_minute));
         Ok(Self {
             cfg,
             http,
             limiter,
             tokens_in: AtomicU64::new(0),
             tokens_out: AtomicU64::new(0),
+            cooldown_until: AtomicU64::new(0),
         })
     }
 
@@ -173,10 +186,18 @@ impl Advisor {
         if !base.starts_with("https://") {
             return Err(AiError::NoKey);
         }
-        self.limiter
-            .lock()
-            .map_err(|_| AiError::Budget)?
-            .acquire(now_secs())?;
+        let now = now_secs();
+        if now < self.cooldown_until.load(Ordering::Relaxed) {
+            return Err(AiError::Budget);
+        }
+        {
+            // A deep call costs two quota units at the endpoint, so it takes two local slots.
+            let mut limiter = self.limiter.lock().map_err(|_| AiError::Budget)?;
+            limiter.acquire(now)?;
+            if tier == "deep" {
+                limiter.acquire(now)?;
+            }
+        }
         let resp = self
             .http
             .post(format!("{}/v1/assess", base.trim_end_matches('/')))
@@ -192,6 +213,10 @@ impl Advisor {
                 }
             })?;
         let status = resp.status().as_u16();
+        if status == 429 {
+            self.cooldown_until
+                .store(now_secs() + COOLDOWN_SECS, Ordering::Relaxed);
+        }
         if status != 200 {
             return Err(AiError::Status(status));
         }

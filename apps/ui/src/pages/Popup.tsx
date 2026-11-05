@@ -24,7 +24,7 @@ export function Popup() {
   const [asked, setAsked] = useState<Record<string, AiOpinion>>({});
   const [asking, setAsking] = useState(false);
   // Identity whose "Ask AI" failed: the notice belongs to that item, not to the next one.
-  const [aiFailed, setAiFailed] = useState<string | null>(null);
+  const [aiFailed, setAiFailed] = useState<{ id: string; reason: string } | null>(null);
   const opinion = item ? (item.ai_opinion ?? asked[item.identity.id]) : undefined;
 
   const askAi = async (identityId: string) => {
@@ -33,8 +33,8 @@ export function Popup() {
     try {
       const o = await (await getBridge()).rpc<AiOpinion>('ai.explain', { identity_id: identityId });
       setAsked((m) => ({ ...m, [identityId]: o }));
-    } catch {
-      setAiFailed(identityId);
+    } catch (e) {
+      setAiFailed({ id: identityId, reason: e instanceof Error ? e.message : String(e) });
     } finally {
       setAsking(false);
     }
@@ -108,7 +108,11 @@ export function Popup() {
               {asking ? t('popup.aiAsking') : t('popup.aiAsk')}
             </button>
           )}
-          {item && aiFailed === item.identity.id && !opinion && <div className="muted" role="status">{t('popup.aiUnavailable')}</div>}
+          {item && aiFailed?.id === item.identity.id && !opinion && (
+            <div className="muted" role="status">
+              {t(`popup.aiFailure.${aiFailed.reason}`, { defaultValue: t('popup.aiUnavailable') })}
+            </div>
+          )}
           <DecisionControls key={item.id} item={item} shortcutsArmed={armed} />
         </>
       )}

@@ -113,7 +113,7 @@ export function createMockBridge(rows = 200): Bridge {
       return ai;
     },
     'ai.explain': () => {
-      if (!ai.enabled) throw new Error('ai_unavailable');
+      if (!ai.enabled) throw new Error('off');
       return {
         verdict: 'unknown',
         confidence: 0.6,
