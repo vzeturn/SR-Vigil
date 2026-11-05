@@ -170,8 +170,8 @@ pub fn command_line(pid: u32) -> Option<String> {
     Some(String::from_utf16_lossy(units))
 }
 
-/// Snapshot all processes, enriched with image path and start time.
-pub fn snapshot() -> Result<Vec<ProcessInfo>, Error> {
+/// Walk a Toolhelp snapshot, turning each entry into a [`ProcessInfo`] with `build`.
+fn walk(mut build: impl FnMut(&PROCESSENTRY32W) -> ProcessInfo) -> Result<Vec<ProcessInfo>, Error> {
     // SAFETY: plain Win32 call; handle owned by `Handle`.
     let snap = Handle(unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) }?);
     let mut entry = PROCESSENTRY32W {
@@ -182,22 +182,69 @@ pub fn snapshot() -> Result<Vec<ProcessInfo>, Error> {
     // SAFETY: `entry.dwSize` is set and `snap` is a valid snapshot handle.
     let mut more = unsafe { Process32FirstW(snap.0, &raw mut entry) }.is_ok();
     while more {
-        let (image, start_time) = query(entry.th32ProcessID);
-        let (ram_bytes, cpu_ticks) = usage(entry.th32ProcessID);
-        out.push(ProcessInfo {
-            pid: entry.th32ProcessID,
-            ppid: entry.th32ParentProcessID,
-            name: utf16_to_string(&entry.szExeFile),
-            image,
-            start_time,
-            threads: entry.cntThreads,
-            ram_bytes,
-            cpu_ticks,
-        });
+        out.push(build(&entry));
         // SAFETY: same invariants as `Process32FirstW` above.
         more = unsafe { Process32NextW(snap.0, &raw mut entry) }.is_ok();
     }
     Ok(out)
+}
+
+fn info(entry: &PROCESSENTRY32W, with_usage: bool) -> ProcessInfo {
+    let (image, start_time) = query(entry.th32ProcessID);
+    let (ram_bytes, cpu_ticks) = if with_usage {
+        usage(entry.th32ProcessID)
+    } else {
+        (0, 0)
+    };
+    ProcessInfo {
+        pid: entry.th32ProcessID,
+        ppid: entry.th32ParentProcessID,
+        name: utf16_to_string(&entry.szExeFile),
+        image,
+        start_time,
+        threads: entry.cntThreads,
+        ram_bytes,
+        cpu_ticks,
+    }
+}
+
+/// Snapshot all processes, enriched with image path, start time and resource usage.
+pub fn snapshot() -> Result<Vec<ProcessInfo>, Error> {
+    walk(|e| info(e, true))
+}
+
+/// Incremental process enumeration: the image path and start time of a process are resolved once
+/// (a process keeps them for life), so a poll only pays for processes that are new.
+#[derive(Debug, Default)]
+pub struct Watcher {
+    known: HashMap<u32, ProcessInfo>,
+}
+
+impl Watcher {
+    /// Current processes. Usage fields are zero; use [`snapshot`] when they are needed.
+    pub fn poll(&mut self) -> Result<Vec<ProcessInfo>, Error> {
+        let known = &self.known;
+        let out = walk(|e| {
+            let name = utf16_to_string(&e.szExeFile);
+            match known.get(&e.th32ProcessID) {
+                // Same pid, parent and name: the same process. A reused pid with an identical
+                // parent and name inside one poll interval is not distinguishable here.
+                Some(k)
+                    if k.ppid == e.th32ParentProcessID
+                        && k.name == name
+                        && k.start_time.is_some() =>
+                {
+                    ProcessInfo {
+                        threads: e.cntThreads,
+                        ..k.clone()
+                    }
+                }
+                _ => info(e, false),
+            }
+        })?;
+        self.known = out.iter().map(|p| (p.pid, p.clone())).collect();
+        Ok(out)
+    }
 }
 
 /// Resolve each process's parent, rejecting reused PIDs: a parent that started *after* its

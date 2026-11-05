@@ -27,11 +27,16 @@ impl crate::ai::KeyVault for DpapiVault {
 #[derive(Default)]
 pub struct WinControl {
     hashes: HashCache,
+    /// Image path and start time are resolved once per process, so a listing is cheap.
+    watcher: std::sync::Mutex<process::Watcher>,
 }
 
 impl ProcessControl for WinControl {
     fn list(&self) -> Vec<Snap> {
-        process::snapshot()
+        self.watcher
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .poll()
             .unwrap_or_default()
             .into_iter()
             .map(|p| Snap {

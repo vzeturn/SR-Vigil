@@ -106,6 +106,9 @@ pub struct Options {
 }
 
 /// Everything shared between the observer and the connection handlers.
+/// Active block ids plus the processes (pid, start) already checked against exactly that set.
+pub(crate) type RespawnMemo = (Vec<i64>, std::collections::HashSet<(u32, u64)>);
+
 pub struct Shared {
     inner: Mutex<Inner>,
     store: Mutex<Option<Connection>>,
@@ -124,6 +127,7 @@ pub struct Shared {
     pub(crate) ai_inflight: Mutex<std::collections::HashSet<i64>>,
     /// Identities already put to the advisor as process-storm suspects (once per run).
     pub(crate) storm_reviewed: Mutex<std::collections::HashSet<i64>>,
+    pub(crate) respawn_seen: Mutex<RespawnMemo>,
     pub(crate) ai_slots: tokio::sync::Semaphore,
 }
 
@@ -244,6 +248,7 @@ impl Shared {
             ai: Mutex::new(None),
             ai_inflight: Mutex::new(std::collections::HashSet::new()),
             storm_reviewed: Mutex::new(std::collections::HashSet::new()),
+            respawn_seen: Mutex::new(Default::default()),
             ai_slots: tokio::sync::Semaphore::new(2),
         }
     }

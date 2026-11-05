@@ -136,6 +136,26 @@ fn persist(
         .unwrap_or_default()
 }
 
+/// Images (with their parent) not yet evaluated, one entry per distinct key.
+fn unseen_images(
+    procs: &[process::ProcessInfo],
+    cache: &HashMap<Key, Verdicted>,
+) -> Vec<(Key, String, Option<String>, u32)> {
+    let mut pending: Vec<(Key, String, Option<String>, u32)> = Vec::new();
+    let parents = process::parent_of(procs);
+    for p in procs {
+        let Some(image) = p.image.as_deref() else {
+            continue;
+        };
+        let parent = parents.get(&p.pid).and_then(|pp| pp.image.clone());
+        let key = (normalize(image), parent.as_deref().map(normalize));
+        if !cache.contains_key(&key) && !pending.iter().any(|(k, ..)| *k == key) {
+            pending.push((key, image.to_string(), parent, p.pid));
+        }
+    }
+    pending
+}
+
 /// Run until the task is dropped.
 pub async fn run(shared: Arc<Shared>, pack: Arc<RulePack>) -> anyhow::Result<()> {
     let ctx = Arc::new(env_context()?);
@@ -144,10 +164,18 @@ pub async fn run(shared: Arc<Shared>, pack: Arc<RulePack>) -> anyhow::Result<()>
     let mut tick = tokio::time::interval(POLL);
     tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
     let mut last_beat = tokio::time::Instant::now();
+    let watcher = Arc::new(std::sync::Mutex::new(process::Watcher::default()));
 
     loop {
         tick.tick().await;
-        let procs = match tokio::task::spawn_blocking(process::snapshot).await? {
+        let w = Arc::clone(&watcher);
+        let polled = tokio::task::spawn_blocking(move || {
+            w.lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .poll()
+        })
+        .await?;
+        let procs = match polled {
             Ok(p) => p,
             Err(e) => {
                 tracing::warn!(error = %e, "process snapshot failed");
@@ -157,20 +185,7 @@ pub async fn run(shared: Arc<Shared>, pack: Arc<RulePack>) -> anyhow::Result<()>
         };
         sync_processes(&shared, &procs);
 
-        let mut pending: Vec<(Key, String, Option<String>, u32)> = Vec::new();
-        {
-            let parents = process::parent_of(&procs);
-            for p in &procs {
-                let Some(image) = p.image.as_deref() else {
-                    continue;
-                };
-                let parent = parents.get(&p.pid).and_then(|pp| pp.image.clone());
-                let key = (normalize(image), parent.as_deref().map(normalize));
-                if !cache.contains_key(&key) && !pending.iter().any(|(k, ..)| *k == key) {
-                    pending.push((key, image.to_string(), parent, p.pid));
-                }
-            }
-        }
+        let pending = unseen_images(&procs, &cache);
         // A big first scan is spread out so it never hogs a core; steady state has 0-2 new images.
         let burst = pending.len() > BURST;
         for (key, image, parent, pid) in pending {

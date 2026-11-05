@@ -2,7 +2,8 @@
 //!
 //! Platform access goes through [`ProcessControl`] so the policy is testable with a fake.
 
-use std::sync::Arc;
+use std::collections::HashSet;
+use std::sync::{Arc, PoisonError};
 
 use serde_json::{Value, json};
 use vigil_core::analysis::path::basename;
@@ -100,6 +101,21 @@ impl Shared {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .clone()
+    }
+
+    /// Whether the process image carries a valid Authenticode signature.
+    fn is_signed(&self, row: &ProcRow) -> bool {
+        let Some(id) = row
+            .identity_id
+            .as_deref()
+            .and_then(|s| s.parse::<i64>().ok())
+        else {
+            return false;
+        };
+        self.with_store(|c| repo::executable_by_id(c, id))
+            .and_then(Result::ok)
+            .flatten()
+            .is_some_and(|e| e.signature_status.starts_with("valid"))
     }
 
     /// Hard rule that fired for this identity, if any.
@@ -276,19 +292,43 @@ impl Shared {
     /// Kill any running copy of a blocked image (matched by path or hash). Returns kill count.
     pub fn respawn_scan(&self) -> usize {
         let Some(ctl) = self.control() else { return 0 };
-        let has_blocks = self
-            .with_store(|c| blocks::active(c).map(|b| !b.is_empty()))
+        let ids: Vec<i64> = self
+            .with_store(|c| blocks::active(c).map(|b| b.iter().map(|b| b.id).collect()))
             .and_then(Result::ok)
-            .unwrap_or(false);
-        if !has_blocks {
+            .unwrap_or_default();
+        if ids.is_empty() {
             return 0;
         }
         let mut killed = 0;
-        for s in ctl.list() {
+        let snaps = ctl.list();
+        {
+            // Forget exited processes so the memo stays the size of the process table.
+            let live: HashSet<(u32, u64)> = snaps.iter().map(|s| (s.pid, s.started)).collect();
+            let mut seen = self
+                .respawn_seen
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner);
+            seen.1.retain(|k| live.contains(k));
+        }
+        for s in snaps {
             let Some(image) = s.image.clone() else {
                 continue;
             };
             if is_self(&s) {
+                continue;
+            }
+            // A process is checked once per block set: a new block clears the memo, a new process is new.
+            let fresh = {
+                let mut seen = self
+                    .respawn_seen
+                    .lock()
+                    .unwrap_or_else(PoisonError::into_inner);
+                if seen.0 != ids {
+                    *seen = (ids.clone(), HashSet::new());
+                }
+                seen.1.insert((s.pid, s.started))
+            };
+            if !fresh {
                 continue;
             }
             let hit = self
@@ -346,9 +386,17 @@ impl Shared {
     /// advisor decides case by case (`storm_review`). Safe and never-kill programs are not asked about.
     pub(crate) fn storm_suspects(&self) -> Vec<(ProcRow, usize)> {
         let rows = self.all_rows();
-        let found = storm::suspects(&storm_procs(&rows));
-        found
+        let procs = storm_procs(&rows);
+        let signed_clones = storm::detect(&procs)
             .into_iter()
+            .filter(|(pid, kind)| {
+                *kind == storm::Storm::Replication
+                    && rows.iter().any(|r| r.pid == *pid && self.is_signed(r))
+            })
+            .map(|(pid, _)| (pid, storm::SUSPECT_CHILDREN as usize));
+        storm::suspects(&procs)
+            .into_iter()
+            .chain(signed_clones)
             .filter_map(|(pid, n)| {
                 let row = rows.iter().find(|r| r.pid == pid)?;
                 (row.verdict.as_deref() != Some("safe")
@@ -370,7 +418,9 @@ impl Shared {
                 continue;
             };
             let safe = row.verdict.as_deref() == Some("safe");
-            if (safe && kind == storm::Storm::Replication)
+            // Electron/Chromium apps legitimately fork many copies of themselves: a validly signed
+            // image is left to the advisor review (`storm_suspects`), never killed on count alone.
+            if (kind == storm::Storm::Replication && (safe || self.is_signed(row)))
                 || self.never_kill.check(&row.name, None).is_err()
             {
                 continue;
