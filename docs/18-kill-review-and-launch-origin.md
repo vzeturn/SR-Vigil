@@ -60,14 +60,21 @@ Respawns are attributed to a **launcher** (the parent chain, a scheduled task, a
 service). When one launcher starts blocked programs ≥ 5 times in 60 s, or the same one ≥ 3 times
 after a kill, we stop acting on the children and decide about the launcher:
 
-- Evidence: image, signer, command line (as data), how it was started, what it started, AI review
-  with the deep model.
-- **One** popup about the launcher: "<launcher> started <child> 12 times in a minute. [Allow
-  launcher] [Stop launcher] [Disable its autostart (reversible)] [Ignore]".
-- No answer in 60 s: keep the child blocked; kill the launcher **only if** it is unsigned, not in
-  the never-kill set, not user-allowed, and the advisor says malicious at ≥ 0.95 (the
-  attack-in-progress gate of `docs/06 §4`). Otherwise it is left running and listed as pending, so
-  a legitimate tool the user forgot about is never killed on a timer.
+- **Stop the busy-work first.** On the trigger the per-child kill loop ends: the child identity
+  goes into a *cool-down* (its new instances are suspended and killed in one batched pass every
+  30 s instead of one scan per respawn), no more audit rows per respawn (one counter), no AI call
+  per respawn. The cost of waiting for the user is near zero.
+- Evidence shown: launcher image, signer, how it was started, what it keeps starting and how often,
+  the advisor's deep review (reasons, confidence), the reasons the child was killed.
+- **Ask the user once**, a single popup about the launcher: "<launcher> started <child> 12 times in a
+  minute. [Allow both] [Stop launcher] [Disable its autostart (reversible)] [Keep waiting]". It is
+  asked for every launcher origin that is not `user`; it never repeats for the same launcher within
+  24 h (the answer is stored as a decision, so a later "Stop launcher" or "Allow" is remembered).
+- **No answer = no new action.** The child stays blocked and the cool-down continues; the launcher is
+  left running and shown in the pending list with a badge. We do not kill it on a timer. The one
+  exception is an attack in progress (running launcher with a live connection, unsigned, not
+  user-allowed, advisor malicious at confidence >= 0.95, `enforce` mode), which `docs/06 §4` already
+  allows to be stopped immediately.
 - Autostart sources are disabled only through the reversible `persistence` flow (`CLAUDE.md` rule 4).
 
 ## 6. Popup discipline
