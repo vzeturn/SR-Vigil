@@ -509,6 +509,7 @@ body {
 .rbadge:focus-visible::after {
   opacity: 1;
   visibility: visible;
+  transition-delay: var(--tip-delay, 120ms);
 }
 .main > * {
   flex-shrink: 0;
@@ -713,10 +714,14 @@ body {
 .rtip-top .rtip-card {
   inset-block-end: calc(100% + var(--space-2));
 }
+/* Shown for a real hover or for keyboard focus only: `:focus-within` would keep the card open
+   after a mouse click until something else took focus. A short delay on the way in stops cards
+   flickering while the pointer sweeps across a table. */
 .rtip:hover > .rtip-card,
-.rtip:focus-within > .rtip-card {
+.rtip:has(:focus-visible) > .rtip-card {
   opacity: 1;
   visibility: visible;
+  transition-delay: var(--tip-delay, 120ms);
 }
 .rtip-title {
   font-size: var(--fs-body);
