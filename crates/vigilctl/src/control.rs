@@ -119,6 +119,12 @@ pub fn decisions(revoke: Option<&str>, except: Option<&str>) -> anyhow::Result<(
     Ok(())
 }
 
+/// `vigilctl purge`: run one lockdown method and print the report.
+pub fn purge(method: &'static str, params: Value) -> anyhow::Result<()> {
+    println!("{}", serde_json::to_string_pretty(&call(method, params)?)?);
+    Ok(())
+}
+
 /// `vigilctl allow`: a forever allow for one file, bound to the verified hash.
 pub fn allow(path: &str, sha256: &str, source: &str) -> anyhow::Result<()> {
     let list = call(

@@ -197,7 +197,7 @@ root-cause popup. Build order is in `docs/18 §7`.
 
 - [x] `purge.start/stop/status`, 5-minute hold, comeback re-kill, advisor review after 3 comebacks.
 - [x] Lockdown page (ring, counters, per-program intel, trace and block-for-good).
-- [ ] `vigilctl purge` subcommand.
+- [x] `vigilctl purge start|stop|status`.
 
 ## Backlog (post-v1, tracked)
 

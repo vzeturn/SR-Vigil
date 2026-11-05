@@ -78,6 +78,11 @@ enum Command {
         #[arg(long)]
         source: String,
     },
+    /// Lockdown: stop untrusted background programs and hold them off (needs an elevated shell).
+    Purge {
+        #[command(subcommand)]
+        action: PurgeCmd,
+    },
     /// Kill a process (and optionally its tree) and keep it from respawning (needs an elevated shell).
     Kill {
         pid: u32,
@@ -92,6 +97,19 @@ enum Command {
     /// Register or control the Windows service (needs an elevated shell).
     #[command(subcommand)]
     Service(ServiceCmd),
+}
+
+#[derive(Subcommand)]
+enum PurgeCmd {
+    /// Start a lockdown for the given number of minutes (1 to 30).
+    Start {
+        #[arg(long, default_value_t = 5)]
+        minutes: u32,
+    },
+    /// Release the hold now.
+    Stop,
+    /// Show the current or last lockdown.
+    Status,
 }
 
 #[derive(Subcommand)]
@@ -164,6 +182,13 @@ fn main() -> anyhow::Result<()> {
             sha256,
             source,
         } => control::allow(&path, &sha256, &source),
+        Command::Purge { action } => match action {
+            PurgeCmd::Start { minutes } => {
+                control::purge("purge.start", serde_json::json!({ "minutes": minutes }))
+            }
+            PurgeCmd::Stop => control::purge("purge.stop", serde_json::json!({})),
+            PurgeCmd::Status => control::purge("purge.status", serde_json::json!({})),
+        },
         Command::Kill {
             pid,
             start_time,
