@@ -3,6 +3,9 @@
 
 /// Minimum rule score for an automatic allow.
 pub const ALLOW_MIN_SCORE: i32 = 40;
+/// Below the score floor the advisor may still allow (no hard rule fired: a weak score alone, such
+/// as an unsigned developer tool, is exactly what it is there to judge) at this confidence.
+pub const ALLOW_LOW_SCORE_CONFIDENCE: f64 = 0.95;
 /// Auto kill needs at least this confidence.
 pub const KILL_MIN_CONFIDENCE: f64 = 0.95;
 /// Auto kill needs a rule score at or below this.
@@ -77,7 +80,7 @@ pub fn decide(i: &Inputs<'_>) -> Outcome {
             if i.verdict != "safe" {
                 return S(Skip::VerdictMismatch);
             }
-            if i.score < ALLOW_MIN_SCORE {
+            if i.score < ALLOW_MIN_SCORE && i.confidence < ALLOW_LOW_SCORE_CONFIDENCE {
                 return S(Skip::ScoreTooLow);
             }
             Outcome::Decide {
@@ -250,6 +253,15 @@ mod tests {
             }),
             Outcome::Skip(Skip::ScoreTooLow)
         );
+        // a weak score alone is overruled only by a very confident advisor
+        assert!(matches!(
+            decide(&Inputs {
+                score: 5,
+                confidence: 0.96,
+                ..base()
+            }),
+            Outcome::Decide { .. }
+        ));
         assert_eq!(
             decide(&Inputs {
                 verdict: "unknown",

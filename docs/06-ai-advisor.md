@@ -45,7 +45,7 @@ The payload is built by `vigil-core::redact` (pure, unit-tested with property te
 All of the following must hold, otherwise the item goes to the user:
 
 1. No hard rule fired and no HA/SG constraint conflicts.
-2. `confidence ≥ auto_threshold` (default **0.90**); for `allow` additionally the rule score ≥ 40 (never auto-allow an identity the rules rate as very risky).
+2. `confidence ≥ auto_threshold` (default **0.90**); for `allow` additionally the rule score ≥ 40, or confidence ≥ **0.95** when the score is lower (a weak score alone, such as an unsigned developer tool, is what the advisor judges; a fired hard rule is gate 1 and always wins).
 3. Opinion `recommended_action ∈ {allow, block}`. `kill` is **never** applied automatically by default.
 4. Optional `ai.auto_kill = true` (default false): kill only if `verdict = malicious`, `confidence ≥ 0.95`, rule score ≤ 49, and the identity is not in the never-kill set.
 5. Not within the first 24 h of `learning` mode (avoid training the system on its own guesses).
