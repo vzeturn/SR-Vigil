@@ -2,6 +2,7 @@
 
 use vigil_core::analysis::path::{classify, normalize};
 use vigil_core::observe::Context;
+use vigil_core::profile::install_root;
 use vigil_core::rules::PathClass;
 use windows::Win32::Foundation::CloseHandle;
 use windows::Win32::System::Diagnostics::ToolHelp::{
@@ -50,9 +51,7 @@ pub fn module_paths(pid: u32) -> Option<Vec<String>> {
 /// launchers), not sideloading: replacing them is no easier than replacing the executable itself.
 #[must_use]
 pub fn has_unsigned_writable_module(ctx: &Context, pid: u32, exe: &str) -> bool {
-    let own = normalize(exe)
-        .rsplit_once('\\')
-        .map(|(dir, _)| format!("{dir}\\"));
+    let own = install_root(&normalize(exe));
     module_paths(pid)
         .unwrap_or_default()
         .into_iter()

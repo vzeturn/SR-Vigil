@@ -98,6 +98,18 @@ pub fn dev_package(image: &str) -> Option<DevPackage> {
     })
 }
 
+/// Folder (with trailing `\`) holding a program's own bundled code: the environment root for a
+/// uv/pip launcher (its modules live in `Lib\site-packages`, beside `Scripts`), else its directory.
+#[must_use]
+pub fn install_root(image: &str) -> Option<String> {
+    if let Some(p) = dev_package(image) {
+        return Some(format!("{}\\", p.env));
+    }
+    image
+        .rsplit_once(['\\', '/'])
+        .map(|(dir, _)| format!("{dir}\\"))
+}
+
 fn norm(s: &str) -> String {
     s.to_lowercase().replace(['-', '_'], ".")
 }
@@ -182,6 +194,19 @@ mod tests {
         assert!(!p.owns_dist_info("awslabs_other-1.0.dist-info"));
         assert!(dev_package(r"C:\Windows\System32\cmd.exe").is_none());
         assert!(dev_package(r"C:\x\Scripts\tool.dll").is_none());
+    }
+
+    #[test]
+    fn a_venv_program_owns_its_whole_environment() {
+        let py = r"C:\u\uv\archive-v0\AbC\Scripts\python.exe";
+        assert_eq!(
+            install_root(py).as_deref(),
+            Some(r"C:\u\uv\archive-v0\AbC\")
+        );
+        assert_eq!(
+            install_root(r"C:\Apps\x\tool.exe").as_deref(),
+            Some(r"C:\Apps\x\")
+        );
     }
 
     #[test]

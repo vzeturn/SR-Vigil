@@ -123,3 +123,123 @@ label = "Poly Hub"
 what = "Headset management software from Poly (Plantronics)"
 names = ["plantronicshub.exe", "polylens.exe", "polylensservice.exe"]
 vendors = ["poly", "plantronics"]
+
+[[software]]
+label = "UltraViewer"
+what = "Remote desktop support tool"
+names = ["ultraviewer_desktop.exe", "ultraviewer_service.exe"]
+vendors = ["ultraviewer", "dung ultraviewer"]
+
+[[software]]
+label = "TeamViewer"
+what = "Remote desktop support tool"
+names = ["teamviewer.exe", "teamviewer_service.exe", "tv_w32.exe", "tv_x64.exe"]
+vendors = ["teamviewer"]
+
+[[software]]
+label = "AnyDesk"
+what = "Remote desktop support tool"
+names = ["anydesk.exe"]
+vendors = ["anydesk"]
+
+[[software]]
+label = "Zoom"
+what = "Video meetings"
+names = ["zoom.exe", "zoomitservice.exe"]
+vendors = ["zoom"]
+
+[[software]]
+label = "Microsoft Teams"
+what = "Chat and video meetings"
+names = ["ms-teams.exe", "teams.exe"]
+vendors = ["microsoft"]
+
+[[software]]
+label = "Google Chrome"
+what = "Web browser"
+names = ["chrome.exe", "chrome_proxy.exe"]
+vendors = ["google"]
+
+[[software]]
+label = "Microsoft Edge"
+what = "Web browser"
+names = ["msedge.exe", "msedgewebview2.exe", "msedge_proxy.exe"]
+vendors = ["microsoft"]
+
+[[software]]
+label = "Mozilla Firefox"
+what = "Web browser"
+names = ["firefox.exe"]
+vendors = ["mozilla"]
+
+[[software]]
+label = "Brave"
+what = "Web browser"
+names = ["brave.exe"]
+vendors = ["brave"]
+
+[[software]]
+label = "WinRAR"
+what = "File archiver"
+names = ["winrar.exe", "rar.exe", "unrar.exe"]
+vendors = ["win.rar", "alexander roshal"]
+
+[[software]]
+label = "Foxit PDF"
+what = "PDF reader and editor"
+names = ["foxitpdfreader.exe", "foxitpdfeditor.exe", "foxitreader.exe"]
+vendors = ["foxit"]
+
+[[software]]
+label = "Adobe Acrobat Reader"
+what = "PDF reader"
+names = ["acrord32.exe", "acrobat.exe", "armsvc.exe"]
+vendors = ["adobe"]
+
+[[software]]
+label = "Docker Desktop"
+what = "Container runtime and desktop app"
+names = ["docker desktop.exe", "com.docker.backend.exe", "docker.exe", "dockerd.exe"]
+vendors = ["docker"]
+
+[[software]]
+label = "Postman"
+what = "API client"
+names = ["postman.exe"]
+vendors = ["postman"]
+
+[[software]]
+label = "Python"
+what = "Python interpreter"
+names = ["python.exe", "pythonw.exe", "py.exe"]
+vendors = ["python software foundation"]
+
+[[software]]
+label = "Steam"
+what = "Game store and launcher"
+names = ["steam.exe", "steamwebhelper.exe", "steamservice.exe"]
+vendors = ["valve"]
+
+[[software]]
+label = "Spotify"
+what = "Music player"
+names = ["spotify.exe"]
+vendors = ["spotify"]
+
+[[software]]
+label = "GitHub Desktop"
+what = "Git client"
+names = ["githubdesktop.exe"]
+vendors = ["github"]
+
+[[software]]
+label = "JetBrains IDE"
+what = "Development environment"
+names = ["idea64.exe", "pycharm64.exe", "webstorm64.exe", "rider64.exe", "clion64.exe", "goland64.exe", "fleet.exe"]
+vendors = ["jetbrains"]
+
+[[software]]
+label = "Zalo"
+what = "Vietnamese messaging app"
+names = ["zalo.exe", "zalocall.exe", "zalocap.exe", "zalo-update.exe"]
+vendors = ["vng", "zalo"]

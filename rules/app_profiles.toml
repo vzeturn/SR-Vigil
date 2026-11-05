@@ -57,6 +57,18 @@ names = ["waterfox.exe"]
 engine = "gecko"
 
 [[dev_source]]
+label = "Amazon Web Services"
+prefix = "https://github.com/aws/"
+
+[[dev_source]]
+label = "Anthropic"
+prefix = "https://github.com/anthropics/"
+
+[[dev_source]]
+label = "Microsoft"
+prefix = "https://github.com/microsoft/"
+
+[[dev_source]]
 label = "AWS Labs"
 prefix = "https://github.com/awslabs/"
 
