@@ -29,6 +29,9 @@ const ENTROPY: &str = "ai.entropy";
 const CONFIG: &str = "ai.config";
 const TTL_DECIDED: Duration = Duration::days(7);
 const TTL_UNKNOWN: Duration = Duration::hours(24);
+/// A decided verdict is remembered offline for this long and reused on an identical match.
+const TTL_MEMORY: Duration = Duration::days(365);
+const MEMORY_MIN_CONFIDENCE: f64 = 0.8;
 const FLIP_WINDOW: Duration = Duration::days(7);
 
 pub type BoxFut<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
@@ -282,6 +285,8 @@ struct Payload {
     score: i32,
     hard_rule: bool,
     cache_key: String,
+    /// Exact-match key (file identity, rule pack, signals) for the long-lived offline memory.
+    memory_key: String,
 }
 
 fn bad(m: &str) -> RpcError {
@@ -686,7 +691,13 @@ impl Shared {
             )
             .as_bytes(),
         );
+        let mut ids = present.clone();
+        ids.sort();
+        let memory_key = redact::sha256_hex(
+            format!("mem|{identity}|{}|{}", ev.rule_pack_version, ids.join(",")).as_bytes(),
+        );
         Ok(Payload {
+            memory_key,
             hash: redact::payload_sha256(&value),
             value,
             present,
@@ -725,9 +736,13 @@ impl Shared {
         let hit = if force {
             None
         } else {
-            self.with_store(|c| store::cache_get(c, &p.cache_key, now))
-                .and_then(Result::ok)
-                .flatten()
+            self.with_store(|c| {
+                store::cache_get(c, &p.cache_key, now).and_then(|h| {
+                    h.map_or_else(|| store::cache_get(c, &p.memory_key, now), |h| Ok(Some(h)))
+                })
+            })
+            .and_then(Result::ok)
+            .flatten()
         };
         let (op, model, cached) =
             if let Some(j) = hit.and_then(|j| serde_json::from_str::<(Opinion, String)>(&j).ok()) {
@@ -751,7 +766,13 @@ impl Shared {
                     TTL_DECIDED
                 };
                 if let Ok(j) = serde_json::to_string(&(&op, &model)) {
-                    self.with_store(|c| store::cache_put(c, &p.cache_key, &j, &model, ttl, now));
+                    self.with_store(|c| {
+                        store::cache_put(c, &p.cache_key, &j, &model, ttl, now)?;
+                        if op.verdict != "unknown" && op.confidence >= MEMORY_MIN_CONFIDENCE {
+                            store::cache_put(c, &p.memory_key, &j, &model, TTL_MEMORY, now)?;
+                        }
+                        Ok::<_, vigil_store::StoreError>(())
+                    });
                 }
                 (op, model, false)
             };

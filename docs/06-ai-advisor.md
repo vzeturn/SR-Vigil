@@ -120,3 +120,7 @@ Builds with `VIGIL_PROXY_URL` offer `source = "shared"`: the service registers o
 - At most once every 24 h, and only if the AI did something, the service emits `event.ai_digest` (topic `ai`); the UI shows it as a system notification and the Overview card shows the same numbers live.
 - The default mode is `auto`, but in builds without `VIGIL_PROXY_URL` nothing runs until the admin enables AI and acknowledges the data categories (§10); proxy builds ship with AI on. `auto_kill` stays off.
 - New Unknown programs are assessed proactively (never decided) using at most half of `daily_call_budget`; Malicious findings are always assessed first and, if the AI is unavailable, left to the user as a pending item.
+
+## Offline memory
+
+A confident (>= 0.8) safe or malicious opinion is also stored under an exact-match key (sha256 + signer, rule-pack version, set of signals) for 365 days. An identical program is answered from `ai_cache` with no API call, even when the advisor is rate limited. Any change to the file, signer, rule pack or signals misses the memory and asks the advisor again. The memory is advice only; the authority order and the `auto` gates are unchanged.
