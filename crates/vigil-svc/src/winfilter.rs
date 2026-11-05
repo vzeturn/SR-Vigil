@@ -6,8 +6,8 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex, PoisonError};
 
 use tokio::sync::mpsc::UnboundedSender;
-use vigil_win::wfp::Engine;
 use vigil_win::wfp::ids::{self, FilterKind};
+use vigil_win::wfp::{Engine, Scope};
 
 use crate::enforce::{DropInfo, FilterEngine};
 
@@ -15,7 +15,8 @@ pub struct WfpEngine {
     dynamic: Arc<Engine>,
     persistent: Engine,
     permitted: Mutex<BTreeSet<PathBuf>>,
-    denied: Mutex<BTreeSet<PathBuf>>,
+    /// `None` until the first sync: persistent denies from an earlier run are still installed.
+    denied: Mutex<Option<BTreeSet<PathBuf>>>,
 }
 
 impl WfpEngine {
@@ -25,7 +26,7 @@ impl WfpEngine {
             dynamic: Arc::new(Engine::open_dynamic().map_err(|e| e.to_string())?),
             persistent: Engine::open_persistent().map_err(|e| e.to_string())?,
             permitted: Mutex::new(BTreeSet::new()),
-            denied: Mutex::new(BTreeSet::new()),
+            denied: Mutex::new(None),
         })
     }
 }
@@ -33,10 +34,24 @@ impl WfpEngine {
 impl FilterEngine for WfpEngine {
     fn set_denies(&self, denies: &[PathBuf]) -> Result<(), String> {
         let want: BTreeSet<PathBuf> = denies.iter().cloned().collect();
-        let mut have = self.denied.lock().unwrap_or_else(PoisonError::into_inner);
+        let mut slot = self.denied.lock().unwrap_or_else(PoisonError::into_inner);
+        if slot.is_none() {
+            // Denies outlive the process: drop the ones a previous run left behind (a revoked
+            // block must not keep an app offline after a restart).
+            let stale = self
+                .persistent
+                .list_filters(Scope::Persistent)
+                .map_err(|e| e.to_string())?;
+            for f in stale.iter().filter(|f| f.name.starts_with("Vigil Deny")) {
+                self.persistent
+                    .remove_filter(&f.key)
+                    .map_err(|e| e.to_string())?;
+            }
+        }
+        let have = slot.get_or_insert_with(BTreeSet::new);
         self.persistent
             .transaction(|tx| {
-                for p in want.difference(&have) {
+                for p in want.difference(have) {
                     tx.put_deny(p)?;
                 }
                 Ok(())
@@ -91,10 +106,7 @@ impl FilterEngine for WfpEngine {
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .clear();
-        self.denied
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .clear();
+        *self.denied.lock().unwrap_or_else(PoisonError::into_inner) = None;
         r.removed
     }
 
