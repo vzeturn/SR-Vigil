@@ -1,6 +1,6 @@
 # 18 — Kill review, launch origin and root-cause handling
 
-Status: design (approved direction, not yet built). Tracked as M13 in `docs/10-roadmap-milestones.md`.
+Status: built (steps 1–4). Tracked as M13 in `docs/10-roadmap-milestones.md`.
 
 Goal: a kill is never a dead end for the user. Every kill can be reviewed, undone and excepted; a
 program the user opens by hand is asked about once, with the reasons; programs started by other
@@ -63,8 +63,8 @@ service). When one launcher starts blocked programs ≥ 5 times in 60 s, or the 
 after a kill, we stop acting on the children and decide about the launcher:
 
 - **Stop the busy-work first.** On the trigger the per-child kill loop ends: the child identity
-  goes into a *cool-down* (its new instances are suspended and killed in one batched pass every
-  30 s instead of one scan per respawn), no more audit rows per respawn (one counter), no AI call
+  goes into a *cool-down* (its new instances are killed silently by the next scan, no suspend, no
+  popup), no more audit rows per respawn (one counter), no AI call
   per respawn. The cost of waiting for the user is near zero.
 - Evidence shown: launcher image, signer, how it was started, what it keeps starting and how often,
   the advisor's deep review (reasons, confidence), the reasons the child was killed.

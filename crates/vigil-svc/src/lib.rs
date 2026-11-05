@@ -10,6 +10,7 @@ pub mod enforce;
 pub mod events;
 pub mod handler;
 pub mod kill;
+pub mod launcher;
 pub mod persist;
 pub mod portable;
 pub mod reopen;

@@ -105,7 +105,7 @@ impl Shared {
         true
     }
 
-    fn kill_decision_for(&self, image: &str) -> Option<decisions::Decision> {
+    pub(crate) fn kill_decision_for(&self, image: &str) -> Option<decisions::Decision> {
         self.with_store(|c| {
             let all = decisions::list_active(c, OffsetDateTime::now_utc())?;
             for d in all {

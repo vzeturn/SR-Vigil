@@ -57,6 +57,7 @@ JSON-RPC 2.0 subset: `{"jsonrpc":"2.0","id":<int|string>,"method":"...","params"
 | `decision.submit` | A | `{pending_id?, identity_id?, action, scope, apply_to, note?}` → `DecisionResult` |
 | `decision.list` | R | `{}` → `{items: Decision[]}`; each item also carries `identity` (path, publisher, product, signature_status), `evaluation` (score, verdict, hard_rule, signals), `ai_opinion` and `respawn_kills`, so a kill can be reviewed without further calls |
 | `decision.revoke` | A | `{decision_id}` → `{}` |
+| `launcher.answer` | A | `{launcher, action}` → `{}`; answers an `event.launcher_prompt`. `action`: `allow` (lift the child's kill), `stop` (kill the launcher through the normal kill protections), `disable` (disable its autostart entries, reversible via `persistence.apply restore`), `wait` (nothing). `not_found` once answered |
 | `reopen.answer` | A | `{pid, start_time, allow}` → `{}`; answers an `event.reopen_prompt`. `allow` lifts the kill (as `decision.exception`) and resumes the frozen process; otherwise it is killed and that program's prompt is silenced for 24 h. `not_found` once answered or timed out (60 s → killed) |
 | `decision.exception` | A | `{decision_id}` → `DecisionResult`; revokes the decision (and its respawn block) and records an `allow`/`forever`/`file` decision for the same program. Hard rules and never-kill still apply |
 | `identity.get` | R | `{identity_id}` → `IdentityDetail` (signals, history) |
@@ -96,6 +97,7 @@ JSON-RPC 2.0 subset: `{"jsonrpc":"2.0","id":<int|string>,"method":"...","params"
 | `pending` | `event.pending_created`, `event.pending_resolved` | `PendingItem` (`alert` is true only for an established incident: rule-based Malicious or an AI opinion Malicious at confidence ≥ `auto_threshold`; the UI pops up and toasts only then, other items wait quietly in the Pending list) / `{pending_id, action, by}` |
 | `enforcement` | `event.enforcement_changed` | `{mode, filters_armed, reason}` |
 | `enforcement` | `event.reopen_prompt` | `{pid, start_time, path, answer_within_secs, decision?}`; a killed program the user reopened is frozen until `reopen.answer` (`decision` carries the kill reasons) |
+| `enforcement` | `event.launcher_prompt` | `{launcher, child, count, window_secs, autostart_entries, decision?}`; sent once per launcher per 24 h when it keeps starting a killed program (docs/18 §5) |
 | `alerts` | `event.alert` | `{severity, kind, message_key, identity_id?, data}` |
 | `health` | `event.health` | `{state, details, ts}` |
 

@@ -208,6 +208,16 @@ export interface ReopenPrompt {
   received_at?: number;
 }
 
+/** A program keeps starting something Vigil stopped: ask what to do about the launcher. */
+export interface LauncherPrompt {
+  launcher: string;
+  child: string;
+  count: number;
+  window_secs: number;
+  autostart_entries: number;
+  decision: DecisionItem | null;
+}
+
 export interface DecisionItem {
   id: string;
   identity_id: string;

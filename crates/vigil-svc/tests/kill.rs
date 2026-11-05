@@ -9,6 +9,7 @@ use vigil_svc::kill::{KillOutcome, ProcessControl, Snap};
 use vigil_svc::state::{Options, ProcRow, Shared};
 
 const BAD: &str = r"C:\Temp\bad.exe";
+const LAUNCHER: &str = r"C:\Temp\run.exe";
 
 #[derive(Default)]
 struct Fake {
@@ -420,4 +421,55 @@ fn reopen_by_a_script_is_killed_without_a_prompt() {
     s.put_process(r);
     assert_eq!(s.respawn_scan(), 1);
     assert!(fake.frozen.lock().unwrap().is_empty());
+}
+
+#[test]
+fn a_launcher_flooding_respawns_is_asked_about_exactly_once() {
+    let (s, fake, id) = setup();
+    let mut bus = s.subscribe_bus();
+    fake.spawn(600, 1, BAD);
+    s.put_process(row(600, BAD, Some(&id)));
+    assert_eq!(kill(&s, 600, &json!({}))["ok"], true);
+
+    fake.spawn(50, 1, LAUNCHER);
+    for i in 0..20 {
+        fake.spawn(700 + i, 50, BAD);
+        assert_eq!(s.respawn_scan(), 1, "respawn {i} still killed");
+    }
+    let mut prompts = 0;
+    while let Ok(e) = bus.try_recv() {
+        if e.method == "event.launcher_prompt" {
+            prompts += 1;
+            assert_eq!(e.params["launcher"], LAUNCHER);
+        }
+    }
+    assert_eq!(prompts, 1);
+
+    s.launcher_answer(&json!({ "launcher": LAUNCHER, "action": "allow" }))
+        .unwrap();
+    assert!(
+        s.with_store(|c| vigil_store::blocks::active(c).unwrap().is_empty())
+            .unwrap()
+    );
+    assert!(
+        s.launcher_answer(&json!({ "launcher": LAUNCHER, "action": "allow" }))
+            .is_err()
+    );
+}
+
+#[test]
+fn stopping_a_launcher_kills_it() {
+    let (s, fake, id) = setup();
+    fake.spawn(600, 1, BAD);
+    s.put_process(row(600, BAD, Some(&id)));
+    assert_eq!(kill(&s, 600, &json!({}))["ok"], true);
+    fake.spawn(50, 1, LAUNCHER);
+    s.put_process(row(50, LAUNCHER, None));
+    for i in 0..5 {
+        fake.spawn(700 + i, 50, BAD);
+        s.respawn_scan();
+    }
+    s.launcher_answer(&json!({ "launcher": LAUNCHER, "action": "stop" }))
+        .unwrap();
+    assert!(fake.killed.lock().unwrap().contains(&50));
 }

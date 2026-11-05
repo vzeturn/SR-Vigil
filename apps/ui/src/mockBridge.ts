@@ -185,6 +185,7 @@ export function createMockBridge(rows = 200): Bridge {
       return Promise.resolve(() => undefined);
     },
     onPending: () => Promise.resolve(() => undefined),
+    onLauncher: () => Promise.resolve(() => undefined),
     onReopen: () => Promise.resolve(() => undefined),
   };
 }

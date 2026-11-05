@@ -153,6 +153,11 @@ async fn emitted_events_match_the_schema() {
         "event.reopen_prompt",
         &json!({"pid": 7, "start_time": "t7", "path": "C:/a.exe", "answer_within_secs": 60, "decision": null}),
     );
+    validate(
+        &s["x-events"]["event.launcher_prompt"],
+        "event.launcher_prompt",
+        &json!({"launcher": "C:/run.exe", "child": "C:/a.exe", "count": 5, "window_secs": 600, "autostart_entries": 1}),
+    );
     sh.remove_process(1, "2026-01-01T00:00:00Z");
     sh.sync_connections(vec![]);
     sh.set_mode("learning", false).unwrap();

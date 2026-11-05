@@ -169,6 +169,10 @@ Reviewable and revocable kills with exceptions and false-positive reports, a loc
 database, launch-origin detection, suspend-and-ask on re-open, launcher attribution with one
 root-cause popup. Build order is in `docs/18 §7`.
 
+- [x] Steps 1–4 built: kill review and exceptions, launch origin and baselines, freeze-and-ask on re-open (`reopen.answer`), launcher cool-down with one question (`launcher.answer`).
+- [x] Fixture: a launcher respawning a killed program 20 times produces exactly one `event.launcher_prompt` (`crates/vigil-svc/tests/kill.rs`); a user-origin reopen freezes and asks, a script-origin one never prompts.
+- [ ] Manual check on Windows (`docs/11`): reopen a killed program from Explorer, confirm it is frozen, the popup lists reasons, Allow resumes it, Keep stopped kills it.
+
 ## Backlog (post-v1, tracked)
 
 - Inbound blocking option (FR-017): `ALE_AUTH_RECV_ACCEPT` filters, off by default.

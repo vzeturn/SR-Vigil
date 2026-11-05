@@ -30,6 +30,7 @@ const ALLOWED: &[&str] = &[
     "decision.revoke",
     "decision.exception",
     "reopen.answer",
+    "launcher.answer",
     "audit.query",
     "enforcement.panic",
     "process.get",
@@ -127,6 +128,10 @@ fn forward_pending(app: &AppHandle, client: &mut Client<NamedPipeClient>) {
             "event.reopen_prompt" => {
                 // The service already rate-limits these, and the process is frozen until answered.
                 let _ = app.emit("vigil://reopen", params);
+                crate::popup::show(app);
+            }
+            "event.launcher_prompt" => {
+                let _ = app.emit("vigil://launcher", params);
                 crate::popup::show(app);
             }
             "event.ai_digest" => {

@@ -336,6 +336,16 @@ export const en = {
     empty: 'No audit entries yet.',
     error: 'Could not load the audit log: {{message}}',
   },
+  launcher: {
+    title: 'Something keeps restarting a stopped program',
+    headline: '{{launcher}} keeps starting {{child}}',
+    body: 'Vigil stopped it {{n}} times in the last {{min}} minutes and is stopping it quietly meanwhile. What should happen to the program that starts it?',
+    allowBoth: 'Allow both',
+    stop: 'Stop {{launcher}}',
+    disable: 'Disable its autostart',
+    wait: 'Keep waiting',
+    noAutostart: 'No autostart entry was found for it.',
+  },
   reopen: {
     title: 'Stopped program reopened',
     headline: 'You reopened {{name}}, which Vigil stopped',

@@ -2696,6 +2696,34 @@
         "type": "object",
         "additionalProperties": false
       }
+    },
+    "launcher.answer": {
+      "role": "admin",
+      "params": {
+        "type": "object",
+        "properties": {
+          "launcher": {
+            "type": "string"
+          },
+          "action": {
+            "enum": [
+              "allow",
+              "stop",
+              "disable",
+              "wait"
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "launcher",
+          "action"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "additionalProperties": false
+      }
     }
   },
   "x-events": {
@@ -2949,6 +2977,43 @@
         "start_time",
         "path",
         "answer_within_secs"
+      ]
+    },
+    "event.launcher_prompt": {
+      "type": "object",
+      "properties": {
+        "launcher": {
+          "type": "string"
+        },
+        "child": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "window_secs": {
+          "type": "integer"
+        },
+        "autostart_entries": {
+          "type": "integer"
+        },
+        "decision": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Decision"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "launcher",
+        "child",
+        "count",
+        "window_secs",
+        "autostart_entries"
       ]
     }
   },

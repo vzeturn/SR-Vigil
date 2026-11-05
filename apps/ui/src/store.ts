@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { getBridge } from './bridge';
-import type { Link, PendingItem, ReopenPrompt, Snapshot } from './types';
+import type { Link, PendingItem, LauncherPrompt, ReopenPrompt, Snapshot } from './types';
 
 export interface VigilState {
   link: Link;
@@ -12,9 +12,10 @@ export interface VigilState {
   panicAt: number | null;
   /** Killed program waiting frozen for the user's answer. */
   reopen: ReopenPrompt | null;
+  launcher: LauncherPrompt | null;
 }
 
-let state: VigilState = { link: { up: false }, snapshot: null, pending: null, pendingError: null, panicAt: null, reopen: null };
+let state: VigilState = { link: { up: false }, snapshot: null, pending: null, pendingError: null, panicAt: null, reopen: null, launcher: null };
 const listeners = new Set<() => void>();
 
 function set(next: Partial<VigilState>) {
@@ -40,6 +41,14 @@ export async function answerReopen(p: ReopenPrompt, allow: boolean): Promise<voi
   await b.rpc('reopen.answer', { pid: p.pid, start_time: p.start_time, allow });
 }
 
+export type LauncherAction = 'allow' | 'stop' | 'disable' | 'wait';
+
+export async function answerLauncher(p: LauncherPrompt, action: LauncherAction): Promise<void> {
+  set({ launcher: null });
+  const b = await getBridge();
+  await b.rpc('launcher.answer', { launcher: p.launcher, action });
+}
+
 export const markPanic = () => set({ panicAt: Date.now() });
 export const dismissPanic = () => set({ panicAt: null });
 
@@ -61,6 +70,7 @@ export function start() {
       if (stale) void refreshPending();
     });
     void b.onPending(() => void refreshPending());
+    void b.onLauncher((launcher) => set({ launcher }));
     void b.onReopen((reopen) => set({ reopen: { ...reopen, received_at: Date.now() } }));
   });
 }

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { getBridge, hidePopup } from '../bridge';
 import type { AiOpinion } from '../types';
 import { AiAssessment } from '../components/AiAssessment';
+import { LauncherView } from '../components/LauncherView';
 import { ReopenView } from '../components/ReopenView';
 import { useFitPopup } from '../components/useFitPopup';
 import { DecisionControls } from '../components/DecisionControls';
@@ -14,8 +15,9 @@ import { useVigil } from '../store';
 
 /** Content of the always-on-top window: a reopen question outranks the pending queue. */
 export function Popup() {
-  const { reopen } = useVigil();
-  return reopen ? <ReopenView prompt={reopen} /> : <PendingPopup />;
+  const { reopen, launcher } = useVigil();
+  if (reopen) return <ReopenView prompt={reopen} />;
+  return launcher ? <LauncherView prompt={launcher} /> : <PendingPopup />;
 }
 
 /** Approval queue. Esc or "Later" hides it; the item stays pending. */

@@ -93,6 +93,7 @@ impl ConnHandler {
             "decision.revoke" => s.revoke_decision(params),
             "decision.exception" => s.decision_exception(params),
             "reopen.answer" => s.reopen_answer(params),
+            "launcher.answer" => s.launcher_answer(params),
             "audit.query" => s.audit_query(params),
             "audit.export" => s.audit_export(params),
             "decision.export" => s.decisions_export(),

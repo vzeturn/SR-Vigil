@@ -2,7 +2,7 @@
 //!
 //! Platform access goes through [`ProcessControl`] so the policy is testable with a fake.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, PoisonError};
 
 use serde_json::{Value, json};
@@ -16,7 +16,8 @@ use vigil_store::{blocks, repo};
 use crate::state::{ProcRow, Shared, now};
 
 /// Names of Vigil's own binaries; these are never killed (HA-001).
-const SELF_IMAGES: [&str; 4] = ["vigil-svc.exe", "vigil.exe", "vigilctl.exe", "vigil-ui.exe"];
+pub(crate) const SELF_IMAGES: [&str; 4] =
+    ["vigil-svc.exe", "vigil.exe", "vigilctl.exe", "vigil-ui.exe"];
 
 /// A live process as the kill logic sees it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -308,6 +309,10 @@ impl Shared {
         }
         let mut killed = 0;
         let snaps = ctl.list();
+        let images: HashMap<u32, String> = snaps
+            .iter()
+            .filter_map(|s| s.image.clone().map(|i| (s.pid, i)))
+            .collect();
         {
             // Forget exited processes so the memo stays the size of the process table.
             let live: HashSet<(u32, u64)> = snaps.iter().map(|s| (s.pid, s.started)).collect();
@@ -355,9 +360,22 @@ impl Shared {
             if self.ask_reopen(&s, &image, b.id) {
                 continue;
             }
+            let row = self.process_row(s.pid, &s.start_time);
+            // Only unattended starts feed root-cause handling; a user-origin copy was already considered.
+            let cooling = if row.as_ref().is_some_and(|r| r.origin == Some("user")) {
+                false
+            } else {
+                let launcher = row
+                    .and_then(|r| r.parent_path)
+                    .or_else(|| images.get(&s.ppid).cloned());
+                self.note_respawn(launcher.as_deref(), &image, b.id)
+            };
             if ctl.terminate(s.pid, s.started) == KillOutcome::Terminated {
                 killed += 1;
                 let _ = self.with_store(|c| blocks::count_respawn_kill(c, b.id));
+                if cooling {
+                    continue;
+                }
                 self.audit(
                     "service",
                     AuditKind::RespawnKill,
