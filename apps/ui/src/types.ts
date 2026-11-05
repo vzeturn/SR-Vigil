@@ -197,6 +197,17 @@ export interface DecisionParams {
 }
 
 /** `decision.list` item: a stored decision plus what is needed to review a kill. */
+/** A killed program the user just reopened: frozen until answered or until the deadline kills it. */
+export interface ReopenPrompt {
+  pid: number;
+  start_time: string;
+  path: string;
+  answer_within_secs: number;
+  decision: DecisionItem | null;
+  /** Epoch ms the prompt reached this window (the countdown base). */
+  received_at?: number;
+}
+
 export interface DecisionItem {
   id: string;
   identity_id: string;

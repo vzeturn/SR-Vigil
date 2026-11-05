@@ -1,4 +1,4 @@
-import type { Link, PendingItem, Snapshot, Verdict } from './types';
+import type { Link, PendingItem, ReopenPrompt, Snapshot, Verdict } from './types';
 
 /** The only door to the service. In a browser (dev, tests) a mock stands in for the Tauri shell. */
 export interface Bridge {
@@ -7,6 +7,8 @@ export interface Bridge {
   onLink(cb: (l: Link) => void): Promise<() => void>;
   /** Fired when the service queues a new pending decision (payload may be absent). */
   onPending(cb: (p: PendingItem | null) => void): Promise<() => void>;
+  /** Fired when a killed program is reopened by the user and waits frozen for an answer. */
+  onReopen(cb: (p: ReopenPrompt) => void): Promise<() => void>;
 }
 
 const inTauri = '__TAURI_INTERNALS__' in globalThis;
@@ -21,6 +23,7 @@ async function tauriBridge(): Promise<Bridge> {
     onSnapshot: (cb) => listen<Snapshot>('vigil://snapshot', (e) => cb(e.payload)),
     onLink: (cb) => listen<Link>('vigil://link', (e) => cb(e.payload)),
     onPending: (cb) => listen<PendingItem | null>('vigil://pending', (e) => cb(e.payload)),
+    onReopen: (cb) => listen<ReopenPrompt>('vigil://reopen', (e) => cb(e.payload)),
   };
 }
 

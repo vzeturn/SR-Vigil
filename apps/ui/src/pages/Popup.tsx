@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { getBridge, hidePopup } from '../bridge';
 import type { AiOpinion } from '../types';
 import { AiAssessment } from '../components/AiAssessment';
+import { ReopenView } from '../components/ReopenView';
+import { useFitPopup } from '../components/useFitPopup';
 import { DecisionControls } from '../components/DecisionControls';
 import { destinationText, hasConnection, itemName } from '../components/pendingView';
 import { ScoreBar } from '../components/ScoreBar';
@@ -10,8 +12,14 @@ import { ScoreTip } from '../components/ScoreTip';
 import { VerdictChip } from '../components/VerdictChip';
 import { useVigil } from '../store';
 
-/** Content of the always-on-top approval window. Esc or "Later" hides it; the item stays pending. */
+/** Content of the always-on-top window: a reopen question outranks the pending queue. */
 export function Popup() {
+  const { reopen } = useVigil();
+  return reopen ? <ReopenView prompt={reopen} /> : <PendingPopup />;
+}
+
+/** Approval queue. Esc or "Later" hides it; the item stays pending. */
+function PendingPopup() {
   const { t } = useTranslation();
   const { pending } = useVigil();
   const [index, setIndex] = useState(0);
@@ -54,19 +62,7 @@ export function Popup() {
   }, [total]);
 
   const box = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    // Keep the window exactly as tall as its content so it never covers more screen than needed.
-    const el = box.current;
-    if (!el || !('__TAURI_INTERNALS__' in window)) return;
-    const fit = () => {
-      void import('@tauri-apps/api/core').then(({ invoke }) =>
-        invoke('fit_popup', { height: Math.ceil(el.getBoundingClientRect().height) }),
-      );
-    };
-    const ro = new ResizeObserver(fit);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
+  useFitPopup(box);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

@@ -12,6 +12,7 @@ pub mod handler;
 pub mod kill;
 pub mod persist;
 pub mod portable;
+pub mod reopen;
 pub mod state;
 
 #[cfg(windows)]

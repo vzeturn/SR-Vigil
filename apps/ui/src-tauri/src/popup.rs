@@ -46,7 +46,7 @@ pub fn on_pending(app: &AppHandle) {
     }
 }
 
-fn show(app: &AppHandle) {
+pub fn show(app: &AppHandle) {
     let Some(win) = crate::window(app, "popup") else {
         return;
     };

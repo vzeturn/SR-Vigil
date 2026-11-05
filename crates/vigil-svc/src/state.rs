@@ -131,6 +131,7 @@ pub struct Shared {
     /// Identities already put to the advisor as process-storm suspects (once per run).
     pub(crate) storm_reviewed: Mutex<std::collections::HashSet<i64>>,
     pub(crate) respawn_seen: Mutex<RespawnMemo>,
+    pub(crate) reopen: Mutex<crate::reopen::Reopen>,
     pub(crate) ai_slots: tokio::sync::Semaphore,
 }
 
@@ -252,6 +253,7 @@ impl Shared {
             ai_inflight: Mutex::new(std::collections::HashSet::new()),
             storm_reviewed: Mutex::new(std::collections::HashSet::new()),
             respawn_seen: Mutex::new(Default::default()),
+            reopen: Mutex::new(crate::reopen::Reopen::default()),
             ai_slots: tokio::sync::Semaphore::new(2),
         }
     }

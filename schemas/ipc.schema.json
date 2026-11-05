@@ -2669,6 +2669,33 @@
           "skipped"
         ]
       }
+    },
+    "reopen.answer": {
+      "role": "admin",
+      "params": {
+        "type": "object",
+        "properties": {
+          "pid": {
+            "type": "integer"
+          },
+          "start_time": {
+            "type": "string"
+          },
+          "allow": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "pid",
+          "start_time",
+          "allow"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "additionalProperties": false
+      }
     }
   },
   "x-events": {
@@ -2889,6 +2916,39 @@
       "additionalProperties": false,
       "required": [
         "events"
+      ]
+    },
+    "event.reopen_prompt": {
+      "type": "object",
+      "properties": {
+        "pid": {
+          "type": "integer"
+        },
+        "start_time": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "answer_within_secs": {
+          "type": "integer"
+        },
+        "decision": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Decision"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "pid",
+        "start_time",
+        "path",
+        "answer_within_secs"
       ]
     }
   },

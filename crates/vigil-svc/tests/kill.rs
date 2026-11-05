@@ -14,6 +14,8 @@ const BAD: &str = r"C:\Temp\bad.exe";
 struct Fake {
     procs: Mutex<Vec<Snap>>,
     killed: Mutex<Vec<u32>>,
+    frozen: Mutex<Vec<u32>>,
+    thawed: Mutex<Vec<u32>>,
     items: Mutex<Vec<Found>>,
 }
 
@@ -47,6 +49,14 @@ impl ProcessControl for Fake {
         self.procs.lock().unwrap().retain(|p| p.pid != pid);
         self.killed.lock().unwrap().push(pid);
         KillOutcome::Terminated
+    }
+    fn suspend(&self, pid: u32, _: u64) -> bool {
+        self.frozen.lock().unwrap().push(pid);
+        true
+    }
+    fn resume(&self, pid: u32, _: u64) -> bool {
+        self.thawed.lock().unwrap().push(pid);
+        true
     }
     fn persist_scan(&self) -> Vec<Found> {
         self.items.lock().unwrap().clone()
@@ -345,4 +355,69 @@ fn a_signed_ide_running_many_shells_is_not_killed() {
         "a validly signed program is left to the advisor"
     );
     assert!(fake.killed.lock().unwrap().is_empty());
+}
+
+/// A killed program reopened by the user is frozen and asked about; the answer decides (docs/18 §4).
+fn reopen_by_user(s: &Shared, fake: &Fake, id: &str, pid: u32) {
+    fake.spawn(pid, 1, BAD);
+    let mut r = row(pid, BAD, Some(id));
+    r.origin = Some("user");
+    s.put_process(r);
+}
+
+#[test]
+fn reopen_by_user_is_frozen_then_allow_lifts_the_kill() {
+    let (s, fake, id) = setup();
+    fake.spawn(600, 1, BAD);
+    s.put_process(row(600, BAD, Some(&id)));
+    assert_eq!(kill(&s, 600, &json!({}))["ok"], true);
+
+    reopen_by_user(&s, &fake, &id, 700);
+    assert_eq!(s.respawn_scan(), 0, "frozen, not killed");
+    assert_eq!(*fake.frozen.lock().unwrap(), [700]);
+
+    s.reopen_answer(&json!({ "pid": 700, "start_time": "t700", "allow": true }))
+        .unwrap();
+    assert_eq!(*fake.thawed.lock().unwrap(), [700]);
+    assert!(
+        s.with_store(|c| vigil_store::blocks::active(c).unwrap().is_empty())
+            .unwrap()
+    );
+    assert!(
+        s.reopen_answer(&json!({ "pid": 700, "start_time": "t700", "allow": true }))
+            .is_err()
+    );
+}
+
+#[test]
+fn reopen_by_user_keep_stopped_kills_and_stays_quiet() {
+    let (s, fake, id) = setup();
+    fake.spawn(600, 1, BAD);
+    s.put_process(row(600, BAD, Some(&id)));
+    assert_eq!(kill(&s, 600, &json!({}))["ok"], true);
+
+    reopen_by_user(&s, &fake, &id, 700);
+    assert_eq!(s.respawn_scan(), 0);
+    s.reopen_answer(&json!({ "pid": 700, "start_time": "t700", "allow": false }))
+        .unwrap();
+    assert!(fake.killed.lock().unwrap().contains(&700));
+
+    reopen_by_user(&s, &fake, &id, 701);
+    assert_eq!(s.respawn_scan(), 1, "silenced: killed without a new prompt");
+    assert_eq!(*fake.frozen.lock().unwrap(), [700]);
+}
+
+#[test]
+fn reopen_by_a_script_is_killed_without_a_prompt() {
+    let (s, fake, id) = setup();
+    fake.spawn(600, 1, BAD);
+    s.put_process(row(600, BAD, Some(&id)));
+    assert_eq!(kill(&s, 600, &json!({}))["ok"], true);
+
+    fake.spawn(700, 1, BAD);
+    let mut r = row(700, BAD, Some(&id));
+    r.origin = Some("script");
+    s.put_process(r);
+    assert_eq!(s.respawn_scan(), 1);
+    assert!(fake.frozen.lock().unwrap().is_empty());
 }

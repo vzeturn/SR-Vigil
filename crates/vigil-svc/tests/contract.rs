@@ -148,6 +148,11 @@ async fn emitted_events_match_the_schema() {
         freshness: None,
         origin: None,
     });
+    validate(
+        &s["x-events"]["event.reopen_prompt"],
+        "event.reopen_prompt",
+        &json!({"pid": 7, "start_time": "t7", "path": "C:/a.exe", "answer_within_secs": 60, "decision": null}),
+    );
     sh.remove_process(1, "2026-01-01T00:00:00Z");
     sh.sync_connections(vec![]);
     sh.set_mode("learning", false).unwrap();

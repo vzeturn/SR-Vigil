@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { getBridge } from './bridge';
-import type { Link, PendingItem, Snapshot } from './types';
+import type { Link, PendingItem, ReopenPrompt, Snapshot } from './types';
 
 export interface VigilState {
   link: Link;
@@ -10,9 +10,11 @@ export interface VigilState {
   pendingError: string | null;
   /** Epoch ms of the last panic, shown as a banner until dismissed. */
   panicAt: number | null;
+  /** Killed program waiting frozen for the user's answer. */
+  reopen: ReopenPrompt | null;
 }
 
-let state: VigilState = { link: { up: false }, snapshot: null, pending: null, pendingError: null, panicAt: null };
+let state: VigilState = { link: { up: false }, snapshot: null, pending: null, pendingError: null, panicAt: null, reopen: null };
 const listeners = new Set<() => void>();
 
 function set(next: Partial<VigilState>) {
@@ -29,6 +31,13 @@ export async function refreshPending(): Promise<void> {
   } catch (e) {
     set({ pendingError: e instanceof Error ? e.message : String(e) });
   }
+}
+
+/** Send the answer; the prompt is cleared whatever happens (the service kills on timeout anyway). */
+export async function answerReopen(p: ReopenPrompt, allow: boolean): Promise<void> {
+  set({ reopen: null });
+  const b = await getBridge();
+  await b.rpc('reopen.answer', { pid: p.pid, start_time: p.start_time, allow });
 }
 
 export const markPanic = () => set({ panicAt: Date.now() });
@@ -52,6 +61,7 @@ export function start() {
       if (stale) void refreshPending();
     });
     void b.onPending(() => void refreshPending());
+    void b.onReopen((reopen) => set({ reopen: { ...reopen, received_at: Date.now() } }));
   });
 }
 

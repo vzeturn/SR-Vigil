@@ -45,6 +45,13 @@ pub trait ProcessControl: Send + Sync {
     /// Terminate `pid` only if its start time still equals `started`.
     fn terminate(&self, pid: u32, started: u64) -> KillOutcome;
     fn sha256(&self, path: &str) -> Option<String>;
+    /// Freeze `pid` (same start-time guard as `terminate`); `false` when it cannot be frozen.
+    fn suspend(&self, _pid: u32, _started: u64) -> bool {
+        false
+    }
+    fn resume(&self, _pid: u32, _started: u64) -> bool {
+        false
+    }
     /// Modules loaded by `pid`; `None` when the platform refuses (protected process, missing privilege).
     fn modules(&self, _pid: u32) -> Option<Vec<String>> {
         None
@@ -343,6 +350,9 @@ impl Shared {
                 .flatten();
             let Some(b) = hit else { continue };
             if self.never_kill.check(&image, None).is_err() {
+                continue;
+            }
+            if self.ask_reopen(&s, &image, b.id) {
                 continue;
             }
             if ctl.terminate(s.pid, s.started) == KillOutcome::Terminated {

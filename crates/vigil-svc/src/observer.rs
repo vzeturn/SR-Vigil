@@ -240,6 +240,7 @@ pub async fn run(shared: Arc<Shared>, pack: Arc<RulePack>) -> anyhow::Result<()>
         tokio::task::spawn_blocking(move || {
             sh.storm_scan();
             sh.respawn_scan();
+            sh.reopen_sweep();
             sh.auto_kill_malicious();
         })
         .await?;

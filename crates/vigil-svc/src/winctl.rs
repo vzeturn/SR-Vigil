@@ -4,7 +4,7 @@ use std::path::Path;
 
 use vigil_store::persistence::Found;
 use vigil_win::hash::HashCache;
-use vigil_win::kill::{Outcome, terminate};
+use vigil_win::kill::{Outcome, resume, suspend, terminate};
 use vigil_win::{persist, process};
 
 use crate::kill::{KillOutcome, ProcessControl, Snap};
@@ -56,6 +56,14 @@ impl ProcessControl for WinControl {
             Outcome::AccessDenied => KillOutcome::AccessDenied,
             Outcome::Failed => KillOutcome::Failed,
         }
+    }
+
+    fn suspend(&self, pid: u32, started: u64) -> bool {
+        suspend(pid, started)
+    }
+
+    fn resume(&self, pid: u32, started: u64) -> bool {
+        resume(pid, started)
     }
 
     fn modules(&self, pid: u32) -> Option<Vec<String>> {

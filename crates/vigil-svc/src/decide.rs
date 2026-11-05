@@ -160,7 +160,7 @@ impl Shared {
 
     /// A decision plus what the user needs to judge a kill: the program, why it scored as it did,
     /// the advisor's view and how often the respawn guard had to act.
-    fn decision_detail(&self, d: &Decision) -> Value {
+    pub(crate) fn decision_detail(&self, d: &Decision) -> Value {
         let mut v = decision_json(d);
         let (exe, ev, kills) = self
             .with_store(|c| {

@@ -336,6 +336,14 @@ export const en = {
     empty: 'No audit entries yet.',
     error: 'Could not load the audit log: {{message}}',
   },
+  reopen: {
+    title: 'Stopped program reopened',
+    headline: 'You reopened {{name}}, which Vigil stopped',
+    body: 'It is paused until you decide. If you do not answer it stays stopped.',
+    countdown: 'Stays stopped in {{n}} s',
+    keep: 'Keep stopped',
+    allow: 'Allow it',
+  },
   popup: {
     title: 'Approval needed',
     empty: 'Nothing is waiting for a decision.',

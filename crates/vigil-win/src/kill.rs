@@ -1,12 +1,75 @@
 //! `TerminateProcess` with a start-time check so a recycled PID is never killed by mistake.
 
-use windows::Win32::Foundation::{ERROR_ACCESS_DENIED, ERROR_INVALID_PARAMETER, FILETIME};
+use windows::Win32::Foundation::{ERROR_ACCESS_DENIED, ERROR_INVALID_PARAMETER, FILETIME, HANDLE};
 use windows::Win32::System::Threading::{
-    GetProcessTimes, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_TERMINATE,
-    TerminateProcess,
+    GetProcessTimes, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SUSPEND_RESUME,
+    PROCESS_TERMINATE, TerminateProcess,
 };
 
 use crate::process::{Handle, filetime};
+
+#[link(name = "ntdll")]
+unsafe extern "system" {
+    fn NtSuspendProcess(process: HANDLE) -> i32;
+    fn NtResumeProcess(process: HANDLE) -> i32;
+}
+
+/// Freeze (`true`) or thaw (`false`) `pid` iff its creation time still equals `expected_start`.
+/// Returns `false` when the process is gone, replaced, or access is refused.
+fn set_suspended(pid: u32, expected_start: u64, freeze: bool) -> bool {
+    // SAFETY: plain Win32 call; the returned handle is owned and closed by `Handle`.
+    let Ok(h) = (unsafe {
+        OpenProcess(
+            PROCESS_SUSPEND_RESUME | PROCESS_QUERY_LIMITED_INFORMATION,
+            false,
+            pid,
+        )
+    }) else {
+        return false;
+    };
+    let h = Handle(h);
+    let (mut created, mut exited, mut kernel, mut user) = (
+        FILETIME::default(),
+        FILETIME::default(),
+        FILETIME::default(),
+        FILETIME::default(),
+    );
+    // SAFETY: all four out-pointers refer to live, writable `FILETIME`s.
+    let times = unsafe {
+        GetProcessTimes(
+            h.0,
+            &raw mut created,
+            &raw mut exited,
+            &raw mut kernel,
+            &raw mut user,
+        )
+    };
+    if times.is_err() || filetime(created) != expected_start {
+        return false;
+    }
+    // SAFETY: `h` is a live process handle opened with PROCESS_SUSPEND_RESUME; `HANDLE` is
+    // layout-compatible with the kernel handle `NtSuspendProcess` expects.
+    let status = unsafe {
+        if freeze {
+            NtSuspendProcess(h.0)
+        } else {
+            NtResumeProcess(h.0)
+        }
+    };
+    status >= 0
+}
+
+/// Freeze every thread of `pid` (the process stays alive but runs no code).
+#[must_use]
+pub fn suspend(pid: u32, expected_start: u64) -> bool {
+    set_suspended(pid, expected_start, true)
+}
+
+/// Undo [`suspend`].
+#[must_use]
+pub fn resume(pid: u32, expected_start: u64) -> bool {
+    set_suspended(pid, expected_start, false)
+}
 
 /// Outcome of one terminate attempt.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -90,6 +153,12 @@ mod tests {
             child.try_wait().unwrap().is_none(),
             "stale start must not kill"
         );
+        assert!(suspend(child.id(), start));
+        assert!(
+            !suspend(child.id(), start + 1),
+            "stale start must not freeze"
+        );
+        assert!(resume(child.id(), start));
         assert_eq!(terminate(child.id(), start), Outcome::Terminated);
         assert!(child.wait().is_ok());
     }

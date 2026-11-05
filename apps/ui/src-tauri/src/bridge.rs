@@ -29,6 +29,7 @@ const ALLOWED: &[&str] = &[
     "decision.list",
     "decision.revoke",
     "decision.exception",
+    "reopen.answer",
     "audit.query",
     "enforcement.panic",
     "process.get",
@@ -91,7 +92,7 @@ async fn session(
         .await?;
     let role = hello["role"].clone();
     let _ = client
-        .call("subscribe", json!({"topics": ["pending", "ai"]}))
+        .call("subscribe", json!({"topics": ["pending", "ai", "enforcement"]}))
         .await;
     let mut tick = tokio::time::interval(SNAPSHOT_EVERY);
     loop {
@@ -122,6 +123,11 @@ fn forward_pending(app: &AppHandle, client: &mut Client<NamedPipeClient>) {
                 // Popup/toast only for an established incident; other items wait in the Pending list.
                 created |= params["alert"].as_bool().unwrap_or(false);
                 let _ = app.emit("vigil://pending", params);
+            }
+            "event.reopen_prompt" => {
+                // The service already rate-limits these, and the process is frozen until answered.
+                let _ = app.emit("vigil://reopen", params);
+                crate::popup::show(app);
             }
             "event.ai_digest" => {
                 let g = |k: &str| params[k].as_u64().unwrap_or(0);
