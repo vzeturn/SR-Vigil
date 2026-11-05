@@ -15,3 +15,4 @@ pub mod kill;
 pub mod observe;
 pub mod redact;
 pub mod rules;
+pub mod storm;
