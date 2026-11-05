@@ -21,7 +21,7 @@ use vigil_store::ai as store;
 use vigil_store::decisions::{self, ApplyTo, DecidedBy, NewDecision, Scope};
 use zeroize::Zeroizing;
 
-use crate::state::Shared;
+use crate::state::{ProcRow, Shared, now};
 
 const KEY: &str = "ai.key";
 const TOKEN: &str = "ai.token";
@@ -46,6 +46,10 @@ pub trait AiBackend: Send + Sync {
         present: &'a [String],
     ) -> BoxFut<'a, Result<(Opinion, String), AiError>>;
     fn calls_today(&self) -> u32;
+    /// Tokens `(input, output)` used since the previous call to this method.
+    fn token_delta(&self) -> (u64, u64) {
+        (0, 0)
+    }
     /// Assess through the shared endpoint with an install token (no API key on this machine).
     fn assess_shared<'a>(
         &'a self,
@@ -77,6 +81,8 @@ type Built = ((String, Option<String>, u64, u32), Arc<Advisor>);
 pub struct LiveBackend {
     vault: Arc<dyn KeyVault>,
     advisor: Mutex<Option<Built>>,
+    /// Token totals already reported through `token_delta` (the client resets when settings change).
+    seen: Mutex<(u64, u64)>,
 }
 
 impl LiveBackend {
@@ -85,6 +91,7 @@ impl LiveBackend {
         Self {
             vault,
             advisor: Mutex::new(None),
+            seen: Mutex::new((0, 0)),
         }
     }
 
@@ -137,6 +144,23 @@ impl AiBackend for LiveBackend {
             .as_ref()
             .map_or(0, |(_, a)| a.calls_today())
     }
+    fn token_delta(&self) -> (u64, u64) {
+        let now = self
+            .advisor
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .as_ref()
+            .map_or((0, 0), |(_, a)| a.tokens());
+        let mut seen = self.seen.lock().unwrap_or_else(PoisonError::into_inner);
+        let d = (
+            now.0
+                .saturating_sub(if now.0 < seen.0 { 0 } else { seen.0 }),
+            now.1
+                .saturating_sub(if now.1 < seen.1 { 0 } else { seen.1 }),
+        );
+        *seen = now;
+        d
+    }
     fn assess_shared<'a>(
         &'a self,
         cfg: &'a AiSettings,
@@ -181,8 +205,9 @@ pub struct AiSettings {
 impl Default for AiSettings {
     fn default() -> Self {
         Self {
-            enabled: false,
-            mode: "off".into(),
+            // Builds that carry the project endpoint ship with the AI on (opt-out in Settings).
+            enabled: SHARED_URL.is_some(),
+            mode: "auto".into(),
             model: "claude-haiku-5-5".into(),
             escalation_model: "claude-sonnet-5-5".into(),
             auto_threshold: 0.90,
@@ -190,8 +215,13 @@ impl Default for AiSettings {
             auto_kill: false,
             send_cmdline: false,
             daily_call_budget: 500,
-            acknowledged: false,
-            source: "own_key".into(),
+            acknowledged: SHARED_URL.is_some(),
+            source: if SHARED_URL.is_some() {
+                "shared"
+            } else {
+                "own_key"
+            }
+            .into(),
         }
     }
 }
@@ -281,11 +311,17 @@ impl Shared {
 
     #[must_use]
     pub fn ai_settings(&self) -> AiSettings {
-        self.with_store(|c| store::setting_get(c, CONFIG))
+        let mut s: AiSettings = self
+            .with_store(|c| store::setting_get(c, CONFIG))
             .and_then(Result::ok)
             .flatten()
             .and_then(|b| serde_json::from_slice(&b).ok())
-            .unwrap_or_default()
+            .unwrap_or_default();
+        // No personal key stored and the build has the project endpoint: use it.
+        if SHARED_URL.is_some() && !s.shared() && !self.ai_has_key() {
+            s.source = "shared".into();
+        }
+        s
     }
 
     fn ai_has_key(&self) -> bool {
@@ -708,6 +744,16 @@ impl Shared {
                 }
                 (op, model, false)
             };
+        let (tin, tout) = if cached { (0, 0) } else { b.token_delta() };
+        self.ai_tally(|d| {
+            if cached {
+                d.cached += 1;
+            } else {
+                d.calls += 1;
+            }
+            d.tokens_in += tin;
+            d.tokens_out += tout;
+        });
         let stored = self
             .with_store(|c| -> Result<_, vigil_store::StoreError> {
                 let id = store::insert_opinion(
@@ -778,7 +824,7 @@ impl Shared {
             Some(b) => match self.credential(&*b, &s).await {
                 Ok(key) => {
                     let probe = json!({ "image_name": "notepad.exe", "signature": { "status": "valid_embedded", "org": "Microsoft Corporation" },
-                                        "score": 90, "signals": [] });
+                                        "rule_result": { "score": 90, "verdict": "safe", "signals": [] } });
                     let r = if s.shared() {
                         b.assess_shared(&s, &key, &probe, &[]).await
                     } else {
@@ -836,6 +882,98 @@ impl Shared {
         }
     }
 
+    /// Proactive second opinion for a newly seen Unknown program, so the answer is ready (and cached)
+    /// by the time it connects. Uses at most half the daily budget; never decides anything.
+    pub async fn ai_prefetch(self: Arc<Self>, exe_id: i64) {
+        let s = self.ai_settings();
+        let used = self.ai_backend().map_or(u32::MAX, |b| b.calls_today());
+        if !s.active() || !self.ai_ready(&s) || used >= s.daily_call_budget / 2 {
+            return;
+        }
+        if !self
+            .ai_inflight
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .insert(exe_id)
+        {
+            return;
+        }
+        let _ = self.ai_assess(exe_id, false).await;
+        self.ai_inflight
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .remove(&exe_id);
+    }
+
+    /// Case-by-case judgement for a parent whose children sit below every kill threshold: record the
+    /// behaviour as STM-002, ask the advisor once, and stop the tree only in enforce mode when the
+    /// advisor is confident it is malicious. Otherwise the opinion simply rides on the item.
+    pub async fn storm_review(self: Arc<Self>, row: ProcRow, children: usize) {
+        let s = self.ai_settings();
+        let Some(id) = row
+            .identity_id
+            .as_deref()
+            .and_then(|i| i.parse::<i64>().ok())
+        else {
+            return;
+        };
+        if !s.active() || !self.ai_ready(&s) {
+            return;
+        }
+        if !self
+            .storm_reviewed
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .insert(id)
+        {
+            return;
+        }
+        let detail = format!("{children} child processes started by this program");
+        let signal = json!([{ "id": "STM-002", "name": "Repeated child launches", "delta": -10,
+                              "detail": detail }]);
+        let stored = self.with_store(|c| {
+            vigil_store::repo::insert_evaluation(
+                c,
+                id,
+                &vigil_store::repo::NewEvaluation {
+                    score: row.score.unwrap_or(50).min(60),
+                    verdict: row.verdict.clone().unwrap_or_else(|| "unknown".into()),
+                    hard_rule: None,
+                    signals_json: signal.to_string(),
+                    rule_pack_version: "behavior".into(),
+                    source: "rules".into(),
+                },
+                &now(),
+            )
+        });
+        if stored.is_none_or(|r| r.is_err()) {
+            return;
+        }
+        let Ok((a, _, _)) = self.ai_assess(id, true).await else {
+            return;
+        };
+        let confident =
+            a.opinion.verdict == "malicious" && a.opinion.confidence >= s.auto_threshold;
+        let acts = s.mode == "auto" && self.mode_and_health().0 == "enforce" && confident;
+        self.audit(
+            "ai",
+            AuditKind::AiDecision,
+            Some(&id.to_string()),
+            &json!({ "outcome": if acts { "storm_kill" } else { "storm_noted" },
+                     "children": children, "verdict": a.opinion.verdict }),
+        );
+        if acts {
+            let tree = tokio::task::spawn_blocking(move || {
+                self.reclassify_storm(&row, "advisor judged repeated launches malicious");
+                self.kill_process(
+                    &json!({ "pid": row.pid, "start_time": row.start_time, "tree": true, "block": true }),
+                    "ai",
+                )
+            });
+            let _ = tree.await;
+        }
+    }
+
     async fn ai_pending_one(&self, exe_id: i64, s: &AiSettings) {
         match self.ai_assess(exe_id, false).await {
             Err(AiFail::Disabled | AiFail::NoData) => {}
@@ -846,7 +984,9 @@ impl Shared {
                 &json!({ "outcome": "pending", "reason": f.code() }),
             ),
             Ok((a, score, hard_rule)) => {
-                if s.mode == "auto" {
+                // Authority follows the service mode: observe warns, learning suggests (the
+                // opinion rides on the pending item), enforce executes within the gates.
+                if s.mode == "auto" && self.mode_and_health().0 == "enforce" {
                     self.ai_auto(exe_id, s, &a, score, hard_rule);
                 }
             }
@@ -900,6 +1040,7 @@ impl Shared {
         });
         let Outcome::Decide { action, scope } = outcome else {
             let Outcome::Skip(why) = outcome else { return };
+            self.ai_tally(|t| t.left_to_user += 1);
             self.audit(
                 "ai",
                 AuditKind::AiDecision,
@@ -954,6 +1095,12 @@ impl Shared {
             &json!({ "outcome": "decided", "decision_id": d.id, "action": d.action.as_str(),
                      "scope": d.scope.as_str(), "confidence": a.opinion.confidence, "model": a.opinion.model }),
         );
+        let act = d.action;
+        self.ai_tally(|t| match act {
+            decisions::Action::Allow => t.allow += 1,
+            decisions::Action::Block => t.block += 1,
+            decisions::Action::Kill => t.kill += 1,
+        });
         for pid in open {
             self.emit(
                 "pending",

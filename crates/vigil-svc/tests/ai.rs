@@ -1,4 +1,4 @@
-﻿//! M5 acceptance at the service level: AI failures fall back to Pending with an audit row, the
+//! M5 acceptance at the service level: AI failures fall back to Pending with an audit row, the
 //! preview equals what is sent, and Auto mode never overrides hard rules or kills by default.
 
 use std::sync::{Arc, Mutex};
@@ -9,7 +9,7 @@ use vigil_ai::{AiError, Opinion};
 use vigil_ipc::proto::INVALID_STATE;
 use vigil_store::repo::{Executable, NewEvaluation, insert_evaluation, upsert_executable};
 use vigil_svc::ai::{AiBackend, AiSettings, BoxFut};
-use vigil_svc::enforce::DropInfo;
+use vigil_svc::enforce::{DropInfo, FilterEngine};
 use vigil_svc::state::{Options, Shared};
 use zeroize::Zeroizing;
 
@@ -61,6 +61,30 @@ fn opinion(verdict: &str, conf: f64, action: &str) -> Opinion {
         "reasons": ["test"], "indicators": []
     }))
     .unwrap()
+}
+
+struct NullEngine;
+impl FilterEngine for NullEngine {
+    fn set_denies(&self, _: &[std::path::PathBuf]) -> Result<(), String> {
+        Ok(())
+    }
+    fn arm(&self, _: &[std::path::PathBuf]) -> Result<Vec<std::path::PathBuf>, String> {
+        Ok(Vec::new())
+    }
+    fn disarm(&self) -> Result<(), String> {
+        Ok(())
+    }
+    fn panic(&self) -> usize {
+        0
+    }
+    fn watch_drops(&self, _: tokio::sync::mpsc::UnboundedSender<DropInfo>) -> Result<(), String> {
+        Ok(())
+    }
+}
+
+fn enforce(s: &Shared) {
+    s.attach_engine(Some(Arc::new(NullEngine)));
+    s.set_mode("enforce", true).unwrap();
 }
 
 fn setup(hard_rule: Option<&str>, score: u8, verdict: &str) -> (Arc<Shared>, i64) {
@@ -189,6 +213,7 @@ async fn auto_never_decides_when_a_hard_rule_fired() {
 #[tokio::test]
 async fn auto_decides_above_threshold_and_never_kills_by_default() {
     let (s, _) = setup(None, 20, "malicious");
+    enforce(&s);
     s.attach_ai(Fake::new(Ok(opinion("malicious", 0.99, "kill"))));
     enable(&s, "auto", &json!({}));
     Arc::clone(&s).ai_assess_open_pending().await;
@@ -197,6 +222,50 @@ async fn auto_decides_above_threshold_and_never_kills_by_default() {
     let first = &d["items"][0];
     assert_eq!(first["action"], "block");
     assert_eq!(first["by"], "ai");
+}
+
+#[tokio::test]
+async fn activity_counts_assessments_decisions_and_leftovers() {
+    let (s, _) = setup(None, 20, "malicious");
+    enforce(&s);
+    s.attach_ai(Fake::new(Ok(opinion("malicious", 0.99, "kill"))));
+    enable(&s, "auto", &json!({}));
+    Arc::clone(&s).ai_assess_open_pending().await;
+    let t = &s.ai_activity()["today"];
+    assert_eq!(
+        (t["calls"].as_u64(), t["blocked"].as_u64()),
+        (Some(1), Some(1))
+    );
+
+    let (s, _) = setup(None, 60, "safe");
+    enforce(&s);
+    s.attach_ai(Fake::new(Ok(opinion("safe", 0.5, "allow"))));
+    enable(&s, "auto", &json!({}));
+    Arc::clone(&s).ai_assess_open_pending().await;
+    let t = &s.ai_activity()["today"];
+    assert_eq!(
+        (t["calls"].as_u64(), t["left_to_user"].as_u64()),
+        (Some(1), Some(1))
+    );
+}
+
+#[tokio::test]
+async fn ai_only_suggests_outside_enforce() {
+    for mode in ["observe", "learning"] {
+        let (s, _) = setup(None, 20, "malicious");
+        s.set_mode(mode, true).unwrap();
+        s.attach_ai(Fake::new(Ok(opinion("malicious", 0.99, "block"))));
+        enable(&s, "auto", &json!({}));
+        Arc::clone(&s).ai_assess_open_pending().await;
+        assert_eq!(pending_count(&s), 1, "{mode}: the user still decides");
+        assert_eq!(
+            s.list_decisions().unwrap()["items"]
+                .as_array()
+                .unwrap()
+                .len(),
+            0
+        );
+    }
 }
 
 #[tokio::test]
@@ -221,4 +290,152 @@ fn enabling_needs_a_key_and_the_key_is_never_returned() {
     assert_eq!(cfg["has_key"], true);
     assert!(!cfg.to_string().contains("k-test"));
     assert!(!audit_text(&s).contains("k-test"));
+}
+
+#[tokio::test]
+async fn malicious_program_is_raised_once_without_a_connection() {
+    let (s, _) = setup(Some("HR-001"), 10, "malicious");
+    // A second program that never opened a connection (setup's drop belongs to the first).
+    let id = s
+        .with_store(|c| {
+            let exe = Executable {
+                sha256: "d".repeat(64),
+                path: r"C:	ools\y.exe".into(),
+                signer_thumbprint: None,
+                publisher: None,
+                company: None,
+                product: None,
+                original_filename: None,
+                signature_status: "unsigned".into(),
+            };
+            let id = upsert_executable(c, &exe, "2026-01-01T00:00:00Z").unwrap();
+            let ev = NewEvaluation {
+                score: 10,
+                verdict: "malicious".into(),
+                hard_rule: Some("HR-001".into()),
+                signals_json: "[]".into(),
+                rule_pack_version: "1".into(),
+                source: "rules".into(),
+            };
+            insert_evaluation(c, id, &ev, "2026-01-01T00:00:00Z").unwrap();
+            id
+        })
+        .unwrap();
+    let before = pending_count(&s);
+    assert!(
+        s.raise_malicious(&id.to_string()),
+        "first flag creates a pending item"
+    );
+    assert!(
+        !s.raise_malicious(&id.to_string()),
+        "second flag is a duplicate"
+    );
+    assert_eq!(pending_count(&s), before + 1);
+    let items = s.list_pending().unwrap()["items"].clone();
+    assert!(
+        items
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|i| i["destination"]["port"] == 0)
+    );
+}
+
+/// A rule-based Malicious program that has not opened a connection yet.
+fn malicious_exe(s: &Shared, path: &str, hard_rule: &str) -> i64 {
+    s.with_store(|c| {
+        let exe = Executable {
+            sha256: "e".repeat(64),
+            path: path.into(),
+            signer_thumbprint: None,
+            publisher: None,
+            company: None,
+            product: None,
+            original_filename: None,
+            signature_status: "unsigned".into(),
+        };
+        let id = upsert_executable(c, &exe, "2026-01-01T00:00:00Z").unwrap();
+        let ev = NewEvaluation {
+            score: 10,
+            verdict: "malicious".into(),
+            hard_rule: Some(hard_rule.into()),
+            signals_json: "[]".into(),
+            rule_pack_version: "1".into(),
+            source: "rules".into(),
+        };
+        insert_evaluation(c, id, &ev, "2026-01-01T00:00:00Z").unwrap();
+        id
+    })
+    .unwrap()
+}
+
+fn active_blocks(s: &Shared, id: i64) -> Vec<vigil_store::decisions::Decision> {
+    s.with_store(|c| vigil_store::decisions::active_for(c, id, time::OffsetDateTime::now_utc()))
+        .unwrap()
+        .unwrap()
+}
+
+#[test]
+fn malicious_is_contained_by_a_block_outside_observe() {
+    let (s, _) = setup(None, 60, "safe");
+    s.set_mode("learning", true).unwrap();
+    let id = malicious_exe(&s, r"C:	ools\evil.exe", "HR-001");
+    assert!(s.raise_malicious(&id.to_string()));
+    let d = active_blocks(&s, id);
+    assert_eq!(d.len(), 1, "one containment decision");
+    assert_eq!(d[0].action, vigil_store::decisions::Action::Block);
+    assert_eq!(d[0].by, vigil_store::decisions::DecidedBy::Rule);
+}
+
+#[test]
+fn observe_mode_never_contains() {
+    let (s, _) = setup(None, 60, "safe");
+    s.set_mode("observe", true).unwrap();
+    let id = malicious_exe(&s, r"C:	ools\evil.exe", "HR-001");
+    assert!(s.raise_malicious(&id.to_string()));
+    assert_eq!(active_blocks(&s, id).len(), 0);
+}
+
+fn suspect_row(id: i64) -> vigil_svc::state::ProcRow {
+    vigil_svc::state::ProcRow {
+        pid: 4_000_000_001,
+        start_time: "t1".into(),
+        ppid: 1,
+        name: "x.exe".into(),
+        path: Some(PATH.into()),
+        parent_path: None,
+        identity_id: Some(id.to_string()),
+        verdict: Some("unknown".into()),
+        score: Some(50),
+        freshness: None,
+    }
+}
+
+#[tokio::test]
+async fn storm_suspects_are_judged_by_the_advisor_and_acted_on_only_in_enforce() {
+    for (mode, outcome) in [("observe", "storm_noted"), ("enforce", "storm_kill")] {
+        let (s, id) = setup(None, 50, "unknown");
+        if mode == "enforce" {
+            enforce(&s);
+        } else {
+            s.set_mode(mode, true).unwrap();
+        }
+        s.attach_ai(Fake::new(Ok(opinion("malicious", 0.99, "block"))));
+        enable(&s, "auto", &json!({}));
+        Arc::clone(&s).storm_review(suspect_row(id), 4).await;
+        assert!(audit_text(&s).contains(outcome), "{mode}: {outcome}");
+        // asked once per run, however often the scan sees the same suspect
+        Arc::clone(&s).storm_review(suspect_row(id), 4).await;
+    }
+}
+
+#[tokio::test]
+async fn a_hesitant_advisor_never_stops_a_suspect() {
+    let (s, id) = setup(None, 50, "unknown");
+    enforce(&s);
+    s.attach_ai(Fake::new(Ok(opinion("malicious", 0.5, "block"))));
+    enable(&s, "auto", &json!({}));
+    Arc::clone(&s).storm_review(suspect_row(id), 4).await;
+    let a = audit_text(&s);
+    assert!(a.contains("storm_noted") && !a.contains("storm_kill"));
 }

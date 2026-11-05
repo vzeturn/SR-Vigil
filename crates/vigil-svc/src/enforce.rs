@@ -396,6 +396,99 @@ impl Shared {
         true
     }
 
+    /// Policy for a rule-based Malicious program outside `observe`: cut its network now (a
+    /// persistent, revocable Block) and leave the Kill choice to the user in the popup.
+    /// Never touches the never-kill set unless HR-001/002/003 fired; never acts on an AI-only verdict.
+    fn contain_malicious(&self, exe: i64) {
+        if self.mode_and_health().0 == "observe" {
+            return;
+        }
+        let Some(Ok(Some((e, ev)))) = self.with_store(|c| {
+            Ok::<_, vigil_store::StoreError>(
+                vigil_store::repo::executable_by_id(c, exe)?
+                    .zip(vigil_store::repo::latest_evaluation(c, exe)?),
+            )
+        }) else {
+            return;
+        };
+        let hard = ev.hard_rule.as_deref();
+        let image = e.path.rsplit(['\\', '/']).next().unwrap_or_default();
+        if ev.source != "rules"
+            || ev.verdict != "malicious"
+            || self.never_kill.check(image, hard).is_err()
+        {
+            return;
+        }
+        let now = OffsetDateTime::now_utc();
+        let made = self.with_store(|c| {
+            let id = decisions::insert_decision(
+                c,
+                &decisions::NewDecision {
+                    executable_id: exe,
+                    action: Action::Block,
+                    scope: decisions::Scope::Forever,
+                    apply_to: decisions::ApplyTo::File,
+                    publisher_thumbprint: None,
+                    publisher_product: None,
+                    by: decisions::DecidedBy::Rule,
+                    actor: "rule".into(),
+                    note: Some(format!("auto-contained: {}", hard.unwrap_or("malicious"))),
+                },
+                now,
+            )?;
+            decisions::get_decision(c, id)
+        });
+        let Some(Ok(Some(d))) = made else {
+            return;
+        };
+        self.audit(
+            "rule",
+            AuditKind::Decision,
+            Some(&exe.to_string()),
+            &json!({ "outcome": "contained", "decision_id": d.id, "action": "block",
+                     "hard_rule": hard }),
+        );
+        let _ = self.enforce_decision(&d);
+    }
+
+    /// A running program just became Malicious: queue it for a decision (popup + AI second opinion).
+    /// There is no connection yet, so the destination is the unspecified address. True when new.
+    pub fn raise_malicious(&self, identity_id: &str) -> bool {
+        let Ok(exe) = identity_id.parse::<i64>() else {
+            return false;
+        };
+        let created = self.with_store(|c| -> Result<Option<i64>, vigil_store::StoreError> {
+            let now = OffsetDateTime::now_utc();
+            if !decisions::active_for(c, exe, now)?.is_empty() {
+                return Ok(None);
+            }
+            let (id, created) = decisions::create_pending(
+                c,
+                &NewPending {
+                    executable_id: exe,
+                    dest_class: DestClass::Public,
+                    dest_addr: "0.0.0.0".into(),
+                    dest_port: 0,
+                    dns_name: None,
+                },
+                now,
+            )?;
+            Ok(created.then_some(id))
+        });
+        let Some(Ok(Some(id))) = created else {
+            return false;
+        };
+        if let Some(Some(item)) = self
+            .with_store(|c| decisions::get_pending(c, id))
+            .and_then(Result::ok)
+            .map(|p| p.and_then(|p| self.pending_item(&p)))
+        {
+            self.emit("pending", "event.pending_created", item);
+        }
+        self.contain_malicious(exe);
+        true
+    }
+
     /// Periodic maintenance: expire once-permits and decisions.
     pub async fn maintain(self: Arc<Self>) {
         let mut tick = tokio::time::interval(Duration::from_secs(15));

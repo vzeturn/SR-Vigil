@@ -53,6 +53,10 @@ impl ProcessControl for WinControl {
         }
     }
 
+    fn modules(&self, pid: u32) -> Option<Vec<String>> {
+        vigil_win::modules::module_paths(pid)
+    }
+
     fn sha256(&self, path: &str) -> Option<String> {
         self.hashes.sha256(Path::new(path)).ok()
     }

@@ -262,3 +262,59 @@ fn persistence_never_touches_a_protected_system_image() {
     assert_eq!(r["error_code"], "protected_target");
     assert_eq!(fake.items.lock().unwrap().len(), 1);
 }
+
+/// Parent 900 with `n` live same-image children, all known to the fake table and the row map.
+fn cloner(s: &Shared, fake: &Fake, id: &str, verdict: &str, n: u32) {
+    fake.spawn(900, 1, BAD);
+    let mut parent = row(900, BAD, Some(id));
+    parent.verdict = Some(verdict.into());
+    s.put_process(parent);
+    for pid in 901..901 + n {
+        fake.spawn(pid, 900, BAD);
+        let mut r = row(pid, BAD, Some(id));
+        r.ppid = 900;
+        r.verdict = Some(verdict.into());
+        s.put_process(r);
+    }
+}
+
+#[test]
+fn a_self_cloning_program_is_killed_in_any_mode() {
+    let (s, fake, id) = setup();
+    s.set_mode("observe", true).unwrap();
+    cloner(&s, &fake, &id, "unknown", 12);
+    assert_eq!(s.storm_scan(), 1, "observe mode still stops a storm");
+    assert!(fake.killed.lock().unwrap().contains(&900));
+}
+
+#[test]
+fn sibling_clones_of_a_safe_program_are_left_alone() {
+    let (s, fake, id) = setup();
+    cloner(&s, &fake, &id, "safe", 12);
+    assert_eq!(s.storm_scan(), 0);
+    assert!(fake.killed.lock().unwrap().is_empty());
+}
+
+#[test]
+fn a_hijacked_safe_program_is_reclassified_malicious_and_killed() {
+    let (s, fake, id) = setup();
+    fake.spawn(900, 1, BAD);
+    let mut parent = row(900, BAD, Some(&id));
+    parent.verdict = Some("safe".into());
+    s.put_process(parent);
+    for pid in 901..913 {
+        fake.spawn(pid, 900, r"C:\Windows\System32\cmd.exe");
+        let mut r = row(pid, r"C:\Windows\System32\cmd.exe", None);
+        r.ppid = 900;
+        r.verdict = Some("safe".into());
+        s.put_process(r);
+    }
+    assert_eq!(s.storm_scan(), 1);
+    assert!(fake.killed.lock().unwrap().contains(&900));
+    let latest = s
+        .with_store(|c| vigil_store::repo::latest_evaluation(c, id.parse().unwrap()))
+        .unwrap()
+        .unwrap()
+        .unwrap();
+    assert_eq!(latest.verdict, "malicious");
+}

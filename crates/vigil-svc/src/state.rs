@@ -122,6 +122,8 @@ pub struct Shared {
     once: Mutex<Vec<(String, Instant)>>,
     pub(crate) ai: Mutex<Option<Arc<dyn crate::ai::AiBackend>>>,
     pub(crate) ai_inflight: Mutex<std::collections::HashSet<i64>>,
+    /// Identities already put to the advisor as process-storm suspects (once per run).
+    pub(crate) storm_reviewed: Mutex<std::collections::HashSet<i64>>,
     pub(crate) ai_slots: tokio::sync::Semaphore,
 }
 
@@ -241,6 +243,7 @@ impl Shared {
             once: Mutex::new(Vec::new()),
             ai: Mutex::new(None),
             ai_inflight: Mutex::new(std::collections::HashSet::new()),
+            storm_reviewed: Mutex::new(std::collections::HashSet::new()),
             ai_slots: tokio::sync::Semaphore::new(2),
         }
     }
@@ -542,6 +545,10 @@ impl Shared {
             .get(&pid)
             .filter(|p| p.start_time == start_time)
             .cloned()
+    }
+
+    pub(crate) fn all_rows(&self) -> Vec<ProcRow> {
+        lock(&self.inner).processes.values().cloned().collect()
     }
 
     pub(crate) fn rows_with_verdict(&self, verdict: &str) -> Vec<ProcRow> {

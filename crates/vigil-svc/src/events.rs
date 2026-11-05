@@ -10,7 +10,8 @@ use tokio::sync::mpsc::UnboundedSender;
 use vigil_ipc::proto::Notification;
 
 /// Topics a client may subscribe to.
-pub const TOPICS: [&str; 7] = [
+pub const TOPICS: [&str; 8] = [
+    "ai",
     "processes",
     "connections",
     "verdicts",

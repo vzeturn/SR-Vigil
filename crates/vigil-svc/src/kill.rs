@@ -8,6 +8,7 @@ use serde_json::{Value, json};
 use vigil_core::analysis::path::basename;
 use vigil_core::audit::AuditKind;
 use vigil_core::kill::{Node, Refusal, tree_order};
+use vigil_core::storm;
 use vigil_ipc::proto::{INVALID_PARAMS, NOT_FOUND, RpcError};
 use vigil_store::{blocks, repo};
 
@@ -43,6 +44,10 @@ pub trait ProcessControl: Send + Sync {
     /// Terminate `pid` only if its start time still equals `started`.
     fn terminate(&self, pid: u32, started: u64) -> KillOutcome;
     fn sha256(&self, path: &str) -> Option<String>;
+    /// Modules loaded by `pid`; `None` when the platform refuses (protected process, missing privilege).
+    fn modules(&self, _pid: u32) -> Option<Vec<String>> {
+        None
+    }
     /// Persistence entries currently present on the machine.
     fn persist_scan(&self) -> Vec<vigil_store::persistence::Found>;
     /// Disable an entry; returns the backup that [`Self::persist_restore`] needs.
@@ -62,6 +67,24 @@ fn is_self(snap: &Snap) -> bool {
                 .iter()
                 .any(|n| basename(i).eq_ignore_ascii_case(n))
         })
+}
+
+/// Unix seconds of an RFC 3339 start time, `0` when it cannot be read.
+fn storm_procs(rows: &[ProcRow]) -> Vec<storm::Proc<'_>> {
+    rows.iter()
+        .map(|r| storm::Proc {
+            pid: r.pid,
+            ppid: r.ppid,
+            name: &r.name,
+            path: r.path.as_deref(),
+            born: born_secs(&r.start_time),
+        })
+        .collect()
+}
+
+fn born_secs(start_time: &str) -> i64 {
+    time::OffsetDateTime::parse(start_time, &time::format_description::well_known::Rfc3339)
+        .map_or(0, time::OffsetDateTime::unix_timestamp)
 }
 
 impl Shared {
@@ -94,6 +117,33 @@ impl Shared {
         }
         let name = snap.image.as_deref().unwrap_or("");
         self.never_kill.check(name, hard_rule).err()
+    }
+
+    /// `process.modules`: files loaded by one live process, on demand and capped, so it costs nothing at idle.
+    pub fn process_modules(&self, params: &Value) -> Result<Value, RpcError> {
+        const CAP: usize = 200;
+        let bad = |m: &str| RpcError::new(INVALID_PARAMS, m);
+        let pid = params
+            .get("pid")
+            .and_then(Value::as_u64)
+            .and_then(|p| u32::try_from(p).ok())
+            .ok_or_else(|| bad("pid is required"))?;
+        let start = params
+            .get("start_time")
+            .and_then(Value::as_str)
+            .ok_or_else(|| bad("start_time is required"))?;
+        self.process_row(pid, start)
+            .ok_or_else(|| RpcError::new(NOT_FOUND, "no such process"))?;
+        let Some(mut paths) = self.control().and_then(|c| c.modules(pid)) else {
+            return Ok(json!({ "access": "denied", "items": [], "truncated": false }));
+        };
+        let truncated = paths.len() > CAP;
+        paths.truncate(CAP);
+        let items: Vec<Value> = paths
+            .iter()
+            .map(|p| json!({ "name": basename(p), "path": p }))
+            .collect();
+        Ok(json!({ "access": "ok", "items": items, "truncated": truncated }))
     }
 
     /// `process.kill`: kill (optionally the tree), then persist a deny and a respawn watch.
@@ -290,6 +340,97 @@ impl Shared {
             n += usize::from(ok);
         }
         n
+    }
+
+    /// Not-yet-Safe parents with a few copies or script hosts: below every kill threshold, so the
+    /// advisor decides case by case (`storm_review`). Safe and never-kill programs are not asked about.
+    pub(crate) fn storm_suspects(&self) -> Vec<(ProcRow, usize)> {
+        let rows = self.all_rows();
+        let found = storm::suspects(&storm_procs(&rows));
+        found
+            .into_iter()
+            .filter_map(|(pid, n)| {
+                let row = rows.iter().find(|r| r.pid == pid)?;
+                (row.verdict.as_deref() != Some("safe")
+                    && self.never_kill.check(&row.name, None).is_ok())
+                .then(|| (row.clone(), n))
+            })
+            .collect()
+    }
+
+    /// In every mode, stop programs that clone themselves or flood the machine with script hosts:
+    /// reclassify them Malicious (a hijacked Safe program included), kill the whole tree and block
+    /// the image. Sibling clones of a verified-safe program (browsers) and the never-kill set are exempt.
+    pub fn storm_scan(&self) -> usize {
+        let rows = self.all_rows();
+        let procs = storm_procs(&rows);
+        let mut n = 0;
+        for (pid, kind) in storm::detect(&procs) {
+            let Some(row) = rows.iter().find(|r| r.pid == pid) else {
+                continue;
+            };
+            let safe = row.verdict.as_deref() == Some("safe");
+            if (safe && kind == storm::Storm::Replication)
+                || self.never_kill.check(&row.name, None).is_err()
+            {
+                continue;
+            }
+            self.reclassify_storm(row, &format!("{kind:?}"));
+            let ok = self
+                .kill_process(
+                    &json!({ "pid": row.pid, "start_time": row.start_time, "tree": true, "block": true }),
+                    "service",
+                )
+                .ok()
+                .and_then(|v| v["ok"].as_bool())
+                .unwrap_or(false);
+            if ok {
+                tracing::warn!(pid, ?kind, "stopped a process storm");
+            }
+            n += usize::from(ok);
+        }
+        n
+    }
+
+    /// Behaviour overrides reputation: record a Malicious rule-sourced evaluation for the identity.
+    pub(crate) fn reclassify_storm(&self, row: &ProcRow, detail: &str) {
+        if row.verdict.as_deref() == Some("malicious") {
+            return;
+        }
+        let Some(identity) = row.identity_id.as_deref() else {
+            return;
+        };
+        let Ok(id) = identity.parse::<i64>() else {
+            return;
+        };
+        let signal = json!([{ "id": "STM-001", "name": "Process storm", "delta": -50,
+                              "detail": detail }]);
+        let stored = self.with_store(|c| {
+            repo::insert_evaluation(
+                c,
+                id,
+                &repo::NewEvaluation {
+                    score: 0,
+                    verdict: "malicious".into(),
+                    hard_rule: None,
+                    signals_json: signal.to_string(),
+                    rule_pack_version: "behavior".into(),
+                    source: "rules".into(),
+                },
+                &now(),
+            )
+        });
+        if stored.is_some_and(|r| r.is_ok()) {
+            let _ = self.apply_evaluation(
+                row.path.as_deref().unwrap_or(&row.name),
+                row.parent_path.as_deref(),
+                identity,
+                "malicious",
+                0,
+                None,
+            );
+            self.raise_malicious(identity);
+        }
     }
 
     fn rule_based_malicious(&self, row: &ProcRow) -> bool {

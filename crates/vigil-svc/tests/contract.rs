@@ -93,7 +93,7 @@ async fn implemented_method_results_match_the_schema() {
     let (a, b) = tokio::io::duplex(1 << 16);
     tokio::spawn(handle_connection(b, Role::Admin, shared()));
     let mut c = Client::new(a);
-    let calls: [(&str, Value); 14] = [
+    let calls: [(&str, Value); 15] = [
         (
             "hello",
             json!({"client": "t", "client_version": "1", "protocol": 1}),
@@ -102,6 +102,10 @@ async fn implemented_method_results_match_the_schema() {
         ("process.list", json!({})),
         (
             "process.get",
+            json!({"pid": 4242, "start_time": "2026-01-01T00:00:00Z"}),
+        ),
+        (
+            "process.modules",
             json!({"pid": 4242, "start_time": "2026-01-01T00:00:00Z"}),
         ),
         ("connection.list", json!({"limit": 5})),

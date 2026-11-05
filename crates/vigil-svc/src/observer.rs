@@ -207,12 +207,23 @@ pub async fn run(shared: Arc<Shared>, pack: Arc<RulePack>) -> anyhow::Result<()>
             ) {
                 announce(&shared, &row, old, &v.signals);
             }
+            if v.verdict == "malicious" && shared.raise_malicious(&v.identity) {
+                tokio::spawn(Arc::clone(&shared).ai_assess_open_pending());
+            } else if v.verdict == "unknown"
+                && let Ok(id) = v.identity.parse::<i64>()
+            {
+                tokio::spawn(Arc::clone(&shared).ai_prefetch(id));
+            }
             cache.insert(key, v);
         }
 
         sync_connections(&shared);
+        for (row, n) in shared.storm_suspects() {
+            tokio::spawn(Arc::clone(&shared).storm_review(row, n));
+        }
         let sh = Arc::clone(&shared);
         tokio::task::spawn_blocking(move || {
+            sh.storm_scan();
             sh.respawn_scan();
             sh.auto_kill_malicious();
         })

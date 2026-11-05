@@ -78,6 +78,7 @@ impl ConnHandler {
                     .and_then(Value::as_str)
                     .ok_or_else(|| invalid("start_time is required"))?,
             ),
+            "process.modules" => s.process_modules(params),
             "process.kill" => s.kill_process(params, "user"),
             "persistence.scan" => {
                 s.persistence_scan(params.get("target_image_path").and_then(Value::as_str))
@@ -101,6 +102,7 @@ impl ConnHandler {
                     .ok_or_else(|| invalid("settings is required"))?,
             ),
             "ai.config.get" => Ok(s.ai_config_get()),
+            "ai.activity" => Ok(s.ai_activity()),
             "ai.config.set" => s.ai_config_set(params, "user"),
             "ai.preview" => s.ai_preview(params),
             "subscribe" => {

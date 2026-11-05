@@ -60,6 +60,7 @@ mod win {
         }
         tokio::spawn(Arc::clone(&shared).pump_drops());
         tokio::spawn(Arc::clone(&shared).maintain());
+        tokio::spawn(vigil_svc::ai_usage::digest_loop(Arc::clone(&shared)));
         if let Ok(dir) = host::data_dir() {
             tokio::spawn(vigil_svc::catalogue::run(Arc::clone(&shared), dir));
         }
