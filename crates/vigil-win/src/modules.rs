@@ -46,11 +46,20 @@ pub fn module_paths(pid: u32) -> Option<Vec<String>> {
 }
 
 /// `true` when `pid` has loaded a module from a user-writable path that lacks a valid signature.
+/// Modules inside the program's own install directory are its bundled code (Electron, Python
+/// launchers), not sideloading: replacing them is no easier than replacing the executable itself.
 #[must_use]
-pub fn has_unsigned_writable_module(ctx: &Context, pid: u32) -> bool {
+pub fn has_unsigned_writable_module(ctx: &Context, pid: u32, exe: &str) -> bool {
+    let own = normalize(exe)
+        .rsplit_once('\\')
+        .map(|(dir, _)| format!("{dir}\\"));
     module_paths(pid)
         .unwrap_or_default()
         .into_iter()
+        .filter(|p| {
+            let n = normalize(p);
+            own.as_ref().is_none_or(|d| !n.starts_with(d.as_str()))
+        })
         .filter(|p| classify(&normalize(p), &ctx.path_env) == PathClass::UserWritable)
         .take(MAX_CHECKS)
         .any(|p| !trust::verify(&p).valid())

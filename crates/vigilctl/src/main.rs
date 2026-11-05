@@ -57,6 +57,11 @@ enum Command {
         #[arg(long)]
         escalate_below: Option<f64>,
     },
+    /// List the active user decisions, or lift one with `--revoke <ID>` (needs an elevated shell).
+    Decisions {
+        #[arg(long)]
+        revoke: Option<String>,
+    },
     /// Kill a process (and optionally its tree) and keep it from respawning (needs an elevated shell).
     Kill {
         pid: u32,
@@ -122,6 +127,7 @@ fn main() -> anyhow::Result<()> {
             mode,
             escalate_below,
         } => control::ai(mode.as_deref(), escalate_below),
+        Command::Decisions { revoke } => control::decisions(revoke.as_deref()),
         Command::Kill {
             pid,
             start_time,

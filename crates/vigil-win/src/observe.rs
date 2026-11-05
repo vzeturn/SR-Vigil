@@ -114,7 +114,7 @@ pub fn evaluate_image_detailed(
         version: version.clone(),
         behaviour: Behaviour {
             unsigned_writable_module: pid
-                .is_some_and(|p| crate::modules::has_unsigned_writable_module(ctx, p)),
+                .is_some_and(|p| crate::modules::has_unsigned_writable_module(ctx, p, path)),
             unbacked_exec_memory: scan_memory
                 && pid.is_some_and(crate::memory::has_unbacked_exec_memory),
             ..Behaviour::default()

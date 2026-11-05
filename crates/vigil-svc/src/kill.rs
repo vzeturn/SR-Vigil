@@ -418,11 +418,16 @@ impl Shared {
                 continue;
             };
             let safe = row.verdict.as_deref() == Some("safe");
-            // Electron/Chromium apps legitimately fork many copies of themselves: a validly signed
-            // image is left to the advisor review (`storm_suspects`), never killed on count alone.
-            if (kind == storm::Storm::Replication && (safe || self.is_signed(row)))
-                || self.never_kill.check(&row.name, None).is_err()
-            {
+            // Electron/Chromium apps fork many copies of themselves and IDE agents (Kiro, VS Code)
+            // run many shells: a validly signed image is left to the advisor review
+            // (`storm_suspects`), never killed on count alone. Only nested copies (`Chain`) are
+            // never legitimate.
+            let exempt = match kind {
+                storm::Storm::Replication => safe || self.is_signed(row),
+                storm::Storm::LaunchFlood => self.is_signed(row),
+                storm::Storm::Chain => false,
+            };
+            if exempt || self.never_kill.check(&row.name, None).is_err() {
                 continue;
             }
             self.reclassify_storm(row, &format!("{kind:?}"));

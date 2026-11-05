@@ -162,6 +162,25 @@ fn unsigned_writable_module_fires_mod_001() {
 }
 
 #[test]
+fn unsigned_code_is_penalised_once() {
+    let mut o = obs(
+        r"C:\Users\x\AppData\Local\uv\tool.exe",
+        None,
+        SignerInfo::unsigned(),
+        "",
+    );
+    let (alone, _, _) = verdict(&o);
+    o.behaviour.unsigned_writable_module = true;
+    let (both, _, ids) = verdict(&o);
+    assert!(ids.contains(&"MOD-001".to_string()) && !ids.contains(&"SIG-010".to_string()));
+    assert_eq!(
+        both,
+        alone + 15 - 30,
+        "only the worst unsigned-code penalty counts"
+    );
+}
+
+#[test]
 fn lolbin_outbound_is_capped() {
     let mut o = obs(
         r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe",

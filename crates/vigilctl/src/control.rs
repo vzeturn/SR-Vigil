@@ -91,6 +91,27 @@ pub fn ai(mode: Option<&str>, escalate_below: Option<f64>) -> anyhow::Result<()>
     Ok(())
 }
 
+/// `vigilctl decisions`: list active decisions; `--revoke` lifts one (and any respawn block it made).
+pub fn decisions(revoke: Option<&str>) -> anyhow::Result<()> {
+    if let Some(id) = revoke {
+        call("decision.revoke", json!({ "decision_id": id }))?;
+        println!("revoked decision {id}");
+    }
+    let list = call("decision.list", json!({}))?;
+    for d in list["items"].as_array().into_iter().flatten() {
+        println!(
+            "{} {} {} {} identity={} by={}",
+            d["id"].as_str().unwrap_or("?"),
+            d["action"].as_str().unwrap_or("?"),
+            d["scope"].as_str().unwrap_or("?"),
+            d["apply_to"].as_str().unwrap_or("?"),
+            d["identity_id"].as_str().unwrap_or("?"),
+            d["by"].as_str().unwrap_or("?"),
+        );
+    }
+    Ok(())
+}
+
 fn print_mode(s: &Value) {
     println!(
         "mode={}  filters_armed={}",

@@ -318,3 +318,30 @@ fn a_hijacked_safe_program_is_reclassified_malicious_and_killed() {
         .unwrap();
     assert_eq!(latest.verdict, "malicious");
 }
+
+#[test]
+fn a_signed_ide_running_many_shells_is_not_killed() {
+    let (s, fake, id) = setup();
+    s.with_store(|c| {
+        c.execute(
+            "UPDATE executables SET signature_status = 'valid_embedded' WHERE id = ?1",
+            [id.parse::<i64>().unwrap()],
+        )
+    })
+    .unwrap()
+    .unwrap();
+    fake.spawn(900, 1, BAD);
+    s.put_process(row(900, BAD, Some(&id)));
+    for pid in 901..913 {
+        fake.spawn(pid, 900, r"C:\Windows\System32\cmd.exe");
+        let mut r = row(pid, r"C:\Windows\System32\cmd.exe", None);
+        r.ppid = 900;
+        s.put_process(r);
+    }
+    assert_eq!(
+        s.storm_scan(),
+        0,
+        "a validly signed program is left to the advisor"
+    );
+    assert!(fake.killed.lock().unwrap().is_empty());
+}

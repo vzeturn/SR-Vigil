@@ -112,6 +112,8 @@ kind = "signal"
 description = "Unsigned executable in a user-writable path"
 when = { signature = "unsigned", path_class = "user_writable" }
 score = -15
+exclusive_group = "unsigned_code"
+priority = 2
 
 [[rule]]
 id = "SIG-011"
@@ -120,6 +122,8 @@ kind = "signal"
 description = "Unsigned executable outside user-writable paths"
 when = { signature = "unsigned", path_class = ["system", "program_files", "network_share", "removable", "other"] }
 score = -5
+exclusive_group = "unsigned_code"
+priority = 1
 
 [[rule]]
 id = "SIG-012"
@@ -217,6 +221,8 @@ kind = "signal"
 description = "A module loaded from a user-writable path has no valid signature (sideloading, T14)"
 when = { unsigned_writable_module = true }
 score = -30
+exclusive_group = "unsigned_code"
+priority = 3
 
 [[rule]]
 id = "REP-010"
