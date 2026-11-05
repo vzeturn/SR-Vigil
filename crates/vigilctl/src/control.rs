@@ -119,6 +119,43 @@ pub fn decisions(revoke: Option<&str>, except: Option<&str>) -> anyhow::Result<(
     Ok(())
 }
 
+/// `vigilctl allow`: a forever allow for one file, bound to the verified hash.
+pub fn allow(path: &str, sha256: &str, source: &str) -> anyhow::Result<()> {
+    let list = call(
+        "process.list",
+        json!({ "filter": { "text": path }, "limit": 1000 }),
+    )?;
+    let proc = list["items"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find(|p| {
+            p["path"]
+                .as_str()
+                .is_some_and(|x| x.eq_ignore_ascii_case(path))
+        })
+        .ok_or_else(|| anyhow::anyhow!("{path} is not running; start it once so Vigil sees it"))?;
+    let seen = call(
+        "process.get",
+        json!({ "pid": proc["pid"], "start_time": proc["start_time"] }),
+    )?;
+    anyhow::ensure!(
+        seen["identity"]["sha256"]
+            .as_str()
+            .is_some_and(|h| h.eq_ignore_ascii_case(sha256)),
+        "the file Vigil sees has a different SHA-256 than the one you verified"
+    );
+    call(
+        "decision.submit",
+        json!({
+            "identity_id": proc["identity_id"], "action": "allow", "scope": "forever",
+            "apply_to": "file", "note": format!("hash verified against {source}"),
+        }),
+    )?;
+    println!("allowed {path}");
+    Ok(())
+}
+
 fn print_mode(s: &Value) {
     println!(
         "mode={}  filters_armed={}",

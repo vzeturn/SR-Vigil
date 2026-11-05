@@ -67,6 +67,17 @@ enum Command {
         #[arg(long, conflicts_with = "revoke")]
         except: Option<String>,
     },
+    /// Allow one program by hash after you verified where it came from (needs an elevated shell).
+    Allow {
+        /// Full path of the program, as shown in the pending list.
+        path: String,
+        /// SHA-256 of the exact file you verified; refused if the service sees different bytes.
+        #[arg(long)]
+        sha256: String,
+        /// Where the hash was verified (kept in the decision note).
+        #[arg(long)]
+        source: String,
+    },
     /// Kill a process (and optionally its tree) and keep it from respawning (needs an elevated shell).
     Kill {
         pid: u32,
@@ -148,6 +159,11 @@ fn main() -> anyhow::Result<()> {
         Command::Decisions { revoke, except } => {
             control::decisions(revoke.as_deref(), except.as_deref())
         }
+        Command::Allow {
+            path,
+            sha256,
+            source,
+        } => control::allow(&path, &sha256, &source),
         Command::Kill {
             pid,
             start_time,
