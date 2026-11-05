@@ -134,4 +134,5 @@ Disposable Windows 10 and Windows 11 VM snapshots, standard user plus an admin a
 ## MOTW, ASR posture and block lifetime checks (M15)
 
 - Automated: `cargo test -p vigil-core motw posture`, `cargo test -p vigil-core --test pipeline` (SRC-001), `cargo test -p vigil-svc --test kill` (orphan block lifted).
+- Automated: `cargo test -p vigil-core hashrep` and the HASH-001 case in `pipeline`.
 - Manual: `vigilctl posture` lists each recommended ASR rule with its state. Download an unsigned exe with a browser and run it: the evaluation lists SRC-001. Revoke a kill decision: the program is no longer killed within one scan.

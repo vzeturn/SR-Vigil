@@ -119,6 +119,7 @@ pub fn evaluate_image_detailed(
                 && pid.is_some_and(crate::memory::has_unbacked_exec_memory),
             package_source_trusted: package_source_trusted(path),
             from_internet: from_internet(path),
+            hash_known_good: hash_known_good(path, signer.valid()),
             ..Behaviour::default()
         },
         signer: signer.clone(),
@@ -164,4 +165,16 @@ fn from_internet(path: &str) -> bool {
     let mut text = String::new();
     f.take(4096).read_to_string(&mut text).is_ok()
         && vigil_core::analysis::motw::from_internet(&text)
+}
+
+/// Whether the unsigned file at `path` has a hash the reputation service reported as known-good.
+/// Signed files are judged by their signature, and nothing is hashed until a hash is known.
+fn hash_known_good(path: &str, signed: bool) -> bool {
+    static HASHES: std::sync::OnceLock<crate::hash::HashCache> = std::sync::OnceLock::new();
+    !signed
+        && vigil_core::analysis::hashrep::any()
+        && HASHES
+            .get_or_init(crate::hash::HashCache::new)
+            .sha256(std::path::Path::new(path))
+            .is_ok_and(|h| vigil_core::analysis::hashrep::is_known(&h))
 }

@@ -122,6 +122,14 @@ when = { signature = "unsigned", from_internet = true }
 score = -10
 
 [[rule]]
+id = "HASH-001"
+name = "known_good_hash"
+kind = "signal"
+description = "File hash is listed as known-good by the hash reputation service (NSRL and vendor package hashes)"
+when = { signature = "unsigned", hash_known_good = true }
+score = 15
+
+[[rule]]
 id = "SIG-010"
 name = "unsigned_user_writable"
 kind = "signal"

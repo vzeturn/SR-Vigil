@@ -34,6 +34,7 @@ pub struct Facts {
     pub unsigned_writable_module: bool,
     pub package_source_trusted: bool,
     pub from_internet: bool,
+    pub hash_known_good: bool,
     /// `None` when `VirusTotal` is disabled or has no result.
     pub vt_detections: Option<u32>,
     pub vt_first_seen_days: Option<u32>,
@@ -72,6 +73,7 @@ impl Default for Facts {
             unsigned_writable_module: false,
             package_source_trusted: false,
             from_internet: false,
+            hash_known_good: false,
             vt_detections: None,
             vt_first_seen_days: None,
             user_denylisted: false,
@@ -150,6 +152,7 @@ fn matches(w: &When, f: &Facts) -> bool {
         && flag(w.unsigned_writable_module, f.unsigned_writable_module)
         && flag(w.package_source_trusted, f.package_source_trusted)
         && flag(w.from_internet, f.from_internet)
+        && flag(w.hash_known_good, f.hash_known_good)
         && w.vt_detections_gte
             .is_none_or(|n| f.vt_detections.is_some_and(|d| d >= n))
         && w.vt_detections_lte

@@ -74,6 +74,9 @@ daily_lookup_budget = 500
 [catalogue]
 enabled            = false   # opt-in: once a day GET of the signed version catalogue (docs/16)
 
+[hash_reputation]
+enabled            = true    # GET of one SHA-256 per unknown unsigned file to hashlookup.circl.lu (docs/20 s5)
+
 [retention]
 connections_days   = 30
 connection_aggregates_days = 365

@@ -18,6 +18,16 @@ Windows, browsers and mail clients attach a `Zone.Identifier` stream to download
 
 An anti-respawn block lives only as long as the kill decision that created it. `respawn_scan` first lifts any block with no active kill decision (revoked, expired or never recorded), so a program the user no longer denies is not killed again. Audit and log record the release.
 
-## 5. Not done: network attestation databases
+## 5. Known-good hash lookup (HASH-001)
 
-NSRL, CIRCL hashlookup, MalwareBazaar and Defender cloud reputation need outbound hash lookups, which rule 10 forbids. Adding them requires a user-approved change to rule 10 (see `docs/10`, M15).
+User decision: network attestation sources are allowed (`CLAUDE.md` rule 10 amended). The service asks CIRCL hashlookup (NIST NSRL and vendor package hashes) about the SHA-256 of each unknown **unsigned** file: one GET per hash, nothing else sent (no path, name or machine data), the answer asked once and cached in `%ProgramData%\Vigil\hashrep.json`. Setting `hash_reputation.enabled` (default on) turns it off. A `hashlookup:trust` of 50 or more marks the hash known-good; the answer is untrusted JSON of which only that number is read. HASH-001 adds +15 to an unsigned file and never makes it Safe on its own (baseline 50 + 15 stays Unknown). Signed files are judged by their signature and never sent.
+
+Not added: MalwareBazaar (needs an API key, which would have to be stored), VirusTotal (planned, separate budget setting).
+
+## 6. Trust by verified hash
+
+`vigilctl allow <path> --sha256 <hash> --source <where verified>` records a forever allow bound to the file's hash. The service refuses it if it sees different bytes. Use it after comparing the file with the vendor's official release.
+
+## 7. ASR defaults chosen
+
+Block: LSASS credential theft, Office child processes, email executable content, scripts launching downloads, obfuscated scripts, Office macro Win32 calls, untrusted USB programs, WMI persistence, vulnerable signed drivers. Audit only (they break developer and admin tools): PsExec/WMI process creation, programs that are not widely used. Change with `Set-MpPreference` or Windows Security; `vigilctl posture` shows the result.

@@ -142,6 +142,7 @@ pub struct When {
     pub unsigned_writable_module: Option<bool>,
     pub package_source_trusted: Option<bool>,
     pub from_internet: Option<bool>,
+    pub hash_known_good: Option<bool>,
     pub vt_detections_gte: Option<u32>,
     pub vt_detections_lte: Option<u32>,
     pub vt_first_seen_days_gte: Option<u32>,

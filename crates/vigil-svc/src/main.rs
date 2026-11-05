@@ -63,7 +63,8 @@ mod win {
         tokio::spawn(Arc::clone(&shared).maintain());
         tokio::spawn(vigil_svc::ai_usage::digest_loop(Arc::clone(&shared)));
         if let Ok(dir) = host::data_dir() {
-            tokio::spawn(vigil_svc::catalogue::run(Arc::clone(&shared), dir));
+            tokio::spawn(vigil_svc::catalogue::run(Arc::clone(&shared), dir.clone()));
+            tokio::spawn(vigil_svc::hashrep::run(Arc::clone(&shared), dir));
         }
         shared.audit(
             "service",

@@ -9,6 +9,7 @@ pub mod decide;
 pub mod enforce;
 pub mod events;
 pub mod handler;
+pub mod hashrep;
 pub mod kill;
 pub mod launcher;
 pub mod persist;

@@ -212,6 +212,20 @@ pub fn pending_count(conn: &Connection) -> Result<u32, StoreError> {
     )?)
 }
 
+/// SHA-256 of every unsigned executable whose latest evaluation has `verdict`.
+pub fn unsigned_shas_with_verdict(
+    conn: &Connection,
+    verdict: &str,
+) -> Result<Vec<String>, StoreError> {
+    paths(
+        conn,
+        "SELECT DISTINCT e.sha256 FROM executables e WHERE e.signature_status = 'unsigned' AND
+           (SELECT v.verdict FROM evaluations v WHERE v.executable_id = e.id
+            ORDER BY v.evaluated_at DESC, v.id DESC LIMIT 1) = ?1",
+        params![verdict],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

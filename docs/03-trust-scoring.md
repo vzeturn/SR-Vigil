@@ -36,6 +36,7 @@ IDs, deltas and conditions here must match `rules/default.toml` (a contract test
 | KNOW-001 | `recognised_software` | File name (and vendor text, when present) match `rules/known_software.toml` and path class is `system` or `program_files`; also suppresses SIG-014 | +25 | |
 | PKG-001 | `package_from_known_source` | Unsigned console script of a uv/pip package in a user-writable path whose `dist-info` `Home-page`/`Project-URL` starts with a `[[dev_source]]` prefix of `rules/app_profiles.toml` (`docs/19 §5`); offsets SIG-010 (net +15), never reaches Safe on its own | +30 | |
 | SRC-001 | `unsigned_from_internet` | Unsigned and the file's `Zone.Identifier` says Internet or restricted zone (`docs/20 §2`); only the zone number is read | −10 | |
+| HASH-001 | `known_good_hash` | Unsigned and the SHA-256 is known-good in CIRCL hashlookup (`docs/20 §5`) | +15 | |
 | VER-001 | `outdated_version` | Recognised software (KNOW-001 conditions) behind the catalogue's `latest` release; exclusive group `version_freshness`, highest priority wins | −5 | |
 | VER-002 | `far_behind_version` | As above, below the catalogue's `min_supported` | −15 | |
 | VER-003 | `known_vulnerable_version` | As above, below the catalogue's `vulnerable_below` | −30 | |

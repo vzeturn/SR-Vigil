@@ -77,6 +77,8 @@ pub struct Behaviour {
     pub package_source_trusted: bool,
     /// The file carries a Mark of the Web for the Internet or a restricted zone (`docs/20 s2`).
     pub from_internet: bool,
+    /// The file hash is listed as known-good by the hash reputation service (`docs/20 s5`).
+    pub hash_known_good: bool,
 }
 
 /// Everything known about one running or candidate image.
@@ -227,6 +229,7 @@ pub fn build_facts(ctx: &Context, obs: &Observation) -> Facts {
         unsigned_writable_module: obs.behaviour.unsigned_writable_module,
         package_source_trusted: obs.behaviour.package_source_trusted,
         from_internet: obs.behaviour.from_internet,
+        hash_known_good: obs.behaviour.hash_known_good,
         vt_detections: obs.vt_detections,
         vt_first_seen_days: obs.vt_first_seen_days,
         user_denylisted: obs.user_denylisted,

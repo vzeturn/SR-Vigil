@@ -3,6 +3,7 @@
 pub mod beacon;
 pub mod catalogue;
 pub mod geo;
+pub mod hashrep;
 pub mod known;
 pub mod masquerade;
 pub mod motw;

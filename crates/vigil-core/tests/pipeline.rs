@@ -289,3 +289,24 @@ fn an_unsigned_download_costs_10_and_a_signed_one_costs_nothing() {
     let e = evaluate(&pack, &signed);
     assert!(e.signals.iter().all(|s| s.id != "SRC-001"));
 }
+
+#[test]
+fn a_known_good_hash_adds_15_but_never_makes_an_unsigned_file_safe() {
+    let pack = RuleStore::from_embedded().unwrap().active();
+    let unsigned = Facts {
+        signature: SignatureState::Unsigned,
+        path_class: PathClass::UserWritable,
+        ..Facts::default()
+    };
+    let plain = evaluate(&pack, &unsigned).score;
+    let known = evaluate(
+        &pack,
+        &Facts {
+            hash_known_good: true,
+            ..unsigned
+        },
+    );
+    assert_eq!(known.score, plain + 15);
+    assert!(known.signals.iter().any(|s| s.id == "HASH-001"));
+    assert!(known.score < vigil_core::consts::SAFE_MIN);
+}

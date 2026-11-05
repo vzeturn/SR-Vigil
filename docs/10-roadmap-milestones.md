@@ -188,9 +188,10 @@ root-cause popup. Build order is in `docs/18 §7`.
 - [x] SRC-001 Mark of the Web signal.
 - [x] Read-only ASR posture (`vigilctl posture`).
 - [x] Orphan anti-respawn blocks are lifted.
-- [ ] Network attestation databases (NSRL, CIRCL hashlookup, MalwareBazaar), behind a user-approved change to `CLAUDE.md` rule 10.
-- [ ] Guided ASR enable flow (user-approved, reversible).
-- [ ] Trust-by-hash for unsigned dev tools (user decision per tool).
+- [x] CIRCL hashlookup known-good hashes (HASH-001), `CLAUDE.md` rule 10 amended by the user.
+- [x] ASR rules enabled (9 block, 2 audit) and `vigilctl allow` for hash-verified tools.
+- [ ] MalwareBazaar and VirusTotal lookups (need an API key kept in the DPAPI store).
+- [ ] ASR audit-to-block review after two weeks of audit events.
 
 ## Backlog (post-v1, tracked)
 
