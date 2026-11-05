@@ -418,7 +418,7 @@ impl Shared {
         let signed_clones = storm::detect(&procs)
             .into_iter()
             .filter(|(pid, kind)| {
-                *kind == storm::Storm::Replication
+                matches!(kind, storm::Storm::Replication | storm::Storm::Chain)
                     && rows.iter().any(|r| r.pid == *pid && self.is_signed(r))
             })
             .map(|(pid, _)| (pid, storm::SUSPECT_CHILDREN as usize));
@@ -445,15 +445,19 @@ impl Shared {
             let Some(row) = rows.iter().find(|r| r.pid == pid) else {
                 continue;
             };
+            // No identity yet means the program is still being classified (a browser relaunched
+            // after an update): judge it on a later scan, never on a guess.
+            if row.identity_id.is_none() {
+                continue;
+            }
             let safe = row.verdict.as_deref() == Some("safe");
             // Electron/Chromium apps fork many copies of themselves and IDE agents (Kiro, VS Code)
             // run many shells: a validly signed image is left to the advisor review
-            // (`storm_suspects`), never killed on count alone. Only nested copies (`Chain`) are
-            // never legitimate.
+            // (`storm_suspects`), never killed on count alone. Nested copies (`Chain`) are never
+            // legitimate for an unsigned program; a signed or Safe one goes to the advisor too.
             let exempt = match kind {
-                storm::Storm::Replication => safe || self.is_signed(row),
+                storm::Storm::Replication | storm::Storm::Chain => safe || self.is_signed(row),
                 storm::Storm::LaunchFlood => self.is_signed(row),
-                storm::Storm::Chain => false,
             };
             if exempt || self.never_kill.check(&row.name, None).is_err() {
                 continue;

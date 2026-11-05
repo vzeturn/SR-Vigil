@@ -358,6 +358,45 @@ fn a_signed_ide_running_many_shells_is_not_killed() {
     assert!(fake.killed.lock().unwrap().is_empty());
 }
 
+/// A freshly relaunched program has no identity yet; a storm verdict on a guess would kill a real app.
+#[test]
+fn a_program_still_being_classified_is_never_stormed() {
+    let (s, fake, _) = setup();
+    fake.spawn(900, 1, BAD);
+    s.put_process(row(900, BAD, None));
+    for pid in 901..913 {
+        fake.spawn(pid, 900, BAD);
+        let mut r = row(pid, BAD, None);
+        r.ppid = 900;
+        s.put_process(r);
+    }
+    assert_eq!(s.storm_scan(), 0);
+    assert!(fake.killed.lock().unwrap().is_empty());
+}
+
+#[test]
+fn a_signed_program_with_nested_copies_is_left_to_the_advisor() {
+    let (s, fake, id) = setup();
+    s.with_store(|c| {
+        c.execute(
+            "UPDATE executables SET signature_status = 'valid_embedded' WHERE id = ?1",
+            [id.parse::<i64>().unwrap()],
+        )
+    })
+    .unwrap()
+    .unwrap();
+    fake.spawn(900, 1, BAD);
+    s.put_process(row(900, BAD, Some(&id)));
+    for pid in 901..909 {
+        fake.spawn(pid, pid - 1, BAD);
+        let mut r = row(pid, BAD, Some(&id));
+        r.ppid = pid - 1;
+        s.put_process(r);
+    }
+    assert_eq!(s.storm_scan(), 0);
+    assert!(fake.killed.lock().unwrap().is_empty());
+}
+
 /// A killed program reopened by the user is frozen and asked about; the answer decides (docs/18 §4).
 fn reopen_by_user(s: &Shared, fake: &Fake, id: &str, pid: u32) {
     fake.spawn(pid, 1, BAD);
