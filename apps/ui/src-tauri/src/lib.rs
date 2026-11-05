@@ -243,7 +243,12 @@ async fn junk_clean(ids: Vec<String>) -> Result<u64, String> {
 /// most common reasons, and every non-safe process.
 fn scan_payload(scan: &vigil_win::scan::Scan) -> Value {
     let name = vigil_win::scan::verdict_name;
-    let count = |v: &str| scan.rows.iter().filter(|r| name(r.eval.verdict) == v).count();
+    let count = |v: &str| {
+        scan.rows
+            .iter()
+            .filter(|r| name(r.eval.verdict) == v)
+            .count()
+    };
     let (safe, unknown, malicious) = (count("safe"), count("unknown"), count("malicious"));
     let total = scan.rows.len().max(1);
     // Posture: share of trusted processes (unknown counts half), minus 30 per malicious one.
@@ -420,6 +425,7 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
 
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             let (tx, rx) = mpsc::channel(32);
             app.manage(Link(tx));
@@ -440,14 +446,18 @@ pub fn run() {
             enable_protection,
             junk_scan,
             junk_clean,
-            local_scan
+            local_scan,
+            popup::fit_popup
         ])
         .build(tauri::generate_context!())
         .expect("failed to start Vigil UI")
         // Closing the last window destroys its WebView but keeps Vigil in the tray; only the tray's
         // "Quit" (an explicit exit code) ends the process.
         .run(|_, event| {
-            if let tauri::RunEvent::ExitRequested { code: None, api, .. } = event {
+            if let tauri::RunEvent::ExitRequested {
+                code: None, api, ..
+            } = event
+            {
                 api.prevent_exit();
             }
         });

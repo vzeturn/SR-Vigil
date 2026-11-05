@@ -31,9 +31,11 @@ const ALLOWED: &[&str] = &[
     "audit.query",
     "enforcement.panic",
     "process.get",
+    "process.modules",
     "process.kill",
     "persistence.scan",
     "persistence.apply",
+    "ai.activity",
     "ai.config.get",
     "ai.config.set",
     "ai.preview",
@@ -88,7 +90,7 @@ async fn session(
         .await?;
     let role = hello["role"].clone();
     let _ = client
-        .call("subscribe", json!({"topics": ["pending"]}))
+        .call("subscribe", json!({"topics": ["pending", "ai"]}))
         .await;
     let mut tick = tokio::time::interval(SNAPSHOT_EVERY);
     loop {
@@ -109,13 +111,30 @@ async fn session(
     }
 }
 
-/// Queued service notifications: only `pending_created` matters to the shell (popup + UI refresh).
+/// Queued service notifications: `pending_created` (popup + toast + UI refresh) and the daily AI digest.
 fn forward_pending(app: &AppHandle, client: &mut Client<NamedPipeClient>) {
     let mut created = false;
     for n in client.notifications.drain(..) {
-        if n.method == "event.pending_created" {
-            created = true;
-            let _ = app.emit("vigil://pending", n.params);
+        let params = n.params.unwrap_or(Value::Null);
+        match n.method.as_str() {
+            "event.pending_created" => {
+                created = true;
+                let _ = app.emit("vigil://pending", params);
+            }
+            "event.ai_digest" => {
+                let g = |k: &str| params[k].as_u64().unwrap_or(0);
+                let body = format!(
+                    "In the last 24 h the AI assessed {} programs, made {} decisions on its own and left {} to you. About {} tokens, roughly ${:.2}.",
+                    g("assessed"),
+                    g("allowed") + g("blocked") + g("killed"),
+                    g("left_to_user"),
+                    g("tokens_in") + g("tokens_out"),
+                    params["cost_usd"].as_f64().unwrap_or(0.0),
+                );
+                crate::popup::toast(app, "Vigil AI daily summary", &body);
+                let _ = app.emit("vigil://ai-digest", params);
+            }
+            _ => {}
         }
     }
     if created {

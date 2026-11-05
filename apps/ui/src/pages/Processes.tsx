@@ -2,6 +2,7 @@ import { useDeferredValue, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ProcessActions } from '../components/ProcessActions';
 import { ScoreBar } from '../components/ScoreBar';
+import { ScoreTip } from '../components/ScoreTip';
 import { VerdictChip } from '../components/VerdictChip';
 import { VirtualTable, type Column } from '../components/VirtualTable';
 import { useVigil } from '../store';
@@ -26,7 +27,12 @@ export function Processes() {
   const columns: Column<ProcessInfo>[] = [
     { header: t('table.name'), width: '2fr', cell: (p) => p.name },
     { header: t('table.pid'), width: '80px', cell: (p) => <span className="mono">{p.pid}</span> },
-    { header: t('table.score'), width: '120px', cell: (p) => <ScoreBar score={p.score} verdict={p.verdict} /> },
+    { header: t('table.score'), width: '120px', cell: (p) => (
+        <ScoreTip score={p.score} verdict={p.verdict} pid={p.pid} startTime={p.start_time}>
+          <ScoreBar score={p.score} verdict={p.verdict} />
+        </ScoreTip>
+      ),
+    },
     { header: t('table.verdict'), width: '150px', cell: (p) => <VerdictChip verdict={p.verdict} /> },
     {
       header: t('table.version'),

@@ -93,6 +93,10 @@ export function createMockBridge(rows = 200): Bridge {
   };
 
   const handlers: Record<string, (params: unknown) => unknown> = {
+    'ai.activity': () => {
+      const u = { assessed: 0, calls: 0, cached: 0, tokens_in: 0, tokens_out: 0, allowed: 0, blocked: 0, killed: 0, left_to_user: 0, cost_usd: 0 };
+      return { today: u, week: u, month: u };
+    },
     'ai.config.get': () => ai,
     'ai.config.set': (params) => {
       const { api_key, acknowledge_data_categories, ...rest } = params as Partial<AiConfig> & {

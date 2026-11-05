@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ScoreBar } from '../components/ScoreBar';
+import { ScoreTip } from '../components/ScoreTip';
 import { VerdictChip } from '../components/VerdictChip';
 import { VirtualTable, type Column } from '../components/VirtualTable';
 import { useVigil } from '../store';
@@ -11,12 +13,12 @@ export function Connections() {
   const { snapshot } = useVigil();
   const rows = snapshot?.connections ?? [];
   const names = useMemo(
-    () => new Map((snapshot?.processes ?? []).map((p) => [p.pid, p.name])),
+    () => new Map((snapshot?.processes ?? []).map((p) => [p.pid, p])),
     [snapshot],
   );
 
   const columns: Column<ConnectionInfo>[] = [
-    { header: t('table.process'), width: '2fr', cell: (c) => names.get(c.pid) ?? c.pid },
+    { header: t('table.process'), width: '2fr', cell: (c) => names.get(c.pid)?.name ?? c.pid },
     { header: t('table.local'), width: '2fr', cell: (c) => <span className="mono">{c.local_addr}:{c.local_port}</span> },
     {
       header: t('table.remote'),
@@ -30,6 +32,18 @@ export function Connections() {
     },
     { header: t('table.country'), width: '1.5fr', cell: (c) => countryName(c.country) },
     { header: t('table.state'), width: '130px', cell: (c) => c.state ?? '' },
+    {
+      header: t('table.score'),
+      width: '120px',
+      cell: (c) => {
+        const p = names.get(c.pid);
+        return p ? (
+          <ScoreTip score={p.score} verdict={p.verdict} pid={p.pid} startTime={p.start_time} program={p.name}>
+            <ScoreBar score={p.score} verdict={p.verdict} />
+          </ScoreTip>
+        ) : null;
+      },
+    },
     { header: t('table.verdict'), width: '150px', cell: (c) => <VerdictChip verdict={c.verdict} /> },
   ];
 

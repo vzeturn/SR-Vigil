@@ -6,9 +6,16 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use tauri::{AppHandle, Manager, PhysicalPosition};
+use tauri_plugin_notification::NotificationExt;
+
+/// Native Windows toast; failures (notifications disabled by the user) are not errors.
+pub fn toast(app: &AppHandle, title: &str, body: &str) {
+    let _ = app.notification().builder().title(title).body(body).show();
+}
 
 const MIN_GAP: Duration = Duration::from_secs(5);
 const MARGIN: i32 = 16;
+const WIDTH: f64 = 440.0;
 
 #[derive(Default)]
 pub struct Gate {
@@ -46,6 +53,16 @@ fn show(app: &AppHandle) {
     if win.is_visible().unwrap_or(false) {
         return;
     }
+    anchor(&win);
+    // `show` only: the popup must never take focus from what the user is doing.
+    let _ = win.show();
+    if let Ok(mut last) = app.state::<Gate>().last_shown.lock() {
+        *last = Some(Instant::now());
+    }
+}
+
+/// Bottom-right of the primary work area, so a resized popup keeps its corner.
+fn anchor(win: &tauri::WebviewWindow) {
     if let (Ok(Some(mon)), Ok(size)) = (win.primary_monitor(), win.outer_size()) {
         let area = mon.work_area();
         let (w, h) = (
@@ -59,9 +76,23 @@ fn show(app: &AppHandle) {
             bottom - h - MARGIN,
         ));
     }
-    // `show` only: the popup must never take focus from what the user is doing.
-    let _ = win.show();
-    if let Ok(mut last) = app.state::<Gate>().last_shown.lock() {
-        *last = Some(Instant::now());
+}
+
+/// The popup page reports its content height (CSS px); the window shrinks to fit instead of
+/// reserving a fixed 420 px of screen.
+#[tauri::command]
+pub fn fit_popup(app: AppHandle, height: f64) {
+    let Some(win) = app.get_webview_window("popup") else {
+        return;
+    };
+    let (width, h) = (WIDTH, height.clamp(96.0, 560.0));
+    // Same height again (shadow/DPI rounding): skip, or the resize observer feeds back into itself.
+    if win.inner_size().is_ok_and(|s| {
+        let k = win.scale_factor().unwrap_or(1.0);
+        (f64::from(s.height) / k - h).abs() < 2.0 && (f64::from(s.width) / k - width).abs() < 2.0
+    }) {
+        return;
     }
+    let _ = win.set_size(tauri::LogicalSize::new(width, h));
+    anchor(&win);
 }

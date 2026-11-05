@@ -156,6 +156,26 @@ export interface AiConfig {
   calls_today: number;
 }
 
+export interface AiUsage {
+  assessed: number;
+  calls: number;
+  cached: number;
+  tokens_in: number;
+  tokens_out: number;
+  allowed: number;
+  blocked: number;
+  killed: number;
+  left_to_user: number;
+  cost_usd: number;
+}
+
+/** `ai.activity` result. Tokens come from the API; the dollar figure is an estimate. */
+export interface AiActivityData {
+  today: AiUsage;
+  week: AiUsage;
+  month: AiUsage;
+}
+
 export interface PendingItem {
   id: string;
   identity: Identity;

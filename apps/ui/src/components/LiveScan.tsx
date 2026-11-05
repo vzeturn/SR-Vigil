@@ -172,11 +172,24 @@ export function LiveScan({ onCleanup }: { onCleanup: () => void }) {
 
   return (
     <>
-      <section className="board" aria-label={t('live.indicators')}>
-        <div className="tick tick-gauge" title={t('live.postureHelp')}>
-          <Gauge value={scan.posture} label={t('live.posture')} tone={tone} />
-          <span className="tick-label">{t('live.posture')}</span>
+      <section className={`card hero tone-${tone}`} title={t('live.postureHelp')}>
+        <Gauge value={scan.posture} label={t('overview.score')} tone={tone} large />
+        <div className="hero-text">
+          <h2>{t(`overview.headline.${tone}`, { count: scan.findings.length - hidden })}</h2>
+          <p className="muted">{t('overview.scoreHelp', { safe: scan.safe, total: scan.total })}</p>
         </div>
+      </section>
+      <div className="kpis">
+        {(['safe', 'unknown', 'malicious'] as const).map((k) => (
+          <div key={k} className={`card kpi tone-${k}`}>
+            <div className="kpi-label">{t(`kpi.${k}`)}</div>
+            <div className="kpi-value">{scan[k]}</div>
+          </div>
+        ))}
+      </div>
+      <details className="card tight fold">
+        <summary>{t('live.indicators')}</summary>
+      <section className="board" aria-label={t('live.indicators')}>
         <Cell label={t('live.processes')} value={scan.total} />
         <Cell label={t('verdict.safe')} value={scan.safe} hint={pct(scan.safe)} tone="safe" />
         <Cell label={t('verdict.unknown')} value={scan.unknown} hint={pct(scan.unknown)} tone="unknown" />
@@ -200,6 +213,7 @@ export function LiveScan({ onCleanup }: { onCleanup: () => void }) {
           </div>
         </div>
       </section>
+      </details>
 
       {scan.topReasons.length > 0 && (
         <details className="card tight fold">

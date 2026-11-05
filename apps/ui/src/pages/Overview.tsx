@@ -1,35 +1,43 @@
-import { OctagonAlert } from 'lucide-react';
+import { ChevronRight, Globe2, OctagonAlert, ShieldAlert } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getBridge } from '../bridge';
 import { Dialog } from '../components/Dialog';
+import { AiActivity } from '../components/AiActivity';
 import { Gauge } from '../components/Gauge';
 import { ProcessActions } from '../components/ProcessActions';
 import { ScoreBar } from '../components/ScoreBar';
 import { VerdictChip } from '../components/VerdictChip';
-import { countryName, topCountries } from '../countries';
+import { ConnRow } from '../components/ConnRow';
+import { ScoreTip } from '../components/ScoreTip';
+import { connectionsByCountry, countryName } from '../countries';
 import { dismissPanic, markPanic, useVigil } from '../store';
 import type { Mode } from '../types';
+
+import { RichTip, tipOf } from '../components/RichTip';
 
 const MODES: readonly Mode[] = ['observe', 'learning', 'enforce'];
 
 export function Overview() {
   const { t } = useTranslation();
   const { snapshot, link, panicAt } = useVigil();
+  const [showAll, setShowAll] = useState(false);
+  const [openCountry, setOpenCountry] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [panicError, setPanicError] = useState<string | null>(null);
   const [modeError, setModeError] = useState<string | null>(null);
   if (!snapshot) return <p className="muted">{t('table.loading')}</p>;
   const { status, processes } = snapshot;
   const isAdmin = link.role === 'admin';
-  const countries = topCountries(snapshot.connections);
+  const byCountry = connectionsByCountry(snapshot.connections).slice(0, 5);
+  const byPid = new Map(processes.map((p) => [p.pid, p]));
   const rank = { malicious: 0, unknown: 1, safe: 2 } as const;
   const attention = processes
     .filter((p) => p.verdict && p.verdict !== 'safe')
     .sort((a, b) => rank[a.verdict ?? 'safe'] - rank[b.verdict ?? 'safe'] || (a.score ?? 0) - (b.score ?? 0));
   const total = status.counts.safe + status.counts.unknown + status.counts.malicious;
   const score = total === 0 ? 100 : Math.round((status.counts.safe / total) * 100);
-  const tone = status.counts.malicious > 0 ? 'malicious' : status.counts.unknown > 0 ? 'unknown' : 'safe';
+  const tone = status.counts.malicious > 0 ? 'malicious' : status.counts.unknown > 0 || status.counts.pending > 0 ? 'unknown' : 'safe';
 
   const setMode = (mode: Mode) => {
     setModeError(null);
@@ -64,16 +72,16 @@ export function Overview() {
       <div className="toolbar">
         <div className="segmented" role="group" aria-label={t('mode.label')}>
           {MODES.map((m) => (
+            <RichTip key={m} tip={tipOf(t, `modeTip.${m}`)}>
             <button
-              key={m}
               type="button"
               aria-pressed={status.mode === m}
               disabled={!isAdmin}
-              title={isAdmin ? undefined : t('link.viewer')}
               onClick={() => setMode(m)}
             >
               {t(`mode.${m}`)}
             </button>
+            </RichTip>
           ))}
         </div>
         {modeError !== null && (
@@ -114,6 +122,8 @@ export function Overview() {
         </div>
       </section>
 
+      <AiActivity />
+
       <div className="kpis">
         {(['safe', 'unknown', 'malicious'] as const).map((k) => (
           <div key={k} className={`card kpi tone-${k}`}>
@@ -124,33 +134,62 @@ export function Overview() {
       </div>
 
       <section className="card">
-        <h2>{t('overview.recent')}</h2>
+        <h2 className="h2-icon">
+          <ShieldAlert size={18} aria-hidden="true" />
+          {t('overview.recent')}
+        </h2>
         {attention.length === 0 ? (
           <p className="muted">{t('overview.none')}</p>
         ) : (
           <ul className="list attention">
-            {attention.slice(0, 6).map((p) => (
+            {(showAll ? attention : attention.slice(0, 6)).map((p) => (
               <li key={`${p.pid}-${p.start_time}`}>
                 <span className="attention-name">
                   {p.name} <span className="muted mono">{p.pid}</span>
                 </span>
-                <ScoreBar score={p.score} verdict={p.verdict} />
+                <ScoreTip score={p.score} verdict={p.verdict} pid={p.pid} startTime={p.start_time}>
+                  <ScoreBar score={p.score} verdict={p.verdict} />
+                </ScoreTip>
                 <VerdictChip verdict={p.verdict} />
                 <ProcessActions proc={p} />
               </li>
             ))}
           </ul>
         )}
-        {attention.length > 6 && <p className="muted">{t('overview.more', { count: attention.length - 6 })}</p>}
+        {attention.length > 6 && (
+          <button type="button" className="expander" aria-expanded={showAll} onClick={() => setShowAll(!showAll)}>
+            <ChevronRight size={14} aria-hidden="true" className="chev" />
+            {showAll ? t('overview.less') : t('overview.more', { count: attention.length - 6 })}
+          </button>
+        )}
       </section>
-      {countries.length > 0 && (
+      {byCountry.length > 0 && (
         <section className="card">
-          <h2>{t('overview.countries')}</h2>
+          <h2 className="h2-icon">
+            <Globe2 size={18} aria-hidden="true" />
+            {t('overview.countries')}
+          </h2>
           <ul className="list">
-            {countries.map(([cc, n]) => (
-              <li key={cc}>
-                <span>{countryName(cc)}</span>
-                <span className="muted mono">{n}</span>
+            {byCountry.map(([cc, list]) => (
+              <li key={cc} className="country">
+                <button
+                  type="button"
+                  className="expander"
+                  aria-expanded={openCountry === cc}
+                  onClick={() => setOpenCountry(openCountry === cc ? null : cc)}
+                >
+                  <ChevronRight size={14} aria-hidden="true" className="chev" />
+                  <span>{countryName(cc)}</span>
+                  <span className="spacer" />
+                  <span className="muted mono">{list.length}</span>
+                </button>
+                {openCountry === cc && (
+                  <ul className="conn-list">
+                    {list.map((c) => (
+                      <ConnRow key={c.id} conn={c} proc={byPid.get(c.pid)} />
+                    ))}
+                  </ul>
+                )}
               </li>
             ))}
           </ul>

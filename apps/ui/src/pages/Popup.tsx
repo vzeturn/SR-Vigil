@@ -4,7 +4,9 @@ import { getBridge, hidePopup } from '../bridge';
 import type { AiOpinion } from '../types';
 import { AiAssessment } from '../components/AiAssessment';
 import { DecisionControls } from '../components/DecisionControls';
-import { destinationText, itemName } from '../components/pendingView';
+import { destinationText, hasConnection, itemName } from '../components/pendingView';
+import { ScoreBar } from '../components/ScoreBar';
+import { ScoreTip } from '../components/ScoreTip';
 import { VerdictChip } from '../components/VerdictChip';
 import { useVigil } from '../store';
 
@@ -38,10 +40,32 @@ export function Popup() {
   };
 
   useEffect(() => {
+    // Shown with nothing to decide (already handled elsewhere): close itself after a short grace.
+    if (!pending || total > 0) return;
+    const id = window.setTimeout(() => void hidePopup(), 1500);
+    return () => window.clearTimeout(id);
+  }, [pending, total]);
+
+  useEffect(() => {
     // Queue drained after having items: nothing left to ask, so get out of the way.
     if (seen.current > 0 && total === 0) void hidePopup();
     seen.current = total;
   }, [total]);
+
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    // Keep the window exactly as tall as its content so it never covers more screen than needed.
+    const el = box.current;
+    if (!el || !('__TAURI_INTERNALS__' in window)) return;
+    const fit = () => {
+      void import('@tauri-apps/api/core').then(({ invoke }) =>
+        invoke('fit_popup', { height: Math.ceil(el.getBoundingClientRect().height) }),
+      );
+    };
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -52,7 +76,7 @@ export function Popup() {
   }, []);
 
   return (
-    <div className="popup" onPointerDown={() => setArmed(true)} role="group" aria-label={t('popup.title')}>
+    <div ref={box} className="popup" onPointerDown={() => setArmed(true)} role="group" aria-label={t('popup.title')}>
       {!item ? (
         <p className="muted">{t('popup.empty')}</p>
       ) : (
@@ -60,11 +84,14 @@ export function Popup() {
           <div className="toolbar">
             <strong className="grow">{itemName(item)}</strong>
             <VerdictChip verdict={item.evaluation.verdict} />
-            <span className="muted">{item.evaluation.score}</span>
+            <ScoreTip evaluation={item.evaluation} score={item.evaluation.score} verdict={item.evaluation.verdict}>
+              <ScoreBar score={item.evaluation.score} verdict={item.evaluation.verdict} />
+            </ScoreTip>
           </div>
           <div className="mono muted">{item.identity.path}</div>
           <div>
-            {t('popup.wants')} <span className="mono">{destinationText(item)}</span>
+            {hasConnection(item) ? `${t('popup.wants')} ` : ''}
+            <span className="mono">{destinationText(item)}</span>
           </div>
           <ul className="list">
             {item.evaluation.signals.slice(0, 3).map((s) => (

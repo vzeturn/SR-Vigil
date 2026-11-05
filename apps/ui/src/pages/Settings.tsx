@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { getBridge, junkClean, junkScan, type JunkCategory } from '../bridge';
 import type { AiConfig, AiMode, AiSource } from '../types';
 import { useVigil } from '../store';
+import { RichTip, tipOf } from '../components/RichTip';
 
 type Theme = 'system' | 'light' | 'dark';
 
@@ -69,7 +70,16 @@ function AiCard() {
       <h2>{t('ai.title')}</h2>
       <p className="muted">{t('ai.intro')}</p>
       <label>
-        {t('ai.mode')}
+        <span className="ai-mode-label">
+          {t('ai.mode')}
+          {(['off', 'advisor', 'auto'] as const).map((m) => (
+            <RichTip key={m} tip={tipOf(t, `aiModeTip.${m}`)}>
+              <span className="chip" tabIndex={0} aria-label={t(`ai.${m}`)}>
+                {t(`ai.${m}`).split(' ')[0]}
+              </span>
+            </RichTip>
+          ))}
+        </span>
         <select
           value={cfg.mode}
           onChange={(e) => {

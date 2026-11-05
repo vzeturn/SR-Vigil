@@ -12,9 +12,16 @@ export function countryName(code?: string | null): string {
   }
 }
 
+/** Outbound connections grouped by destination country, busiest first. */
+export function connectionsByCountry(conns: readonly ConnectionInfo[]): [string, ConnectionInfo[]][] {
+  const g = new Map<string, ConnectionInfo[]>();
+  for (const c of conns) if (c.country && c.direction === 'outbound') g.set(c.country, [...(g.get(c.country) ?? []), c]);
+  return [...g].sort((a, b) => b[1].length - a[1].length);
+}
+
 /** The five countries with the most outbound connections. */
 export function topCountries(conns: readonly ConnectionInfo[]): [string, number][] {
-  const n = new Map<string, number>();
-  for (const c of conns) if (c.country && c.direction === 'outbound') n.set(c.country, (n.get(c.country) ?? 0) + 1);
-  return [...n].sort((a, b) => b[1] - a[1]).slice(0, 5);
+  return connectionsByCountry(conns)
+    .slice(0, 5)
+    .map(([cc, list]) => [cc, list.length]);
 }
