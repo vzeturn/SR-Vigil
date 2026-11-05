@@ -103,7 +103,7 @@ fn unsigned_temp_beaconing() {
         beaconing: true,
         ..unsigned(PathClass::UserWritable)
     };
-    check(&f, &["SIG-010", "BEH-002"], 5, Verdict::Malicious);
+    check(&f, &["SIG-010", "BEH-002"], 5, Verdict::Unknown);
 }
 
 #[test]
@@ -112,7 +112,7 @@ fn typosquat_clamps_at_zero() {
         typosquat: true,
         ..unsigned(PathClass::UserWritable)
     };
-    check(&f, &["SIG-010", "SIG-020"], 0, Verdict::Malicious);
+    check(&f, &["SIG-010", "SIG-020"], 0, Verdict::Unknown);
 }
 
 #[test]
@@ -228,7 +228,7 @@ fn virustotal_bands() {
     };
     check(&vt(0), &["SIG-003", "REP-001"], 85, Verdict::Safe);
     check(&vt(2), &["REP-010"], 55, Verdict::Unknown);
-    check(&vt(6), &["REP-011"], 15, Verdict::Malicious);
+    check(&vt(6), &["REP-011"], 15, Verdict::Unknown);
     check(&vt(10), &["HR-005"], 0, Verdict::Malicious);
     let off = Facts {
         vt_detections: None,

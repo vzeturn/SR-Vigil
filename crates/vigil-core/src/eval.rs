@@ -230,10 +230,10 @@ pub fn evaluate(pack: &RulePack, facts: &Facts) -> Evaluation {
         (100, Verdict::Safe)
     } else {
         let s = u8::try_from(score).unwrap_or(100);
+        // A low score is "not proven", never "malicious": only a hard rule (or, elsewhere, real
+        // evidence such as an advisor/reputation verdict) makes a program Malicious.
         let v = if s >= pack.meta.safe_min {
             Verdict::Safe
-        } else if s <= pack.meta.malicious_max {
-            Verdict::Malicious
         } else {
             Verdict::Unknown
         };

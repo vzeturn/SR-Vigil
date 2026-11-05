@@ -21,7 +21,7 @@ You are implementing **Vigil**, a Windows endpoint tool that classifies every pr
 | Name | Value |
 |---|---|
 | Score range / baseline | 0–100 / 50 |
-| `SAFE_MIN` / `MALICIOUS_MAX` | 80 / 29 (Unknown = 30–79) |
+| `SAFE_MIN` / `MALICIOUS_MAX` | 80 / 29 (score ≤ 29 is "low", still Unknown; Malicious needs a hard rule or advisor/reputation evidence) |
 | Modes | `observe`, `learning`, `enforce` |
 | Verdicts | `safe`, `unknown`, `malicious` |
 | Decision actions | `allow`, `block`, `kill` |

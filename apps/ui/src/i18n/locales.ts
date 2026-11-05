@@ -76,7 +76,7 @@ export const en = {
     review: 'To review',
     reviewHelp: 'Unverified processes you have not dismissed.',
     lowest: 'Lowest',
-    lowestHelp: 'Lowest trust score on this device (0-100). Below 30 is malicious.',
+    lowestHelp: 'Lowest trust score on this device (0-100). A low score means not proven, not malicious.',
     rules: 'Rules fired',
     rulesHelp: 'Distinct detection rules that matched at least one process.',
     effect: 'Score {{delta}}',
@@ -164,7 +164,7 @@ export const en = {
   },
   scoretip: {
     title: 'Score {{score}} of 100: {{verdict}}',
-    bandMalicious: '0-{{max}} malicious',
+    bandMalicious: '0-{{max}} low',
     bandUnknown: '{{min}}-{{max}} unknown',
     bandSafe: '{{min}}+ safe',
     baseline: 'Starting point',

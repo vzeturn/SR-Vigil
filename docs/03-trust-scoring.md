@@ -1,6 +1,6 @@
 # 03 — Trust scoring and anti-forgery
 
-**Tóm tắt (VI):** Điểm = `clamp(50 + Σ trọng số tín hiệu, 0, 100)`, sau đó áp trần (cap). Safe ≥ 80, Unknown 30–79, Malicious ≤ 29. Hard rule (HR-*) ép Malicious bất kể điểm. Toàn bộ trọng số nằm ở `rules/default.toml`; tài liệu này là bản mô tả, file rule là nguồn chạy thực tế.
+**Tóm tắt (VI):** Điểm = `clamp(50 + Σ trọng số tín hiệu, 0, 100)`, sau đó áp trần (cap). Safe ≥ 80, còn lại Unknown (điểm ≤ 29 là "thấp", chỉ hiển thị giá trị, KHÔNG phải Malicious). Malicious chỉ khi có bằng chứng thật: hard rule (HR-*) hoặc kết luận AI/uy tín. Toàn bộ trọng số nằm ở `rules/default.toml`; tài liệu này là bản mô tả, file rule là nguồn chạy thực tế.
 
 ## 1. Model
 
@@ -10,7 +10,7 @@ score    = min(score, min(cap(signal)))            # caps, e.g. LOLBin outbound 
 verdict  = HA-001 ? safe                           # Vigil's own verified binaries
          : HR-*   ? malicious                      # any hard rule
          : HA-002 ? safe                           # user allow, only when no HR-* fired
-         : score ≥ 80 ? safe : score ≤ 29 ? malicious : unknown
+         : score ≥ 80 ? safe : unknown                # a low score is never malicious by itself
 score    = 0 when a hard rule forces malicious, 100 when HA-001/HA-002 force safe
 ```
 

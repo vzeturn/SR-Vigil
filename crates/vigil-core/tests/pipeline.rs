@@ -107,7 +107,7 @@ fn svchost_with_wrong_parent_is_hr003() {
 }
 
 #[test]
-fn unsigned_lookalike_in_temp_is_malicious() {
+fn unsigned_lookalike_in_temp_scores_zero_but_stays_unknown() {
     let o = obs(
         r"C:\Users\x\AppData\Local\Temp\svch0st.exe",
         None,
@@ -116,7 +116,7 @@ fn unsigned_lookalike_in_temp_is_malicious() {
     );
     let (score, v, ids) = verdict(&o);
     assert!(ids.contains(&"SIG-020".to_string()));
-    assert_eq!((score, v), (0, Verdict::Malicious));
+    assert_eq!((score, v), (0, Verdict::Unknown));
 }
 
 #[test]
