@@ -14,6 +14,7 @@ pub mod kill;
 pub mod launcher;
 pub mod persist;
 pub mod portable;
+pub mod purge;
 pub mod reopen;
 pub mod state;
 

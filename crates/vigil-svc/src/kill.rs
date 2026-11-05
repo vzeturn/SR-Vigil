@@ -69,7 +69,7 @@ fn action(ok: bool, code: Option<&str>, detail: &str) -> Value {
     json!({ "ok": ok, "error_code": code, "detail": detail })
 }
 
-fn is_self(snap: &Snap) -> bool {
+pub(crate) fn is_self(snap: &Snap) -> bool {
     snap.pid == std::process::id()
         || snap.image.as_deref().is_some_and(|i| {
             SELF_IMAGES

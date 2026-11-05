@@ -81,6 +81,8 @@ JSON-RPC 2.0 subset: `{"jsonrpc":"2.0","id":<int|string>,"method":"...","params"
 | `decision.import` | A | `{content}` → `{imported, skipped}` (validated, ≤ 1 MiB / 5,000 entries; duplicates and `once` scopes are skipped; recorded as user decisions by actor `user`) |
 | `settings.get` / `settings.set` | R / A | policy settings (see `config/default-policy.toml`) |
 | `enforcement.panic` | A | `{}` → `Status` |
+| `purge.start` | A | `{minutes?: 1..30 (default 5)}` → purge report (docs/21) |
+| `purge.stop` / `purge.status` | A / R | `{}` → purge report |
 | `subscribe` | R | `{topics: Topic[]}` → `{subscribed: Topic[]}` |
 | `unsubscribe` | R | `{topics}` → `{}` |
 

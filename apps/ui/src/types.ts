@@ -267,3 +267,33 @@ export interface AuditPage {
   next_cursor?: string | null;
   chain_ok: boolean;
 }
+
+export interface LockdownHeld {
+  name: string;
+  path: string;
+  identity_id?: string | null;
+  verdict?: Verdict | null;
+  score?: number | null;
+  publisher?: string | null;
+  parent?: string | null;
+  origin?: string | null;
+  killed_at: string;
+  respawns: number;
+  last_respawn?: string | null;
+  flagged: boolean;
+  /** Advisor opinion once the program kept coming back; `unavailable` when it could not be asked. */
+  ai?: (Partial<AiOpinion> & { unavailable?: string }) | null;
+}
+
+export interface LockdownReport {
+  active: boolean;
+  started_at?: string;
+  window_s?: number;
+  remaining_s?: number;
+  stopped?: number;
+  respawns?: number;
+  flagged?: number;
+  spared: Record<string, number>;
+  kept: { name: string; path?: string | null; why: string }[];
+  held: LockdownHeld[];
+}

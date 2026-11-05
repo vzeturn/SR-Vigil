@@ -5,6 +5,7 @@ import {
   Network,
   Power,
   OctagonX,
+  ShieldAlert,
   ScrollText,
   Settings as Cog,
   ShieldCheck,
@@ -15,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { enableProtection, syncTrayLabels, syncTrayPending } from './bridge';
 import { LiveScan } from './components/LiveScan';
 import { Kills } from './pages/Kills';
+import { Lockdown } from './pages/Lockdown';
 import { Audit } from './pages/Audit';
 import { Connections } from './pages/Connections';
 import { Overview } from './pages/Overview';
@@ -31,6 +33,7 @@ const PAGES = {
   pending: { icon: Bell, view: Pending },
   processes: { icon: ListChecks, view: Processes },
   connections: { icon: Network, view: Connections },
+  lockdown: { icon: ShieldAlert, view: Lockdown },
   kills: { icon: OctagonX, view: Kills },
   startup: { icon: Power, view: Startup },
   audit: { icon: ScrollText, view: Audit },

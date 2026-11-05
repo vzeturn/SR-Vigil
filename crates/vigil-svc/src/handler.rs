@@ -66,6 +66,9 @@ impl ConnHandler {
                     .unwrap_or(false),
             ),
             "enforcement.panic" => Ok(s.panic_now("user")),
+            "purge.start" => s.purge_start(params, "user"),
+            "purge.stop" => Ok(s.purge_stop("user")),
+            "purge.status" => Ok(s.purge_status()),
             "process.list" => s.list_processes(params),
             "process.get" => s.get_process(
                 params

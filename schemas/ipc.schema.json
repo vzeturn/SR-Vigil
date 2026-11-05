@@ -2555,6 +2555,45 @@
         "$ref": "#/$defs/Status"
       }
     },
+    "purge.start": {
+      "role": "admin",
+      "params": {
+        "type": "object",
+        "properties": {
+          "minutes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 30
+          }
+        },
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object"
+      }
+    },
+    "purge.stop": {
+      "role": "admin",
+      "params": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object"
+      }
+    },
+    "purge.status": {
+      "role": "viewer",
+      "params": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object"
+      }
+    },
     "subscribe": {
       "role": "viewer",
       "params": {

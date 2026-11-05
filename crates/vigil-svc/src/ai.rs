@@ -312,7 +312,7 @@ fn user_from_path(path: &str) -> String {
         .to_string()
 }
 
-fn opinion_json(o: &store::StoredOpinion, cached: bool) -> Value {
+pub(crate) fn opinion_json(o: &store::StoredOpinion, cached: bool) -> Value {
     let list = |s: &str| serde_json::from_str::<Value>(s).unwrap_or_else(|_| json!([]));
     json!({
         "verdict": o.verdict, "confidence": o.confidence,

@@ -120,6 +120,11 @@ Disposable Windows 10 and Windows 11 VM snapshots, standard user plus an admin a
 - Automated: `cargo test -p vigil-core catalogue` (signature, tamper, rollback), `cargo test -p vigil-svc catalogue` (unverified bytes never cached), `node --test` in `catalogue/`.
 - Manual: enable "version catalogue" in Settings, restart the service, confirm `%ProgramData%\Vigil\catalogue.json` appears and an outdated recognised program shows "installed → latest" in Processes. Corrupt one byte of the cache and restart: the file is ignored and the embedded data is used.
 
+## Lockdown checks (M16)
+
+- Automated: `cargo test -p vigil-svc --test purge` (only classified untrusted non-user processes stop; comebacks are re-stopped; flag at 3).
+- Manual: start Lockdown on a test machine, confirm Safe programs and the shell keep running, release early, and confirm the hold ends by itself after the window.
+
 ## Reopen and launcher checks (M13)
 
 - Automated: `cargo test -p vigil-svc --test kill` (freeze and ask, keep stopped, script origin never prompts, one launcher question per flood), `cargo test -p vigil-win kill` (suspend/resume).

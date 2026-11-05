@@ -193,6 +193,12 @@ root-cause popup. Build order is in `docs/18 §7`.
 - [ ] MalwareBazaar and VirusTotal lookups (need an API key kept in the DPAPI store).
 - [ ] ASR audit-to-block review after two weeks of audit events.
 
+## M16 — Lockdown (design in `docs/21`)
+
+- [x] `purge.start/stop/status`, 5-minute hold, comeback re-kill, advisor review after 3 comebacks.
+- [x] Lockdown page (ring, counters, per-program intel, trace and block-for-good).
+- [ ] `vigilctl purge` subcommand.
+
 ## Backlog (post-v1, tracked)
 
 - Inbound blocking option (FR-017): `ALE_AUTH_RECV_ACCEPT` filters, off by default.
