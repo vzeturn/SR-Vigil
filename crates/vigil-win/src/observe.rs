@@ -118,6 +118,7 @@ pub fn evaluate_image_detailed(
             unbacked_exec_memory: scan_memory
                 && pid.is_some_and(crate::memory::has_unbacked_exec_memory),
             package_source_trusted: package_source_trusted(path),
+            from_internet: from_internet(path),
             ..Behaviour::default()
         },
         signer: signer.clone(),
@@ -151,4 +152,16 @@ fn package_source_trusted(image: &str) -> bool {
                 && std::fs::read_to_string(file)
                     .is_ok_and(|t| vigil_core::profile::trusted_source(&t).is_some())
         })
+}
+
+/// Whether the file's `Zone.Identifier` stream marks it as downloaded (`docs/20 s2`). Reads at most
+/// 4 KiB; a file without the stream (the usual case) fails to open at once.
+fn from_internet(path: &str) -> bool {
+    use std::io::Read as _;
+    let Ok(f) = std::fs::File::open(format!("{path}:Zone.Identifier")) else {
+        return false;
+    };
+    let mut text = String::new();
+    f.take(4096).read_to_string(&mut text).is_ok()
+        && vigil_core::analysis::motw::from_internet(&text)
 }

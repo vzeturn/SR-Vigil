@@ -130,3 +130,8 @@ Disposable Windows 10 and Windows 11 VM snapshots, standard user plus an admin a
 - Open several tabs in Edge/Chrome/Firefox: Vigil must not kill or prompt (`vigilctl status` shows the browser and all helpers running).
 - Launch `awslabs.*` through `uvx`: the evaluation lists PKG-001 and the score is 65 (Unknown), not killed.
 - A renderer that starts a program (lab sample only, e.g. a test extension host in a VM): only that renderer and its child end; other tabs stay open and the audit log has one `kill` row.
+
+## MOTW, ASR posture and block lifetime checks (M15)
+
+- Automated: `cargo test -p vigil-core motw posture`, `cargo test -p vigil-core --test pipeline` (SRC-001), `cargo test -p vigil-svc --test kill` (orphan block lifted).
+- Manual: `vigilctl posture` lists each recommended ASR rule with its state. Download an unsigned exe with a browser and run it: the evaluation lists SRC-001. Revoke a kill decision: the program is no longer killed within one scan.

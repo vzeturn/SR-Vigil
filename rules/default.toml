@@ -114,6 +114,14 @@ when = { signature = "unsigned", path_class = "user_writable", package_source_tr
 score = 30
 
 [[rule]]
+id = "SRC-001"
+name = "unsigned_from_internet"
+kind = "signal"
+description = "Unsigned file carrying a Mark of the Web for the Internet or a restricted zone (downloaded, never vetted by a publisher)"
+when = { signature = "unsigned", from_internet = true }
+score = -10
+
+[[rule]]
 id = "SIG-010"
 name = "unsigned_user_writable"
 kind = "signal"

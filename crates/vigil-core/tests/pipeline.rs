@@ -262,3 +262,30 @@ fn a_package_from_a_known_source_offsets_the_unsigned_penalty_but_stays_unknown(
     assert!(sourced.score < vigil_core::consts::SAFE_MIN);
     assert!(sourced.score > vigil_core::consts::MALICIOUS_MAX);
 }
+
+#[test]
+fn an_unsigned_download_costs_10_and_a_signed_one_costs_nothing() {
+    let pack = RuleStore::from_embedded().unwrap().active();
+    let unsigned = Facts {
+        signature: SignatureState::Unsigned,
+        path_class: PathClass::UserWritable,
+        ..Facts::default()
+    };
+    let plain = evaluate(&pack, &unsigned).score;
+    let web = evaluate(
+        &pack,
+        &Facts {
+            from_internet: true,
+            ..unsigned
+        },
+    );
+    assert_eq!(web.score, plain - 10);
+    assert!(web.signals.iter().any(|s| s.id == "SRC-001"));
+    let signed = Facts {
+        signature: SignatureState::ValidEmbedded,
+        from_internet: true,
+        ..Facts::default()
+    };
+    let e = evaluate(&pack, &signed);
+    assert!(e.signals.iter().all(|s| s.id != "SRC-001"));
+}

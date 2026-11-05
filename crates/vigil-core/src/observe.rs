@@ -75,6 +75,8 @@ pub struct Behaviour {
     pub unsigned_writable_module: bool,
     /// A uv/pip console script whose package metadata names a source from `rules/app_profiles.toml`.
     pub package_source_trusted: bool,
+    /// The file carries a Mark of the Web for the Internet or a restricted zone (`docs/20 s2`).
+    pub from_internet: bool,
 }
 
 /// Everything known about one running or candidate image.
@@ -224,6 +226,7 @@ pub fn build_facts(ctx: &Context, obs: &Observation) -> Facts {
         unbacked_exec_memory: obs.behaviour.unbacked_exec_memory,
         unsigned_writable_module: obs.behaviour.unsigned_writable_module,
         package_source_trusted: obs.behaviour.package_source_trusted,
+        from_internet: obs.behaviour.from_internet,
         vt_detections: obs.vt_detections,
         vt_first_seen_days: obs.vt_first_seen_days,
         user_denylisted: obs.user_denylisted,

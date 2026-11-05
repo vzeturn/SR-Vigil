@@ -33,6 +33,8 @@ enum Command {
         #[arg(long, value_name = "ID")]
         clean: Vec<String>,
     },
+    /// Report which Defender Attack Surface Reduction rules are on (read-only; changes nothing).
+    Posture,
     /// Show the running service's mode, health and verdict counts.
     Status {
         /// Emit machine-readable JSON instead of text.
@@ -118,6 +120,19 @@ fn main() -> anyhow::Result<()> {
                 let freed = vigil_win::junk::clean(&clean);
                 println!("freed {} MB", freed >> 20);
             }
+            Ok(())
+        }
+        Command::Posture => {
+            let mut off = 0;
+            for (guid, what) in vigil_core::posture::RECOMMENDED_ASR {
+                let s = vigil_win::asr::state(guid);
+                off += usize::from(!s.enforces());
+                println!("{what:<44} {s}");
+            }
+            println!(
+                "{off} of {} recommended ASR rules are not enforcing",
+                vigil_core::posture::RECOMMENDED_ASR.len()
+            );
             Ok(())
         }
         Command::Status { json } => status::run(json),
