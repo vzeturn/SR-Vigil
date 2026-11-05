@@ -108,9 +108,30 @@
         "failed"
       ]
     },
+    "AiUsage": {
+      "type": "object",
+      "properties": {
+        "assessed": { "type": "integer", "minimum": 0 },
+        "calls": { "type": "integer", "minimum": 0 },
+        "cached": { "type": "integer", "minimum": 0 },
+        "tokens_in": { "type": "integer", "minimum": 0 },
+        "tokens_out": { "type": "integer", "minimum": 0 },
+        "allowed": { "type": "integer", "minimum": 0 },
+        "blocked": { "type": "integer", "minimum": 0 },
+        "killed": { "type": "integer", "minimum": 0 },
+        "left_to_user": { "type": "integer", "minimum": 0 },
+        "cost_usd": { "type": "number", "minimum": 0 }
+      },
+      "additionalProperties": false,
+      "required": [
+        "assessed", "calls", "cached", "tokens_in", "tokens_out",
+        "allowed", "blocked", "killed", "left_to_user", "cost_usd"
+      ]
+    },
     "Topic": {
       "type": "string",
       "enum": [
+        "ai",
         "processes",
         "connections",
         "verdicts",
@@ -1589,6 +1610,36 @@
         "$ref": "#/$defs/ProcessDetail"
       }
     },
+    "process.modules": {
+      "role": "admin",
+      "params": {
+        "type": "object",
+        "properties": {
+          "pid": { "type": "integer" },
+          "start_time": { "type": "string", "format": "date-time" }
+        },
+        "additionalProperties": false,
+        "required": ["pid", "start_time"]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "access": { "enum": ["ok", "denied"] },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": { "name": { "type": "string" }, "path": { "type": "string" } },
+              "additionalProperties": false,
+              "required": ["name", "path"]
+            }
+          },
+          "truncated": { "type": "boolean" }
+        },
+        "additionalProperties": false,
+        "required": ["access", "items", "truncated"]
+      }
+    },
     "process.kill": {
       "role": "admin",
       "params": {
@@ -1979,6 +2030,34 @@
       },
       "result": {
         "$ref": "#/$defs/ActionResult"
+      }
+    },
+    "ai.activity": {
+      "role": "viewer",
+      "params": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "today": {
+            "$ref": "#/$defs/AiUsage"
+          },
+          "week": {
+            "$ref": "#/$defs/AiUsage"
+          },
+          "month": {
+            "$ref": "#/$defs/AiUsage"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "today",
+          "week",
+          "month"
+        ]
       }
     },
     "ai.config.get": {
@@ -2473,6 +2552,9 @@
         "score",
         "signals"
       ]
+    },
+    "event.ai_digest": {
+      "$ref": "#/$defs/AiUsage"
     },
     "event.pending_created": {
       "$ref": "#/$defs/PendingItem"

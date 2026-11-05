@@ -1,4 +1,5 @@
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use secrecy::{ExposeSecret, SecretString};
@@ -69,6 +70,8 @@ pub struct Advisor {
     cfg: Config,
     http: reqwest::Client,
     limiter: Mutex<Limiter>,
+    tokens_in: AtomicU64,
+    tokens_out: AtomicU64,
 }
 
 fn now_secs() -> u64 {
@@ -86,7 +89,22 @@ impl Advisor {
             .build()
             .map_err(|_| AiError::Transport)?;
         let limiter = Mutex::new(Limiter::new(cfg.daily_budget, cfg.per_minute));
-        Ok(Self { cfg, http, limiter })
+        Ok(Self {
+            cfg,
+            http,
+            limiter,
+            tokens_in: AtomicU64::new(0),
+            tokens_out: AtomicU64::new(0),
+        })
+    }
+
+    /// Cumulative `(input, output)` tokens reported by the API since this client was built.
+    #[must_use]
+    pub fn tokens(&self) -> (u64, u64) {
+        (
+            self.tokens_in.load(Ordering::Relaxed),
+            self.tokens_out.load(Ordering::Relaxed),
+        )
     }
 
     #[must_use]
@@ -271,6 +289,14 @@ impl Advisor {
                 .json()
                 .await
                 .map_err(|_| AiError::InvalidOutput("body".into()))?;
+            self.tokens_in.fetch_add(
+                v["usage"]["input_tokens"].as_u64().unwrap_or(0),
+                Ordering::Relaxed,
+            );
+            self.tokens_out.fetch_add(
+                v["usage"]["output_tokens"].as_u64().unwrap_or(0),
+                Ordering::Relaxed,
+            );
             return parse(&v, present);
         }
     }

@@ -14,12 +14,14 @@ use crate::trust;
 /// Upper bound of signature checks per process, so one pathological process cannot stall a scan.
 const MAX_CHECKS: usize = 16;
 
-fn module_paths(pid: u32) -> Vec<String> {
+/// Loaded module paths of `pid`, or `None` when the snapshot is refused (protected process, no privilege).
+#[must_use]
+pub fn module_paths(pid: u32) -> Option<Vec<String>> {
     // SAFETY: plain Win32 call; the snapshot handle is closed below.
     let Ok(snap) =
         (unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, pid) })
     else {
-        return Vec::new();
+        return None;
     };
     let mut entry = MODULEENTRY32W {
         dwSize: u32::try_from(size_of::<MODULEENTRY32W>()).unwrap_or(0),
@@ -40,13 +42,14 @@ fn module_paths(pid: u32) -> Vec<String> {
     }
     // SAFETY: `snap` was returned by a successful call and is closed exactly once.
     let _ = unsafe { CloseHandle(snap) };
-    out
+    Some(out)
 }
 
 /// `true` when `pid` has loaded a module from a user-writable path that lacks a valid signature.
 #[must_use]
 pub fn has_unsigned_writable_module(ctx: &Context, pid: u32) -> bool {
     module_paths(pid)
+        .unwrap_or_default()
         .into_iter()
         .filter(|p| classify(&normalize(p), &ctx.path_env) == PathClass::UserWritable)
         .take(MAX_CHECKS)
