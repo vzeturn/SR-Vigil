@@ -57,6 +57,10 @@ pub struct Inputs<'a> {
     pub learning_hours: Option<u64>,
     /// The AI already flipped allow↔block for this identity within the last 7 days.
     pub flipped_recently: bool,
+    /// The program is running right now with a live network connection: an attack in progress.
+    /// This alone lets the advisor stop it without the `auto_kill` opt-in (every other kill gate
+    /// still applies).
+    pub active_threat: bool,
 }
 
 /// Evaluate the gates in order; the first failing gate wins.
@@ -102,7 +106,7 @@ pub fn decide(i: &Inputs<'_>) -> Outcome {
             if i.verdict != "malicious" {
                 return S(Skip::VerdictMismatch);
             }
-            if !i.auto_kill {
+            if !i.auto_kill && !i.active_threat {
                 return Outcome::Decide {
                     action: Action::Block,
                     scope: "forever",
@@ -142,6 +146,7 @@ mod tests {
             never_kill: false,
             learning_hours: None,
             flipped_recently: false,
+            active_threat: false,
         }
     }
 
@@ -232,6 +237,36 @@ mod tests {
             decide(&Inputs {
                 confidence: 0.92,
                 ..k
+            }),
+            Outcome::Skip(Skip::NotConfident)
+        );
+    }
+
+    #[test]
+    fn an_attack_in_progress_is_stopped_without_the_kill_opt_in() {
+        let live = Inputs {
+            active_threat: true,
+            confidence: 0.97,
+            ..mal("kill")
+        };
+        assert_eq!(
+            decide(&live),
+            Outcome::Decide {
+                action: Action::Kill,
+                scope: "forever"
+            }
+        );
+        assert_eq!(
+            decide(&Inputs {
+                never_kill: true,
+                ..live.clone()
+            }),
+            Outcome::Skip(Skip::NeverKill)
+        );
+        assert_eq!(
+            decide(&Inputs {
+                confidence: 0.92,
+                ..live
             }),
             Outcome::Skip(Skip::NotConfident)
         );

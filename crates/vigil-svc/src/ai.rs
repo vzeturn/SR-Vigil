@@ -662,6 +662,7 @@ impl Shared {
             score: i32::from(ev.score),
             signals,
             hard_rules: ev.hard_rule.iter().cloned().collect(),
+            connection_count: self.live_context(&exe.path).1,
             known: vigil_core::analysis::known::lookup(
                 exe.path.rsplit(['\\', '/']).next().unwrap_or_default(),
                 &[
@@ -1074,6 +1075,10 @@ impl Shared {
             never_kill: self.never_kill.check(&image, None).is_err(),
             learning_hours,
             flipped_recently: flipped,
+            active_threat: {
+                let (running, conns) = self.live_context(&exe.path);
+                running > 0 && conns > 0
+            },
         });
         let Outcome::Decide { action, scope } = outcome else {
             let Outcome::Skip(why) = outcome else { return };

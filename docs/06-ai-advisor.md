@@ -124,3 +124,7 @@ Builds with `VIGIL_PROXY_URL` offer `source = "shared"`: the service registers o
 ## Offline memory
 
 A confident (>= 0.8) safe or malicious opinion is also stored under an exact-match key (sha256 + signer, rule-pack version, set of signals) for 365 days. An identical program is answered from `ai_cache` with no API call, even when the advisor is rate limited. Any change to the file, signer, rule pack or signals misses the memory and asks the advisor again. The memory is advice only; the authority order and the `auto` gates are unchanged.
+
+## Attack in progress
+
+`auto::Inputs.active_threat` is true when the program runs right now with an established outbound connection. For a confident malicious `kill` opinion this replaces the `auto_kill` opt-in; every other kill gate stays (confidence >= 0.95, score <= 49, not in the never-kill set, enforce mode, no hard rule, stable verdict). Without live activity the reversible block applies and the item waits quietly in the list. The payload carries the live outbound connection count so the advisor weighs it.

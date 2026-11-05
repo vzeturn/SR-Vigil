@@ -711,6 +711,30 @@ impl Shared {
         page(rows, params)
     }
 
+    /// Running instances of `path` and how many live outbound connections they hold.
+    #[must_use]
+    pub(crate) fn live_context(&self, path: &str) -> (usize, u32) {
+        let g = lock(&self.inner);
+        let pids: Vec<u32> = g
+            .processes
+            .values()
+            .filter(|p| {
+                p.path
+                    .as_deref()
+                    .is_some_and(|x| x.eq_ignore_ascii_case(path))
+            })
+            .map(|p| p.pid)
+            .collect();
+        let conns = g
+            .connections
+            .values()
+            .filter(|c| {
+                c.direction == "outbound" && c.state == "established" && pids.contains(&c.pid)
+            })
+            .count();
+        (pids.len(), u32::try_from(conns).unwrap_or(u32::MAX))
+    }
+
     /// Verdict of the owning process for connection rows (set by the observer before `sync`).
     #[must_use]
     pub fn process_verdict(&self, pid: u32) -> Option<String> {
