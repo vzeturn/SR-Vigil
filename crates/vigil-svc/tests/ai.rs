@@ -439,3 +439,67 @@ async fn a_hesitant_advisor_never_stops_a_suspect() {
     let a = audit_text(&s);
     assert!(a.contains("storm_noted") && !a.contains("storm_kill"));
 }
+
+#[tokio::test]
+async fn a_confident_verdict_is_remembered_for_an_identical_program() {
+    let (s, id) = setup(None, 60, "safe");
+    let fake = Fake::new(Ok(opinion("safe", 0.9, "allow")));
+    s.attach_ai(fake.clone());
+    enable(&s, "advisor", &json!({}));
+    s.ai_assess(id, false).await.unwrap();
+    // A different model changes the response-cache key, never the exact-match memory.
+    enable(&s, "advisor", &json!({"model": "other-model"}));
+    let (again, ..) = s.ai_assess(id, false).await.unwrap();
+    assert!(again.cached);
+    assert_eq!(fake.sent.lock().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn a_hesitant_verdict_is_not_remembered() {
+    let (s, id) = setup(None, 60, "safe");
+    let fake = Fake::new(Ok(opinion("safe", 0.6, "allow")));
+    s.attach_ai(fake.clone());
+    enable(&s, "advisor", &json!({}));
+    s.ai_assess(id, false).await.unwrap();
+    enable(&s, "advisor", &json!({"model": "other-model"}));
+    s.ai_assess(id, false).await.unwrap();
+    assert_eq!(fake.sent.lock().unwrap().len(), 2);
+}
+
+fn live_connection(s: &Shared, id: i64) {
+    let row = suspect_row(id);
+    s.sync_connections(vec![vigil_svc::state::ConnRow {
+        id: "c1".into(),
+        pid: row.pid,
+        direction: "outbound",
+        local_addr: "10.0.0.2".into(),
+        local_port: 50_000,
+        remote_addr: Some("203.0.113.9".into()),
+        remote_port: Some(443),
+        state: "established",
+        verdict: None,
+        first_seen: "t".into(),
+        last_seen: "t".into(),
+    }]);
+    s.put_process(row);
+}
+
+#[tokio::test]
+async fn an_attack_in_progress_is_stopped_but_an_idle_program_is_only_blocked() {
+    for live in [true, false] {
+        let (s, id) = setup(None, 20, "malicious");
+        enforce(&s);
+        if live {
+            live_connection(&s, id);
+        }
+        s.attach_ai(Fake::new(Ok(opinion("malicious", 0.99, "kill"))));
+        enable(&s, "auto", &json!({}));
+        Arc::clone(&s).ai_assess_open_pending().await;
+        let d = s.list_decisions().unwrap();
+        assert_eq!(
+            d["items"][0]["action"],
+            if live { "kill" } else { "block" },
+            "live={live}"
+        );
+    }
+}
