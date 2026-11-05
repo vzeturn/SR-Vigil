@@ -711,6 +711,35 @@ impl Shared {
         page(rows, params)
     }
 
+    /// Live child processes of `path`, and verdict + path of live processes by image.
+    #[must_use]
+    pub(crate) fn live_children(&self, path: &str) -> u32 {
+        let n = lock(&self.inner)
+            .processes
+            .values()
+            .filter(|p| {
+                p.parent_path
+                    .as_deref()
+                    .is_some_and(|x| x.eq_ignore_ascii_case(path))
+            })
+            .count();
+        u32::try_from(n).unwrap_or(u32::MAX)
+    }
+
+    /// Verdict of any live process running `path`.
+    #[must_use]
+    pub(crate) fn verdict_of_image(&self, path: &str) -> Option<String> {
+        lock(&self.inner)
+            .processes
+            .values()
+            .find(|p| {
+                p.path
+                    .as_deref()
+                    .is_some_and(|x| x.eq_ignore_ascii_case(path))
+            })
+            .and_then(|p| p.verdict.clone())
+    }
+
     /// Running instances of `path` and how many live outbound connections they hold.
     #[must_use]
     pub(crate) fn live_context(&self, path: &str) -> (usize, u32) {

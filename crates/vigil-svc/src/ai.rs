@@ -607,6 +607,30 @@ impl Shared {
         Ok(SecretString::from(text))
     }
 
+    /// Kinds of autostart entries that launch `path`.
+    fn autostart_kinds(&self, path: &str) -> Vec<String> {
+        self.with_store(|c| -> Result<Vec<String>, rusqlite::Error> {
+            c.prepare(
+                "SELECT kind FROM persistence_items WHERE lower(image_path) = lower(?1) LIMIT 5",
+            )?
+            .query_map([path], |r| r.get(0))?
+            .collect()
+        })
+        .and_then(Result::ok)
+        .unwrap_or_default()
+    }
+
+    fn first_seen_of(&self, exe_id: i64) -> Option<String> {
+        self.with_store(|c| {
+            c.query_row(
+                "SELECT first_seen FROM executables WHERE id = ?1",
+                [exe_id],
+                |r| r.get::<_, String>(0),
+            )
+        })
+        .and_then(Result::ok)
+    }
+
     /// Redacted payload for an identity; also what `ai.preview` shows.
     fn ai_payload(&self, exe_id: i64, s: &AiSettings) -> Result<Payload, AiFail> {
         let (exe, ev, pending) = self
@@ -649,8 +673,8 @@ impl Shared {
                 .parent_paths_of(exe_id)
                 .into_iter()
                 .map(|image| redact::Parent {
+                    verdict: self.verdict_of_image(&image),
                     image,
-                    verdict: None,
                     signer_org: None,
                 })
                 .collect(),
@@ -663,6 +687,9 @@ impl Shared {
             signals,
             hard_rules: ev.hard_rule.iter().cloned().collect(),
             connection_count: self.live_context(&exe.path).1,
+            children: self.live_children(&exe.path),
+            persistence: self.autostart_kinds(&exe.path),
+            first_seen: self.first_seen_of(exe_id),
             known: vigil_core::analysis::known::lookup(
                 exe.path.rsplit(['\\', '/']).next().unwrap_or_default(),
                 &[

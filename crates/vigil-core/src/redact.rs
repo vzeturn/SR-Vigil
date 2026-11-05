@@ -57,6 +57,10 @@ pub struct Input {
     pub dest: Option<Dest>,
     pub beaconing: bool,
     pub connection_count: u32,
+    /// Live child processes started from this image.
+    pub children: u32,
+    /// Kinds of autostart entries that launch this image.
+    pub persistence: Vec<String>,
     pub first_seen: Option<String>,
     pub lolbin: bool,
     pub score: i32,
@@ -281,6 +285,8 @@ pub fn build(input: &Input, send_cmdline: bool) -> Value {
         "behaviour".into(),
         json!({
             "beaconing": input.beaconing, "connection_count": input.connection_count,
+            "live_children": input.children,
+            "autostart_entries": input.persistence.iter().take(5).map(|k| scrub(k)).collect::<Vec<_>>(),
             "first_seen": opt(input.first_seen.as_ref(), user, hosts), "lolbin": input.lolbin,
         }),
     );
