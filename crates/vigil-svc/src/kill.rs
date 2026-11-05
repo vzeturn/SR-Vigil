@@ -456,7 +456,12 @@ impl Shared {
             // (`storm_suspects`), never killed on count alone. Nested copies (`Chain`) are never
             // legitimate for an unsigned program; a signed or Safe one goes to the advisor too.
             let exempt = match kind {
-                storm::Storm::Replication | storm::Storm::Chain => safe || self.is_signed(row),
+                // A program the user opened themselves (a portable browser, an unsigned IDE) with
+                // many tabs is not a clone storm; only nesting gives it away.
+                storm::Storm::Replication => {
+                    safe || self.is_signed(row) || row.origin == Some("user")
+                }
+                storm::Storm::Chain => safe || self.is_signed(row),
                 storm::Storm::LaunchFlood => self.is_signed(row),
             };
             if exempt || self.never_kill.check(&row.name, None).is_err() {

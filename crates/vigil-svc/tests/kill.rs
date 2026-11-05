@@ -375,6 +375,23 @@ fn a_program_still_being_classified_is_never_stormed() {
 }
 
 #[test]
+fn an_unsigned_program_the_user_opened_may_have_many_processes() {
+    let (s, fake, id) = setup();
+    fake.spawn(900, 1, BAD);
+    let mut parent = row(900, BAD, Some(&id));
+    parent.origin = Some("user");
+    s.put_process(parent);
+    for pid in 901..913 {
+        fake.spawn(pid, 900, BAD);
+        let mut r = row(pid, BAD, Some(&id));
+        r.ppid = 900;
+        s.put_process(r);
+    }
+    assert_eq!(s.storm_scan(), 0);
+    assert!(fake.killed.lock().unwrap().is_empty());
+}
+
+#[test]
 fn a_signed_program_with_nested_copies_is_left_to_the_advisor() {
     let (s, fake, id) = setup();
     s.with_store(|c| {
