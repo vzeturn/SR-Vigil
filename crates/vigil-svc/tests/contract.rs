@@ -44,6 +44,7 @@ fn shared() -> Arc<Shared> {
         verdict: None,
         score: None,
         freshness: None,
+        tab: false,
         origin: None,
     });
     let id = s
@@ -146,6 +147,7 @@ async fn emitted_events_match_the_schema() {
         verdict: None,
         score: None,
         freshness: None,
+        tab: false,
         origin: None,
     });
     validate(

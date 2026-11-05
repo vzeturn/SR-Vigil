@@ -73,6 +73,8 @@ pub struct Behaviour {
     pub unbacked_exec_memory: bool,
     /// A module loaded from a user-writable path has no valid signature (T14).
     pub unsigned_writable_module: bool,
+    /// A uv/pip console script whose package metadata names a source from `rules/app_profiles.toml`.
+    pub package_source_trusted: bool,
 }
 
 /// Everything known about one running or candidate image.
@@ -221,6 +223,7 @@ pub fn build_facts(ctx: &Context, obs: &Observation) -> Facts {
         typosquat: !signer.valid() && is_typosquat(&name, &ctx.canonical_names()),
         unbacked_exec_memory: obs.behaviour.unbacked_exec_memory,
         unsigned_writable_module: obs.behaviour.unsigned_writable_module,
+        package_source_trusted: obs.behaviour.package_source_trusted,
         vt_detections: obs.vt_detections,
         vt_first_seen_days: obs.vt_first_seen_days,
         user_denylisted: obs.user_denylisted,

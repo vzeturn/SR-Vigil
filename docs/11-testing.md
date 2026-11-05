@@ -124,3 +124,9 @@ Disposable Windows 10 and Windows 11 VM snapshots, standard user plus an admin a
 
 - Automated: `cargo test -p vigil-svc --test kill` (freeze and ask, keep stopped, script origin never prompts, one launcher question per flood), `cargo test -p vigil-win kill` (suspend/resume).
 - Manual (Windows): in `enforce` block a test program, reopen it from Explorer: the window is frozen, the popup shows reasons and a 60 s countdown; Allow resumes it, Keep stopped (or no answer) ends it. Start it from a looping script instead: no popup, one launcher question after about 5 launches.
+
+## Tab containment and package origin checks (M14)
+
+- Open several tabs in Edge/Chrome/Firefox: Vigil must not kill or prompt (`vigilctl status` shows the browser and all helpers running).
+- Launch `awslabs.*` through `uvx`: the evaluation lists PKG-001 and the score is 65 (Unknown), not killed.
+- A renderer that starts a program (lab sample only, e.g. a test extension host in a VM): only that renderer and its child end; other tabs stay open and the audit log has one `kill` row.

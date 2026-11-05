@@ -106,6 +106,14 @@ score = 10
 # ---------------------------------------------------------------- risk signals
 
 [[rule]]
+id = "PKG-001"
+name = "package_from_known_source"
+kind = "signal"
+description = "Unsigned launcher of a uv/pip package whose own metadata names a known source (evidence of origin, not proof)"
+when = { signature = "unsigned", path_class = "user_writable", package_source_trusted = true }
+score = 30
+
+[[rule]]
 id = "SIG-010"
 name = "unsigned_user_writable"
 kind = "signal"

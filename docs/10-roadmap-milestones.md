@@ -173,6 +173,16 @@ root-cause popup. Build order is in `docs/18 §7`.
 - [x] Fixture: a launcher respawning a killed program 20 times produces exactly one `event.launcher_prompt` (`crates/vigil-svc/tests/kill.rs`); a user-origin reopen freezes and asks, a script-origin one never prompts.
 - [ ] Manual check on Windows (`docs/11`): reopen a killed program from Explorer, confirm it is frozen, the popup lists reasons, Allow resumes it, Keep stopped kills it.
 
+## M14 — App profiles and tab containment (design in `docs/19`)
+
+- [x] `rules/app_profiles.toml` and `vigil_core::profile` (browser roles, package origin).
+- [x] `tab_scan`: a renderer that starts a program is stopped alone, with its children; the browser is never blocked.
+- [x] PKG-001: uv/pip launcher whose metadata names a known source (+30, never Safe on its own).
+- [ ] Destination-based per-browser-tab block (needs a browser-side channel; the OS cannot attribute connections to tabs).
+- [ ] Runaway-CPU renderer handling.
+- [ ] User-visible alert event when a tab was stopped.
+- [ ] One-time "trust this package family" answer for dev tools.
+
 ## Backlog (post-v1, tracked)
 
 - Inbound blocking option (FR-017): `ALE_AUTH_RECV_ACCEPT` filters, off by default.

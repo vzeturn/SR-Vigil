@@ -34,6 +34,7 @@ IDs, deltas and conditions here must match `rules/default.toml` (a contract test
 | SIG-004 | `company_matches_signer` | VersionInfo `CompanyName` consistent with signer organisation | +8 | |
 | LOC-001 | `path_program_files_or_system` | Path class `system` or `program_files` | +5 | |
 | KNOW-001 | `recognised_software` | File name (and vendor text, when present) match `rules/known_software.toml` and path class is `system` or `program_files`; also suppresses SIG-014 | +25 | |
+| PKG-001 | `package_from_known_source` | Unsigned console script of a uv/pip package in a user-writable path whose `dist-info` `Home-page`/`Project-URL` starts with a `[[dev_source]]` prefix of `rules/app_profiles.toml` (`docs/19 §5`); offsets SIG-010 (net +15), never reaches Safe on its own | +30 | |
 | VER-001 | `outdated_version` | Recognised software (KNOW-001 conditions) behind the catalogue's `latest` release; exclusive group `version_freshness`, highest priority wins | −5 | |
 | VER-002 | `far_behind_version` | As above, below the catalogue's `min_supported` | −15 | |
 | VER-003 | `known_vulnerable_version` | As above, below the catalogue's `vulnerable_below` | −30 | |
@@ -155,7 +156,7 @@ guard           = "never_kill"   # guard rules only
 |---|---|
 | `signature` | `valid_embedded`, `valid_catalog`, `valid` (either), `unsigned`, `invalid`, `expired`, `revoked`, `untrusted_root` |
 | `signer_pinned`, `signer_ms_root`, `os_signed`, `at_canonical_path`, `name_in_canonical_set`, `parent_ok`, `parent_check_applies`, `never_kill_set` | bool |
-| `company_matches_signer`, `company_conflicts_signer`, `claims_pinned_publisher`, `known_software` | bool |
+| `company_matches_signer`, `company_conflicts_signer`, `claims_pinned_publisher`, `known_software`, `package_source_trusted` | bool |
 | `path_class` | one class from §7, or a list of classes |
 | `lolbin`, `has_outbound`, `dest_public`, `beaconing`, `public_dest_no_dns`, `risky_port_or_tld`, `typosquat`, `unbacked_exec_memory`, `unsigned_writable_module` | bool |
 | `vt_detections_gte`, `vt_detections_lte`, `vt_first_seen_days_gte` | integer; false when VirusTotal is disabled or has no result |

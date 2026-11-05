@@ -136,6 +136,7 @@ fn row(pid: u32, image: &str, identity: Option<&str>) -> ProcRow {
         verdict: Some("malicious".into()),
         score: Some(10),
         freshness: None,
+        tab: false,
         origin: None,
     }
 }
@@ -528,4 +529,50 @@ fn stopping_a_launcher_kills_it() {
     s.launcher_answer(&json!({ "launcher": LAUNCHER, "action": "stop" }))
         .unwrap();
     assert!(fake.killed.lock().unwrap().contains(&50));
+}
+
+const EDGE: &str = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe";
+
+/// A browser (700) with one tab process (701); `child` adds a program started by the tab.
+fn browser_with_tab(s: &Shared, fake: &Fake, id: &str, child: bool) {
+    fake.spawn(700, 1, EDGE);
+    s.put_process(row(700, EDGE, Some(id)));
+    fake.spawn(701, 700, EDGE);
+    let mut tab = row(701, EDGE, Some(id));
+    tab.ppid = 700;
+    tab.tab = true;
+    s.put_process(tab);
+    if child {
+        fake.spawn(702, 701, r"C:\Windows\System32\cmd.exe");
+        let mut c = row(702, r"C:\Windows\System32\cmd.exe", None);
+        c.ppid = 701;
+        s.put_process(c);
+    }
+}
+
+#[test]
+fn a_tab_that_starts_a_program_is_stopped_alone() {
+    let (s, fake, id) = setup();
+    browser_with_tab(&s, &fake, &id, true);
+    assert_eq!(s.tab_scan(), 1);
+    let killed = fake.killed.lock().unwrap().clone();
+    assert!(killed.contains(&701) && killed.contains(&702), "{killed:?}");
+    assert!(!killed.contains(&700), "the browser must survive");
+    let blocks = s
+        .with_store(vigil_store::blocks::active)
+        .map_or(0, |r| r.map_or(0, |v| v.len()));
+    assert_eq!(blocks, 0, "no block against the browser's identity");
+}
+
+#[test]
+fn a_quiet_tab_and_a_browser_with_helpers_are_left_alone() {
+    let (s, fake, id) = setup();
+    browser_with_tab(&s, &fake, &id, false);
+    // The browser process itself starting helpers is normal.
+    fake.spawn(703, 700, EDGE);
+    let mut helper = row(703, EDGE, Some(&id));
+    helper.ppid = 700;
+    s.put_process(helper);
+    assert_eq!(s.tab_scan(), 0);
+    assert!(fake.killed.lock().unwrap().is_empty());
 }

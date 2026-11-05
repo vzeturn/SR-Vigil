@@ -470,7 +470,7 @@ impl Shared {
             self.reclassify_storm(row, &format!("{kind:?}"));
             let ok = self
                 .kill_process(
-                    &json!({ "pid": row.pid, "start_time": row.start_time, "tree": true, "block": true }),
+                    &json!({ "pid": row.pid, "start_time": row.start_time, "tree": true, "block": false }),
                     "service",
                 )
                 .ok()
@@ -478,6 +478,34 @@ impl Shared {
                 .unwrap_or(false);
             if ok {
                 tracing::warn!(pid, ?kind, "stopped a process storm");
+            }
+            n += usize::from(ok);
+        }
+        n
+    }
+
+    /// Contain one browser tab (`docs/19 §3`). A tab's process is sandboxed and never starts another
+    /// program: one that has a child has been taken over. Stop that process and what it started,
+    /// and nothing else: the browser, its other tabs and the browser's own identity are untouched
+    /// (no block, no deny). Runs in every mode, like `storm_scan`: the tab simply reloads.
+    pub fn tab_scan(&self) -> usize {
+        let rows = self.all_rows();
+        let mut n = 0;
+        for tab in rows.iter().filter(|r| r.tab) {
+            let started = |r: &&ProcRow| r.ppid == tab.pid && r.start_time > tab.start_time;
+            let Some(child) = rows.iter().find(started) else {
+                continue;
+            };
+            let ok = self
+                .kill_process(
+                    &json!({ "pid": tab.pid, "start_time": tab.start_time, "tree": true, "block": false }),
+                    "service",
+                )
+                .ok()
+                .and_then(|v| v["ok"].as_bool())
+                .unwrap_or(false);
+            if ok {
+                tracing::warn!(pid = tab.pid, child = %child.name, "stopped a browser tab that started a program");
             }
             n += usize::from(ok);
         }

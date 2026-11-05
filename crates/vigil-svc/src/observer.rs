@@ -239,6 +239,7 @@ pub async fn run(shared: Arc<Shared>, pack: Arc<RulePack>) -> anyhow::Result<()>
         let sh = Arc::clone(&shared);
         tokio::task::spawn_blocking(move || {
             sh.storm_scan();
+            sh.tab_scan();
             sh.respawn_scan();
             sh.reopen_sweep();
             sh.auto_kill_malicious();
@@ -295,9 +296,18 @@ fn sync_processes(shared: &Shared, procs: &[ProcessInfo]) {
             verdict: None,
             score: None,
             freshness: None,
+            tab: is_browser_tab(p),
             origin: origin_of(shared, p, parents.get(&p.pid)),
         });
     }
+}
+
+/// Whether `p` is a browser tab's process. Only browsers' command lines are read, and only the
+/// verdict is kept: the text is untrusted and never stored (`docs/19 §3`).
+fn is_browser_tab(p: &ProcessInfo) -> bool {
+    vigil_core::profile::browser(&p.name).is_some_and(|b| {
+        process::command_line(p.pid).is_some_and(|c| b.role(&c) == vigil_core::profile::Role::Tab)
+    })
 }
 
 /// Who started `p`, from its parent, the autostart list and recent input (`docs/18 §3`).

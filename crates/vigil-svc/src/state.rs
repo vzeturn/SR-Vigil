@@ -40,6 +40,8 @@ pub struct ProcRow {
     pub score: Option<u8>,
     /// "Installed X, latest Y" when this is a recognised program that is behind.
     pub freshness: Option<Value>,
+    /// A browser tab's own process (`docs/19`); derived from the command line, which is not kept.
+    pub tab: bool,
     /// Who started it: `user`, `script`, `autostart`, `service` or `agent` (`docs/18 §3`).
     pub origin: Option<&'static str>,
 }
@@ -816,6 +818,7 @@ mod tests {
             verdict: None,
             score: None,
             freshness: None,
+            tab: false,
             origin: None,
         }
     }

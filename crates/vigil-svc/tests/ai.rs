@@ -408,6 +408,7 @@ fn suspect_row(id: i64) -> vigil_svc::state::ProcRow {
         verdict: Some("unknown".into()),
         score: Some(50),
         freshness: None,
+        tab: false,
         origin: None,
     }
 }

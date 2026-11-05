@@ -240,3 +240,25 @@ fn version_penalty_needs_a_trusted_install_location() {
     let (_, ids) = ver_score(VersionStatus::Vulnerable, PathClass::UserWritable);
     assert!(!ids.iter().any(|i| i.starts_with("VER-")));
 }
+
+#[test]
+fn a_package_from_a_known_source_offsets_the_unsigned_penalty_but_stays_unknown() {
+    let pack = RuleStore::from_embedded().unwrap().active();
+    let base = Facts {
+        signature: SignatureState::Unsigned,
+        path_class: PathClass::UserWritable,
+        ..Facts::default()
+    };
+    let plain = evaluate(&pack, &base);
+    let sourced = evaluate(
+        &pack,
+        &Facts {
+            package_source_trusted: true,
+            ..base
+        },
+    );
+    assert_eq!(sourced.score, plain.score + 30);
+    assert!(sourced.signals.iter().any(|s| s.id == "PKG-001"));
+    assert!(sourced.score < vigil_core::consts::SAFE_MIN);
+    assert!(sourced.score > vigil_core::consts::MALICIOUS_MAX);
+}

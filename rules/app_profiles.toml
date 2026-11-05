@@ -1,0 +1,73 @@
+# Application profiles: how well-known multi-process programs look when they are healthy.
+#
+# [[browser]] - engines whose tabs run in their own "renderer"/"content" process. A renderer is
+#   sandboxed and never starts another program; one that does has been compromised, and only that
+#   one process (and what it started) is stopped, never the browser (docs/19 section 3).
+#   names  - executable file names, case-insensitive
+#   engine - "chromium" (command line carries --type=renderer) or "gecko" (-contentproc ... tab)
+#
+# [[dev_source]] - where a package installed by uv/pip/pipx says it comes from. A match is a modest
+#   score bonus (PKG-001), never a verdict on its own: the metadata is written by the package
+#   author, so it is evidence of origin, not proof (docs/19 section 5).
+#   prefix - lower-case URL prefix found in the package's Home-page / Project-URL
+
+[[browser]]
+label = "Microsoft Edge"
+names = ["msedge.exe"]
+engine = "chromium"
+
+[[browser]]
+label = "Google Chrome"
+names = ["chrome.exe"]
+engine = "chromium"
+
+[[browser]]
+label = "Brave"
+names = ["brave.exe"]
+engine = "chromium"
+
+[[browser]]
+label = "Vivaldi"
+names = ["vivaldi.exe"]
+engine = "chromium"
+
+[[browser]]
+label = "Opera"
+names = ["opera.exe"]
+engine = "chromium"
+
+[[browser]]
+label = "Chromium"
+names = ["chromium.exe"]
+engine = "chromium"
+
+[[browser]]
+label = "Mozilla Firefox"
+names = ["firefox.exe"]
+engine = "gecko"
+
+[[browser]]
+label = "LibreWolf"
+names = ["librewolf.exe"]
+engine = "gecko"
+
+[[browser]]
+label = "Waterfox"
+names = ["waterfox.exe"]
+engine = "gecko"
+
+[[dev_source]]
+label = "AWS Labs"
+prefix = "https://github.com/awslabs/"
+
+[[dev_source]]
+label = "Model Context Protocol"
+prefix = "https://github.com/modelcontextprotocol/"
+
+[[dev_source]]
+label = "Astral (uv, ruff)"
+prefix = "https://github.com/astral-sh/"
+
+[[dev_source]]
+label = "Python Packaging Authority"
+prefix = "https://github.com/pypa/"
