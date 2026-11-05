@@ -22,33 +22,51 @@ const MAX_MINUTES: u64 = 30;
 const FLAG_AT: u32 = 3;
 const KEPT_LISTED: usize = 40;
 
-/// Why a running process is left alone; `None` means it is stopped.
+/// Facts about one running process that decide whether lockdown leaves it alone.
+#[derive(Default, Clone, Copy)]
+#[allow(clippy::struct_excessive_bools)] // independent facts about one process, named at the call site
+pub(crate) struct Facts<'a> {
+    pub own: bool,
+    pub never_kill: bool,
+    pub classified: bool,
+    pub verdict: Option<&'a str>,
+    /// A user allow decision bound to this exact file (identity = hash + path + signer).
+    pub allowed: bool,
+    pub user_started: bool,
+    /// Valid signature and a stored advisor opinion `safe` with enough confidence for this exact file.
+    pub ai_cleared: bool,
+    /// Started by a signed AI-developer agent (`docs/18 §3`).
+    pub agent: bool,
+}
+
+/// Why a running process is left alone; `None` means it is stopped. A low score alone never makes a
+/// process dangerous: it only means "not proven", and unproven programs are stopped, not blocked.
 #[must_use]
-#[allow(clippy::fn_params_excessive_bools)] // independent facts about one process, named at the call site
-pub(crate) fn spare_reason(
-    own: bool,
-    never_kill: bool,
-    classified: bool,
-    verdict: Option<&str>,
-    allowed: bool,
-    user_started: bool,
-) -> Option<&'static str> {
-    if own {
+pub(crate) fn spare_reason(f: Facts<'_>) -> Option<&'static str> {
+    let flagged = f.verdict == Some("malicious");
+    if f.own {
         Some("self")
-    } else if never_kill {
+    } else if f.never_kill {
         Some("never_kill")
-    } else if !classified {
+    } else if !f.classified {
         Some("unclassified")
-    } else if verdict == Some("safe") {
+    } else if f.verdict == Some("safe") {
         Some("safe")
-    } else if allowed {
+    } else if f.allowed {
         Some("allowed")
-    } else if user_started {
+    } else if f.user_started && !flagged {
         Some("user")
+    } else if f.ai_cleared && !flagged {
+        Some("ai_cleared")
+    } else if f.agent && !flagged {
+        Some("agent")
     } else {
         None
     }
 }
+
+/// Advisor confidence at which a `safe` opinion counts as clearing a signed program.
+const AI_CLEAR_AT: f64 = 0.75;
 
 struct Held {
     name: String,
@@ -137,6 +155,19 @@ impl Shared {
         .unwrap_or_default()
     }
 
+    /// `(validly signed, advisor says safe)` for one identity. Both are bound to that exact file hash.
+    fn trust_of(&self, id: i64) -> (bool, bool) {
+        self.with_store(|c| {
+            let signed = repo::executable_by_id(c, id)?
+                .is_some_and(|e| e.signature_status.starts_with("valid"));
+            let safe = vigil_store::ai::latest_opinion(c, id)?
+                .is_some_and(|o| o.verdict == "safe" && o.confidence >= AI_CLEAR_AT);
+            Ok::<_, vigil_store::StoreError>((signed, safe))
+        })
+        .and_then(Result::ok)
+        .unwrap_or_default()
+    }
+
     fn publisher_of(&self, identity: Option<&str>) -> Option<String> {
         let id: i64 = identity?.parse().ok()?;
         self.with_store(|c| repo::executable_by_id(c, id))
@@ -178,14 +209,17 @@ impl Shared {
                 .identity_id
                 .as_deref()
                 .and_then(|s| s.parse::<i64>().ok());
-            let why = spare_reason(
-                is_self(snap),
-                self.never_kill.check(&row.name, None).is_err(),
-                identity_id.is_some(),
-                row.verdict.as_deref(),
-                identity_id.is_some_and(|i| allowed.contains(&i)),
-                row.origin == Some("user"),
-            );
+            let (signed, ai_safe) = identity_id.map_or((false, false), |i| self.trust_of(i));
+            let why = spare_reason(Facts {
+                own: is_self(snap),
+                never_kill: self.never_kill.check(&row.name, None).is_err(),
+                classified: identity_id.is_some(),
+                verdict: row.verdict.as_deref(),
+                allowed: identity_id.is_some_and(|i| allowed.contains(&i)),
+                user_started: row.origin == Some("user"),
+                ai_cleared: signed && ai_safe,
+                agent: row.origin == Some("agent"),
+            });
             if let Some(why) = why {
                 *run.spared.entry(why).or_default() += 1;
                 if why != "safe" && run.kept.len() < KEPT_LISTED {
@@ -332,36 +366,84 @@ fn held_from(row: &ProcRow, path: String, publisher: Option<String>, at: String)
 
 #[cfg(test)]
 mod tests {
-    use super::spare_reason;
+    use super::{Facts, spare_reason};
 
     #[test]
-    fn only_classified_untrusted_non_user_processes_are_stopped() {
-        let r = |own, nk, cl, v, al, us| spare_reason(own, nk, cl, v, al, us);
+    fn only_untrusted_unproven_processes_are_stopped() {
+        let base = Facts {
+            classified: true,
+            verdict: Some("unknown"),
+            ..Facts::default()
+        };
+        let r = |f: Facts<'_>| spare_reason(f);
+        assert_eq!(r(Facts { own: true, ..base }), Some("self"));
         assert_eq!(
-            r(true, false, true, Some("unknown"), false, false),
-            Some("self")
-        );
-        assert_eq!(
-            r(false, true, true, Some("unknown"), false, false),
+            r(Facts {
+                never_kill: true,
+                ..base
+            }),
             Some("never_kill")
         );
         assert_eq!(
-            r(false, false, false, None, false, false),
+            r(Facts {
+                classified: false,
+                ..base
+            }),
             Some("unclassified")
         );
         assert_eq!(
-            r(false, false, true, Some("safe"), false, false),
+            r(Facts {
+                verdict: Some("safe"),
+                ..base
+            }),
             Some("safe")
         );
         assert_eq!(
-            r(false, false, true, Some("unknown"), true, false),
+            r(Facts {
+                allowed: true,
+                ..base
+            }),
             Some("allowed")
         );
         assert_eq!(
-            r(false, false, true, Some("unknown"), false, true),
+            r(Facts {
+                user_started: true,
+                ..base
+            }),
             Some("user")
         );
-        assert_eq!(r(false, false, true, Some("unknown"), false, false), None);
-        assert_eq!(r(false, false, true, Some("malicious"), false, false), None);
+        assert_eq!(
+            r(Facts {
+                ai_cleared: true,
+                ..base
+            }),
+            Some("ai_cleared")
+        );
+        assert_eq!(
+            r(Facts {
+                agent: true,
+                ..base
+            }),
+            Some("agent")
+        );
+        assert_eq!(r(base), None);
+        // Only real evidence of harm defeats the soft reasons.
+        let bad = Facts {
+            verdict: Some("malicious"),
+            ..base
+        };
+        for soft in [
+            Facts {
+                user_started: true,
+                ..bad
+            },
+            Facts {
+                ai_cleared: true,
+                ..bad
+            },
+            Facts { agent: true, ..bad },
+        ] {
+            assert_eq!(r(soft), None);
+        }
     }
 }

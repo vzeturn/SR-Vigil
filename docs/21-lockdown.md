@@ -10,7 +10,7 @@ On demand, Vigil stops every untrusted background program and keeps it from runn
 
 ## What is left running
 
-`spare_reason` returns the first match, in this order: Vigil's own binaries (`self`), the never-kill set (`never_kill`), processes not yet classified (`unclassified`), verdict Safe (`safe`), identities the user allowed (`allowed`), programs the user started (`user`). Everything else is stopped through `ProcessControl::terminate`. A protected process is reported and not retried (rule 5).
+`spare_reason` returns the first match, in this order: Vigil's own binaries (`self`), the never-kill set (`never_kill`), processes not yet classified (`unclassified`), verdict Safe (`safe`), identities the user allowed (`allowed`), programs the user started (`user`), validly signed programs the advisor judged `safe` with confidence ≥ 0.75 for this exact file hash (`ai_cleared`), programs started by a signed AI-developer agent (`agent`). The last three never apply to a Malicious verdict. A low score alone is "not proven", never "dangerous": unproven programs are stopped, not blocked, and the user can create a hash-bound exception. Everything else is stopped through `ProcessControl::terminate`. A protected process is reported and not retried (rule 5).
 
 ## Hold and escalation
 

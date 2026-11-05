@@ -340,6 +340,8 @@ export const en = {
       safe: 'Trusted (Safe)',
       allowed: 'You allowed it',
       user: 'Started by you',
+      ai_cleared: 'Signed and judged safe by the advisor',
+      agent: 'Started by a trusted AI agent',
     },
     confirmTitle: 'Start lockdown?',
     confirmBody: 'Every untrusted background program is stopped now and held off for 5 minutes. Safe programs, Windows core and programs you started yourself are left alone. Unsaved work in a stopped program may be lost.',
