@@ -91,7 +91,7 @@ JSON-RPC 2.0 subset: `{"jsonrpc":"2.0","id":<int|string>,"method":"...","params"
 | `connections` | `event.connection_opened`, `event.connection_closed` | `ConnectionInfo` |
 | `verdicts` | `event.verdict_changed` | `{identity_id, old, new, score, signals[]}` |
 | `ai` | `event.ai_digest` | `AiUsage` (last 24 h: assessed, calls, cached, tokens, allowed/blocked/killed, left_to_user, approximate cost); sent at most once a day, only when the AI did something |
-| `pending` | `event.pending_created`, `event.pending_resolved` | `PendingItem` / `{pending_id, action, by}` |
+| `pending` | `event.pending_created`, `event.pending_resolved` | `PendingItem` (`alert` is true only for an established incident: rule-based Malicious or an AI opinion Malicious at confidence ≥ `auto_threshold`; the UI pops up and toasts only then, other items wait quietly in the Pending list) / `{pending_id, action, by}` |
 | `enforcement` | `event.enforcement_changed` | `{mode, filters_armed, reason}` |
 | `alerts` | `event.alert` | `{severity, kind, message_key, identity_id?, data}` |
 | `health` | `event.health` | `{state, details, ts}` |

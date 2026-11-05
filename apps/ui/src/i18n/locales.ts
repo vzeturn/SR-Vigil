@@ -328,6 +328,7 @@ export const en = {
     aiUnavailable: 'AI is off or unavailable. Enable it in Settings.',
     queue: '{{n}} of {{total}}',
     next: 'Next',
+    previous: 'Previous',
     later: 'Later',
   },
   panic: {

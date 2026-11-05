@@ -7,7 +7,7 @@ import { Num } from './Num';
 import { ReasonBadge, title } from './ReasonBadge';
 import { VerdictChip } from './VerdictChip';
 
-const REFRESH_MS = 10_000;
+const REFRESH_MS = 60_000;
 const DISMISS_KEY = 'vigil.dismissed';
 const BANDS = ['malicious', 'unknown', 'unknown', 'safe'] as const;
 
@@ -108,8 +108,16 @@ export function LiveScan({ onCleanup }: { onCleanup: () => void }) {
   }, [adopt]);
   useEffect(() => {
     void refresh();
-    const id = setInterval(() => void refresh(), REFRESH_MS);
-    return () => clearInterval(id);
+    // A full rescan is costly: never while the window is hidden, and once on return to it.
+    const tick = () => {
+      if (!document.hidden) void refresh();
+    };
+    const id = setInterval(tick, REFRESH_MS);
+    document.addEventListener('visibilitychange', tick);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', tick);
+    };
   }, [refresh]);
 
   const dismiss = (f: LocalFinding) => {

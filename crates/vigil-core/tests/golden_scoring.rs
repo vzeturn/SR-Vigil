@@ -103,7 +103,7 @@ fn unsigned_temp_beaconing() {
         beaconing: true,
         ..unsigned(PathClass::UserWritable)
     };
-    check(&f, &["SIG-010", "STM-002"], 5, Verdict::Malicious);
+    check(&f, &["SIG-010", "BEH-002"], 5, Verdict::Malicious);
 }
 
 #[test]

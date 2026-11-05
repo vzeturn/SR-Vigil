@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { getBridge } from '../bridge';
 import type { AiActivityData, AiConfig } from '../types';
 
-const REFRESH_MS = 30_000;
+const REFRESH_MS = 60_000;
 
 /** What the AI did and what it cost, or a one-click way to switch it on. */
 export function AiActivity() {
@@ -19,13 +19,14 @@ export function AiActivity() {
         .then(async (b) => {
           const [c, a] = await Promise.all([b.rpc<AiConfig>('ai.config.get', {}), b.rpc<AiActivityData>('ai.activity', {})]);
           if (live) {
-            setCfg(c);
-            setAct(a);
+            // Keep the old objects when nothing changed so the card does not re-render.
+            setCfg((o) => (JSON.stringify(o) === JSON.stringify(c) ? o : c));
+            setAct((o) => (JSON.stringify(o) === JSON.stringify(a) ? o : a));
           }
         })
         .catch(() => undefined);
     void load();
-    const id = setInterval(load, REFRESH_MS);
+    const id = setInterval(() => document.hidden || void load(), REFRESH_MS);
     return () => {
       live = false;
       clearInterval(id);
