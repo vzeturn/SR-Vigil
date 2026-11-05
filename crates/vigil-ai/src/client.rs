@@ -33,7 +33,7 @@ impl Default for Config {
             base_url: "https://api.anthropic.com".into(),
             model: "claude-haiku-5-5".into(),
             escalation_model: Some("claude-sonnet-5-5".into()),
-            escalate_below: 0.75,
+            escalate_below: 0.90,
             timeout: Duration::from_secs(20),
             daily_budget: 500,
             per_minute: 16,

@@ -49,6 +49,14 @@ enum Command {
         #[arg(long = "override")]
         override_minimum: bool,
     },
+    /// Show the AI advisor settings, or set its mode (needs an elevated shell).
+    Ai {
+        #[arg(long, value_parser = ["off", "advisor", "auto"])]
+        mode: Option<String>,
+        /// Ask the deeper model whenever the first answer is less sure than this (0.5 to 1).
+        #[arg(long)]
+        escalate_below: Option<f64>,
+    },
     /// Kill a process (and optionally its tree) and keep it from respawning (needs an elevated shell).
     Kill {
         pid: u32,
@@ -110,6 +118,10 @@ fn main() -> anyhow::Result<()> {
             mode,
             override_minimum,
         } => control::mode(&mode, override_minimum),
+        Command::Ai {
+            mode,
+            escalate_below,
+        } => control::ai(mode.as_deref(), escalate_below),
         Command::Kill {
             pid,
             start_time,

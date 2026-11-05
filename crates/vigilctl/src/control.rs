@@ -61,6 +61,36 @@ pub fn mode(mode: &str, override_minimum: bool) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// `vigilctl ai`: print the advisor settings (never the key); `--mode` changes the mode first.
+pub fn ai(mode: Option<&str>, escalate_below: Option<f64>) -> anyhow::Result<()> {
+    let mut set = serde_json::Map::new();
+    if let Some(m) = mode {
+        set.insert("mode".into(), json!(m));
+    }
+    if let Some(e) = escalate_below {
+        set.insert("escalate_below".into(), json!(e));
+    }
+    let c = if set.is_empty() {
+        call("ai.config.get", json!({}))?
+    } else {
+        call("ai.config.set", Value::Object(set))?
+    };
+    for k in [
+        "enabled",
+        "mode",
+        "source",
+        "model",
+        "auto_threshold",
+        "escalate_below",
+        "auto_kill",
+        "calls_today",
+        "daily_call_budget",
+    ] {
+        println!("{k}={}", c[k]);
+    }
+    Ok(())
+}
+
 fn print_mode(s: &Value) {
     println!(
         "mode={}  filters_armed={}",

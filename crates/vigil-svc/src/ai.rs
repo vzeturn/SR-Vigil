@@ -31,7 +31,16 @@ const TTL_DECIDED: Duration = Duration::days(7);
 const TTL_UNKNOWN: Duration = Duration::hours(24);
 /// A decided verdict is remembered offline for this long and reused on an identical match.
 const TTL_MEMORY: Duration = Duration::days(365);
-const MEMORY_MIN_CONFIDENCE: f64 = 0.8;
+fn cache_ttl(verdict: &str, sure: bool) -> Duration {
+    match (verdict, sure) {
+        ("unknown", _) => TTL_UNKNOWN,
+        (_, true) => TTL_DECIDED,
+        _ => TTL_WEAK,
+    }
+}
+
+/// A verdict below the auto threshold is re-asked (with the deeper model) after this long.
+const TTL_WEAK: Duration = Duration::minutes(30);
 const FLIP_WINDOW: Duration = Duration::days(7);
 
 pub type BoxFut<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
@@ -214,7 +223,7 @@ impl Default for AiSettings {
             model: "claude-haiku-5-5".into(),
             escalation_model: "claude-sonnet-5-5".into(),
             auto_threshold: 0.90,
-            escalate_below: 0.75,
+            escalate_below: 0.90,
             auto_kill: false,
             send_cmdline: false,
             daily_call_budget: 500,
@@ -788,15 +797,12 @@ impl Shared {
                     b.assess(&s, &key, &p.value, &p.present).await
                 }
                 .map_err(AiFail::Ai)?;
-                let ttl = if op.verdict == "unknown" {
-                    TTL_UNKNOWN
-                } else {
-                    TTL_DECIDED
-                };
+                let sure = op.confidence >= s.auto_threshold;
+                let ttl = cache_ttl(&op.verdict, sure);
                 if let Ok(j) = serde_json::to_string(&(&op, &model)) {
                     self.with_store(|c| {
                         store::cache_put(c, &p.cache_key, &j, &model, ttl, now)?;
-                        if op.verdict != "unknown" && op.confidence >= MEMORY_MIN_CONFIDENCE {
+                        if op.verdict != "unknown" && sure {
                             store::cache_put(c, &p.memory_key, &j, &model, TTL_MEMORY, now)?;
                         }
                         Ok::<_, vigil_store::StoreError>(())
@@ -916,9 +922,18 @@ impl Shared {
             .with_store(|c| -> Result<Vec<i64>, vigil_store::StoreError> {
                 let mut out = Vec::new();
                 for p in decisions::list_pending(c)? {
-                    if store::latest_opinion(c, p.executable_id)?.is_none()
-                        && !out.contains(&p.executable_id)
-                    {
+                    let stale = match store::latest_opinion(c, p.executable_id)? {
+                        None => true,
+                        Some(o) => {
+                            o.confidence < s.auto_threshold
+                                && OffsetDateTime::parse(
+                                    &o.created_at,
+                                    &time::format_description::well_known::Rfc3339,
+                                )
+                                .is_ok_and(|t| OffsetDateTime::now_utc() - t >= TTL_WEAK)
+                        }
+                    };
+                    if stale && !out.contains(&p.executable_id) {
                         out.push(p.executable_id);
                     }
                 }

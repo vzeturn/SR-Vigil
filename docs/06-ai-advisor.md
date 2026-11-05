@@ -13,7 +13,7 @@
 ## 2. API usage
 
 - Endpoint: Anthropic Messages API over HTTPS (rustls), `anthropic-version` header set per the official docs; the key is sent in `x-api-key`.
-- Models are **configuration**: `model` (default `claude-haiku-5-5`) and `escalation_model` (default `claude-sonnet-5-5`) used when the first opinion has `confidence < escalate_below` (default 0.75). Verify current model IDs and API parameters at https://docs.claude.com before M5.
+- Models are **configuration**: `model` (default `claude-haiku-5-5`) and `escalation_model` (default `claude-sonnet-5-5`) used when the first opinion has `confidence < escalate_below` (default 0.90, the auto threshold, so a borderline "safe 0.8" is re-asked with the deeper model). An opinion below the auto threshold is cached for 30 minutes only and is re-assessed after that while the item is still pending; only opinions at or above the threshold enter the offline memory. Verify current model IDs and API parameters at https://docs.claude.com before M5.
 - Structured output through **forced tool use**: `tools = [submit_verdict]`, `tool_choice = {"type":"tool","name":"submit_verdict"}`. The tool `input_schema` is `schemas/ai-verdict.schema.json`. The response is rejected unless it contains exactly one `tool_use` block that validates against the schema (extra fields stripped, enums enforced, string lengths bounded).
 - `max_tokens` 400, no `temperature` (the 5.5 models reject it with HTTP 400), request timeout 8 s, one retry on 429/5xx with jitter, then give up (fail to Pending).
 - Concurrency 2, daily call budget (default 500) and monthly spend guard (user-set, optional) enforced locally; exhausted budget → `ai_unavailable`.
