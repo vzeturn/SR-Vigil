@@ -57,7 +57,10 @@ pub fn has_unsigned_writable_module(ctx: &Context, pid: u32, exe: &str) -> bool 
         .into_iter()
         .filter(|p| {
             let n = normalize(p);
+            // Python extension modules are imported by name from `site-packages`, never found by
+            // the loader's search order, so they are package code, not sideloading.
             own.as_ref().is_none_or(|d| !n.starts_with(d.as_str()))
+                && !n.to_lowercase().contains("\\site-packages\\")
         })
         .filter(|p| classify(&normalize(p), &ctx.path_env) == PathClass::UserWritable)
         .take(MAX_CHECKS)
