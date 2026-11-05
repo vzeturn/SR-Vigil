@@ -8,9 +8,14 @@ on:
 permissions:
   contents: read
 
+env:
+  VERSION: ${{ startsWith(github.ref_name, 'v') && github.ref_name || '0.0.0' }}
+
 jobs:
-  msi:
+  build:
     runs-on: windows-latest
+    outputs:
+      artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -21,16 +26,64 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: dotnet tool install --global wix
-      - run: cargo install cargo-cyclonedx --locked
-      - name: Build MSI (unsigned; see docs/13-release.md for signing)
+      - name: Compile and stage binaries
         env:
           # Repository variable (not a secret): the public URL of the shared AI endpoint. Empty = no shared option.
           VIGIL_PROXY_URL: ${{ vars.VIGIL_PROXY_URL }}
           # Optional override of the signed version catalogue endpoint (defaults to the project Worker).
           VIGIL_CATALOGUE_URL: ${{ vars.VIGIL_CATALOGUE_URL }}
-        run: ./installer/build.ps1 -Version ${{ startsWith(github.ref_name, 'v') && github.ref_name || '0.0.0' }}
+        run: ./installer/build.ps1 -Version $env:VERSION -Stage build
         shell: pwsh
+      - uses: actions/upload-artifact@v4
+        id: unsigned
+        with:
+          name: vigil-bin-unsigned
+          path: dist/bin/*.exe
+
+  # Signing through SignPath (free for open-source projects, see docs/22). Skipped until the repository
+  # variable SIGNPATH_ORGANIZATION_ID exists; the MSI is then packaged from the unsigned binaries.
+  sign:
+    needs: build
+    if: ${{ vars.SIGNPATH_ORGANIZATION_ID != '' }}
+    runs-on: windows-latest
+    steps:
+      - uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: vigil
+          signing-policy-slug: release-signing
+          github-artifact-id: ${{ needs.build.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: signed-bin
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vigil-bin-signed
+          path: signed-bin/*.exe
+
+  msi:
+    needs: [build, sign]
+    if: ${{ !cancelled() && needs.build.result == 'success' && (needs.sign.result == 'success' || needs.sign.result == 'skipped') }}
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.sign.result == 'success' && 'vigil-bin-signed' || 'vigil-bin-unsigned' }}
+          path: dist/bin
+      - run: dotnet tool install --global wix
+      - run: cargo install cargo-cyclonedx --locked
+      - name: Package MSI
+        run: ./installer/build.ps1 -Version $env:VERSION -Stage package
+        shell: pwsh
+      - name: Verify signatures (signed builds only)
+        if: ${{ needs.sign.result == 'success' }}
+        shell: pwsh
+        run: |
+          Get-ChildItem dist/bin -Filter *.exe | ForEach-Object {
+            $s = Get-AuthenticodeSignature $_.FullName
+            if ($s.Status -ne 'Valid') { throw "$($_.Name): $($s.Status)" }
+          }
       - name: SBOM
         run: cargo cyclonedx --format json --all
       - uses: actions/upload-artifact@v4

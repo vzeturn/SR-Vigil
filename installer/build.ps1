@@ -4,23 +4,27 @@
 #>
 param(
     [string]$Version = '0.1.0',
-    [string]$SignCert = ''
+    [string]$SignCert = '',
+    # build: compile and stage dist/bin only (CI signs the binaries next); package: wrap dist/bin in the MSI.
+    [ValidateSet('all', 'build', 'package')][string]$Stage = 'all'
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
-cargo build --release -p vigil-svc -p vigilctl
-if ($LASTEXITCODE) { throw 'service build failed' }
-pnpm -C apps/ui install --frozen-lockfile
-pnpm -C apps/ui build
-cargo build --release --manifest-path apps/ui/src-tauri/Cargo.toml
-if ($LASTEXITCODE) { throw 'ui build failed' }
-
 $bin = Join-Path $root 'dist\bin'
-New-Item -ItemType Directory -Force $bin | Out-Null
-Copy-Item target\release\vigil-svc.exe, target\release\vigilctl.exe $bin -Force
-Copy-Item apps\ui\src-tauri\target\release\vigil-ui.exe $bin -Force
+if ($Stage -ne 'package') {
+    cargo build --release -p vigil-svc -p vigilctl
+    if ($LASTEXITCODE) { throw 'service build failed' }
+    pnpm -C apps/ui install --frozen-lockfile
+    pnpm -C apps/ui build
+    cargo build --release --manifest-path apps/ui/src-tauri/Cargo.toml
+    if ($LASTEXITCODE) { throw 'ui build failed' }
+    New-Item -ItemType Directory -Force $bin | Out-Null
+    Copy-Item target\release\vigil-svc.exe, target\release\vigilctl.exe $bin -Force
+    Copy-Item apps\ui\src-tauri\target\release\vigil-ui.exe $bin -Force
+    if ($Stage -eq 'build') { Write-Host "Staged $bin"; return }
+}
 
 if ($SignCert) {
     Get-ChildItem $bin -Filter *.exe | ForEach-Object {

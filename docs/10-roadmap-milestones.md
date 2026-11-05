@@ -199,6 +199,11 @@ root-cause popup. Build order is in `docs/18 §7`.
 - [x] Lockdown page (ring, counters, per-program intel, trace and block-for-good).
 - [x] `vigilctl purge start|stop|status`.
 
+## M17 — Release signing (design in `docs/22`)
+
+- [x] Staged `build.ps1` (`-Stage build|package`) and a SignPath signing job with a signature gate in `release.yml`.
+- [ ] Owner: SignPath approval, `SIGNPATH_ORGANIZATION_ID`/`SIGNPATH_API_TOKEN`, first signed tag, Defender reputation submission.
+
 ## Backlog (post-v1, tracked)
 
 - Inbound blocking option (FR-017): `ALE_AUTH_RECV_ACCEPT` filters, off by default.
