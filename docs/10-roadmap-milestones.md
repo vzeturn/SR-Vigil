@@ -183,6 +183,15 @@ root-cause popup. Build order is in `docs/18 §7`.
 - [ ] User-visible alert event when a tab was stopped.
 - [ ] One-time "trust this package family" answer for dev tools.
 
+## M15 — Signing depth, MOTW and ASR posture (design in `docs/20`)
+
+- [x] SRC-001 Mark of the Web signal.
+- [x] Read-only ASR posture (`vigilctl posture`).
+- [x] Orphan anti-respawn blocks are lifted.
+- [ ] Network attestation databases (NSRL, CIRCL hashlookup, MalwareBazaar), behind a user-approved change to `CLAUDE.md` rule 10.
+- [ ] Guided ASR enable flow (user-approved, reversible).
+- [ ] Trust-by-hash for unsigned dev tools (user decision per tool).
+
 ## Backlog (post-v1, tracked)
 
 - Inbound blocking option (FR-017): `ALE_AUTH_RECV_ACCEPT` filters, off by default.

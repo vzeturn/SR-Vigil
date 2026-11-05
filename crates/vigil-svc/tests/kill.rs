@@ -576,3 +576,25 @@ fn a_quiet_tab_and_a_browser_with_helpers_are_left_alone() {
     assert_eq!(s.tab_scan(), 0);
     assert!(fake.killed.lock().unwrap().is_empty());
 }
+
+#[test]
+fn a_block_without_an_active_kill_decision_is_lifted_and_the_program_survives() {
+    let (s, fake, id) = setup();
+    fake.spawn(600, 1, BAD);
+    s.put_process(row(600, BAD, Some(&id)));
+    assert_eq!(kill(&s, 600, &json!({}))["ok"], true);
+    // The kill decision is revoked behind the block's back (or was never recorded).
+    s.with_store(|c| {
+        c.execute(
+            "UPDATE decisions SET revoked_at = '2026-01-01T00:00:00Z'",
+            [],
+        )
+        .unwrap();
+    });
+    fake.spawn(700, 1, BAD);
+    assert_eq!(s.respawn_scan(), 0, "orphan block must not kill");
+    assert!(
+        s.with_store(|c| vigil_store::blocks::active(c).unwrap().is_empty())
+            .unwrap()
+    );
+}

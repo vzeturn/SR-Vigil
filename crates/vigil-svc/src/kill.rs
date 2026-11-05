@@ -297,9 +297,44 @@ impl Shared {
         }
     }
 
+    /// A block lives as long as the kill decision that created it. One whose decision was revoked,
+    /// expired or never recorded would keep killing a program the user no longer denies, so it is lifted.
+    fn release_orphan_blocks(&self) {
+        let released = self
+            .with_store(|c| {
+                let at = time::OffsetDateTime::now_utc();
+                let mut denied: Vec<(String, String)> = Vec::new();
+                for d in vigil_store::decisions::list_active(c, at)? {
+                    if d.action == vigil_store::decisions::Action::Kill
+                        && let Some(e) = repo::executable_by_id(c, d.executable_id)?
+                    {
+                        denied.push((e.sha256, e.path.to_lowercase()));
+                    }
+                }
+                let ts = now();
+                let mut n = 0;
+                for b in blocks::active(c)? {
+                    let kept = denied
+                        .iter()
+                        .any(|(sha, path)| *sha == b.sha256 || *path == b.path.to_lowercase());
+                    if !kept {
+                        blocks::remove(c, b.id, &ts)?;
+                        n += 1;
+                    }
+                }
+                Ok::<_, vigil_store::StoreError>(n)
+            })
+            .and_then(Result::ok)
+            .unwrap_or(0);
+        if released > 0 {
+            tracing::info!(released, "released blocks without an active kill decision");
+        }
+    }
+
     /// Kill any running copy of a blocked image (matched by path or hash). Returns kill count.
     pub fn respawn_scan(&self) -> usize {
         let Some(ctl) = self.control() else { return 0 };
+        self.release_orphan_blocks();
         let ids: Vec<i64> = self
             .with_store(|c| blocks::active(c).map(|b| b.iter().map(|b| b.id).collect()))
             .and_then(Result::ok)
