@@ -1,5 +1,5 @@
 name = "vigil-ai"
-account_id = "9e6167261f0c8f36dc41de20f0821c88"
+# account_id comes from the environment: set CLOUDFLARE_ACCOUNT_ID (never commit it).
 main = "src/index.js"
 compatibility_date = "2026-01-01"
 preview_urls = false

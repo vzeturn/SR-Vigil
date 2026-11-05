@@ -1,6 +1,5 @@
 # ── Build output ──────────────────────────────────────────────
-/target/
-**/target/
+target/
 **/node_modules/
 /apps/ui/dist/
 /apps/ui/src-tauri/target/
@@ -109,11 +108,14 @@ test-results/
 Thumbs.db
 desktop.ini
 
-# Installer output
-/dist/
 
 # SBOMs are release artifacts
 *.cdx.json
+
+# Cloudflare Workers local state and secrets
+.wrangler/
+.dev.vars
+.dev.vars.*
 
 # Self-hosted AI endpoint runtime state
 quota.json

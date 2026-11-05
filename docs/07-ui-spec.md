@@ -13,7 +13,7 @@
 | Data | `useSyncExternalStore` store fed by the Tauri bridge, which polls `status.get` + paged `process.list`/`connection.list` every 1 s (**M2 deviation:** snapshot polling instead of live subscription; live push arrives with M3 events), TanStack Virtual (large lists). Tauri crate and npm packages must stay on the same minor (2.11.x) |
 | Charts/graphs | visx (sparklines, timeline), `@xyflow/react` (process/connection graph) |
 | Map (optional) | MapLibre GL with a bundled offline basemap; geo-IP via `maxminddb` in the **service** (user supplies GeoLite2 `.mmdb`) |
-| i18n | `react-i18next`, locales `vi` and `en`, ICU plurals; default follows OS UI language |
+| i18n | `react-i18next`, English only (user decision); strings still live in the `apps/ui/src/i18n` table so a locale can be added later |
 | Icons/fonts | Lucide; Inter + JetBrains Mono bundled locally (no CDN) |
 | Tests | Vitest + Testing Library, Playwright (Tauri webview mode with a mock bridge) |
 
@@ -116,7 +116,7 @@ Rules: no default (Enter does nothing); shortcuts `A`/`B`/`K` active only after 
 - Viewer role: all mutating controls disabled with an explanatory tooltip.
 - Lists: 5,000 rows at 60 fps (virtualization, row memoization, batched store updates every 100 ms).
 - Keyboard: full tab order, visible focus ring, `Ctrl+K` palette, `g p` / `g c` / `g q` navigation shortcuts.
-- Copywriting: short, concrete, no scare wording; Vietnamese strings reviewed for natural phrasing.
+- Copywriting: short, concrete, no scare wording.
 
 ## 7. Project structure (`apps/ui`)
 
@@ -128,7 +128,7 @@ apps/ui/
 │   ├── features/     # overview, processes, connections, pending, detail, rules, ai, audit, settings
 │   ├── components/   # design-system components (VerdictChip, ScoreGauge, GlassCard, …)
 │   ├── lib/          # bridge client (generated types), stores, formatters
-│   ├── locales/      # vi.json, en.json
+│   ├── locales/      # en only
 │   └── styles/       # tokens.css, tailwind.css
 ├── tests/            # vitest + playwright
 └── package.json

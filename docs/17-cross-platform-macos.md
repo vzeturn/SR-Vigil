@@ -1,4 +1,4 @@
-# 13 — Cross-platform roadmap (Windows first, macOS next)
+# 17 — Cross-platform roadmap (Windows first, macOS next)
 
 Goal: one product, one rule engine, one UI, on Windows and macOS. Windows ships first and stays the reference. This doc is the route to macOS; it changes no Windows behaviour and the non-negotiables in `CLAUDE.md` (user-mode only, hard rules first, fail open, untrusted strings are data) apply unchanged.
 

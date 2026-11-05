@@ -4,9 +4,9 @@
 
 Vigil is an open-source, user-mode endpoint tool for Windows 10 1809+ / 11. It watches every process and network connection, scores each executable identity from 0 to 100 with an explainable rule engine, and enforces policy: allow, block, or ask you. An AI second opinion (Claude) is optional and can never override a hard rule.
 
-> **Status: early development (pre-1.0).** Milestones M0 (rule engine foundations) and the scoring core of M1 are implemented and tested; the Windows collectors, service, enforcement and UI are in progress. See [Roadmap](docs/10-roadmap-milestones.md). Do not rely on it for protection yet.
+> **Status: pre-1.0, feature-complete for Windows v1 apart from the VM-only acceptance runs.** Process and network classification, the WFP enforcement service, kill and persistence control, the Claude advisor, version-freshness catalogue, MSI installer and the English UI are implemented and covered by automated tests. What is still open (ETW collectors, VM acceptance runs, signed releases) is tracked in [the roadmap](docs/10-roadmap-milestones.md). Do not rely on it as your only protection yet.
 
-**Platforms:** Windows 10/11 today. macOS is planned in stages (portability refactor, observe-only, then enforcement); see [docs/13-cross-platform-macos.md](docs/13-cross-platform-macos.md).
+**Platforms:** Windows 10/11 today. macOS is planned in stages (portability refactor, observe-only, then enforcement); see [docs/17-cross-platform-macos.md](docs/17-cross-platform-macos.md).
 
 > **VI:** Vigil là công cụ bảo vệ endpoint chạy hoàn toàn ở user-mode cho Windows: phân loại mọi process và kết nối mạng thành Safe / Unknown / Malicious, giải thích được từng quyết định, tự chặn hoặc hỏi người dùng; AI (Claude) chỉ là ý kiến tham khảo tùy chọn. Dự án đang phát triển, chưa dùng làm lớp bảo vệ chính.
 
@@ -16,7 +16,8 @@ Vigil is an open-source, user-mode endpoint tool for Windows 10 1809+ / 11. It w
 - **Hard rules win.** Tampered signature, system-name masquerade, wrong parent process, publisher impersonation and revoked certificates override any score and any AI output.
 - **User-mode only.** No kernel driver. Enforcement uses Windows Filtering Platform *filters*, `TerminateProcess` and the Service Control Manager.
 - **Fails safe for usability.** The catch-all block filter is session-scoped, so a crashed service never leaves the machine offline. Unknown apps stay blocked while it runs.
-- **Local-first and private.** No telemetry, no auto-update. The only network calls are the optional Anthropic API and optional VirusTotal, both off by default.
+- **Local-first and private.** No telemetry, no auto-update. The only network calls are the optional AI advisor (your own Anthropic key, or the project's rate-limited proxy, opt-out), optional VirusTotal, and an opt-in read-only download of the signed version catalogue. Nothing else leaves the machine.
+- **Self-defending.** Programs that clone themselves or flood the machine with script hosts are killed in every mode; a hijacked Safe program is reclassified Malicious ([docs/04 §8](docs/04-enforcement-wfp.md)).
 - **No silent destruction.** Nothing is deleted automatically; persistence items are disabled reversibly after your approval.
 
 ## How it classifies
@@ -52,9 +53,11 @@ Modes: `observe` (log only), `learning` (build a baseline), `enforce`. Authority
 | `vigil-ai` | Claude client, redaction, verdict-schema validation. |
 | `vigil-win` | The only crate with `unsafe`: ETW, WFP, `WinVerifyTrust`, process control. |
 | `vigil-svc` / `vigilctl` | Windows service host and admin CLI. |
-| `apps/ui` | Tauri v2 desktop app (vi / en). |
+| `apps/ui` | Tauri v2 desktop app (English). |
 
-Full design: [docs/](docs/) (requirements, architecture, enforcement, IPC, AI advisor, threat model, data model, testing).
+| `proxy/`, `catalogue/` | Optional Cloudflare Workers: shared AI endpoint and signed version catalogue. Deployed separately; secrets via `wrangler secret`, account id via `CLOUDFLARE_ACCOUNT_ID`. |
+
+Full design: [docs/](docs/) (requirements, architecture, enforcement, IPC, AI advisor, threat model, data model, testing, release).
 
 ## Build from source
 
@@ -68,7 +71,7 @@ cargo run -p vigilctl -- status
 pnpm -C apps/ui install; pnpm -C apps/ui tauri dev
 ```
 
-End users will receive a self-contained installer and install nothing else (tracked in M6).
+Build the installer with `installer/build.ps1` ([docs/13-release.md](docs/13-release.md)); it is self-contained and needs no prerequisites on the target machine.
 
 ## Security
 
