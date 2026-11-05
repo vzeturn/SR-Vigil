@@ -117,7 +117,7 @@ Actions (all require explicit user approval, all audited):
 
 ### Malicious containment (outside `observe`)
 
-When a program becomes Malicious by **rules** (not by AI alone), `raise_malicious` queues the pending item and immediately records a persistent, revocable `Block` decision (`by = rule`, scope `forever`, `apply_to = file`, audit outcome `contained`). The network is cut at once; killing stays the user's choice in the popup. The never-kill set is skipped unless HR-001, HR-002 or HR-003 fired. `observe` mode never contains. Covered by `malicious_is_contained_by_a_block_outside_observe` and `observe_mode_never_contains`. Enforce mode keeps its separate `auto_kill_malicious` (section 3).
+When a program becomes Malicious because a **hard rule** fired (not by score or AI alone; a score-only Malicious waits for the advisor and the list, and builds before this rule had their score-only blocks lifted at startup), `raise_malicious` queues the pending item and immediately records a persistent, revocable `Block` decision (`by = rule`, scope `forever`, `apply_to = file`, audit outcome `contained`). The network is cut at once; killing stays the user's choice in the popup. The never-kill set is skipped unless HR-001, HR-002 or HR-003 fired. `observe` mode never contains. Covered by `malicious_is_contained_by_a_block_outside_observe` and `observe_mode_never_contains`. Enforce mode keeps its separate `auto_kill_malicious` (section 3).
 
 ## 6. Modes and arming
 

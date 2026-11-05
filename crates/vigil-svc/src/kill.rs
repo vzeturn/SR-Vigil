@@ -359,7 +359,7 @@ impl Shared {
         killed
     }
 
-    /// In `enforce`, kill processes whose *rule-based* verdict is Malicious (never AI-only).
+    /// In `enforce`, kill processes a *hard rule* marked Malicious (never a score or AI alone).
     pub fn auto_kill_malicious(&self) -> usize {
         if self.mode_and_health().0 != "enforce" {
             return 0;
@@ -494,6 +494,8 @@ impl Shared {
         self.with_store(|c| repo::latest_evaluation(c, id))
             .and_then(Result::ok)
             .flatten()
-            .is_some_and(|e| e.source == "rules" && e.verdict == "malicious")
+            .is_some_and(|e| {
+                e.source == "rules" && e.verdict == "malicious" && e.hard_rule.is_some()
+            })
     }
 }

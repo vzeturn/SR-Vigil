@@ -209,3 +209,39 @@ fn blocked_connection_becomes_one_pending_item() {
     };
     assert!(!s.record_drop(&unknown));
 }
+
+fn rate(s: &Shared, id: i64, hard_rule: Option<&str>) {
+    s.with_store(|c| {
+        let ev = NewEvaluation {
+            score: 5,
+            verdict: "malicious".into(),
+            hard_rule: hard_rule.map(Into::into),
+            signals_json: "[]".into(),
+            rule_pack_version: "1".into(),
+            source: "rules".into(),
+        };
+        insert_evaluation(c, id, &ev, "2026-01-02T00:00:00Z").unwrap();
+    })
+    .unwrap();
+}
+
+#[test]
+fn only_a_hard_rule_cuts_a_program_off_a_score_never_does() {
+    let (s, fake, id) = setup();
+    s.set_mode("enforce", true).unwrap();
+    rate(&s, id, None);
+    s.raise_malicious(&id.to_string());
+    assert!(
+        fake.denies.lock().unwrap().is_empty(),
+        "score-only verdict must not deny"
+    );
+    let item = s.list_pending().unwrap()["items"][0].clone();
+    assert_eq!(item["alert"], false);
+
+    rate(&s, id, Some("HR-004"));
+    s.raise_malicious(&id.to_string());
+    assert_eq!(
+        fake.denies.lock().unwrap().as_slice(),
+        [PathBuf::from(r"C:\tools\x.exe")]
+    );
+}

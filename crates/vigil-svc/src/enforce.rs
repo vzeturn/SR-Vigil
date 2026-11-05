@@ -396,9 +396,39 @@ impl Shared {
         true
     }
 
+    /// Lift blocks an earlier build placed on a score alone ("auto-contained: malicious" carries no
+    /// hard-rule id): those were dev tools and user apps, not incidents. Returns how many.
+    pub fn lift_score_only_containment(&self) -> usize {
+        let now = OffsetDateTime::now_utc();
+        let n = self
+            .with_store(|c| -> Result<usize, vigil_store::StoreError> {
+                let mut n = 0;
+                for d in decisions::list_active(c, now)? {
+                    if d.by == decisions::DecidedBy::Rule
+                        && d.note.as_deref() == Some("auto-contained: malicious")
+                        && decisions::revoke_decision(c, d.id, now)?
+                    {
+                        n += 1;
+                    }
+                }
+                Ok(n)
+            })
+            .and_then(Result::ok)
+            .unwrap_or(0);
+        if n > 0 {
+            self.audit(
+                "service",
+                AuditKind::DecisionRevoked,
+                None,
+                &json!({ "lifted": n, "reason": "score-only containment" }),
+            );
+        }
+        n
+    }
+
     /// Policy for a rule-based Malicious program outside `observe`: cut its network now (a
     /// persistent, revocable Block) and leave the Kill choice to the user in the popup.
-    /// Never touches the never-kill set unless HR-001/002/003 fired; never acts on an AI-only verdict.
+    /// Acts only when a hard rule fired. Never touches the never-kill set unless HR-001/002/003 fired; never acts on an AI-only verdict.
     fn contain_malicious(&self, exe: i64) {
         if self.mode_and_health().0 == "observe" {
             return;
@@ -413,14 +443,20 @@ impl Shared {
         };
         let hard = ev.hard_rule.as_deref();
         let image = e.path.rsplit(['\\', '/']).next().unwrap_or_default();
+        // A score alone (e.g. an unsigned dev tool in a user folder) never cuts a program off:
+        // only a hard rule does, otherwise the advisor reviews it and the user keeps working.
         if ev.source != "rules"
             || ev.verdict != "malicious"
+            || hard.is_none()
             || self.never_kill.check(image, hard).is_err()
         {
             return;
         }
         let now = OffsetDateTime::now_utc();
         let made = self.with_store(|c| {
+            if !decisions::active_for(c, exe, now)?.is_empty() {
+                return Ok(None);
+            }
             let id = decisions::insert_decision(
                 c,
                 &decisions::NewDecision {
@@ -476,6 +512,8 @@ impl Shared {
             Ok(created.then_some(id))
         });
         let Some(Ok(Some(id))) = created else {
+            // Already queued (e.g. a weaker verdict earlier): a hard rule may still apply now.
+            self.contain_malicious(exe);
             return false;
         };
         if let Some(Some(item)) = self

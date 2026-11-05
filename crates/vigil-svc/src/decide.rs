@@ -113,8 +113,8 @@ impl Shared {
             },
             "ai_opinion": self.ai_opinion_json(p.executable_id),
             "created_at": p.created_at,
-            // Only an established incident interrupts the user; everything else waits in the list.
-            "alert": ev.verdict == "malicious",
+            // Only an established incident (hard rule, or the advisor escalates) interrupts the user.
+            "alert": ev.verdict == "malicious" && ev.hard_rule.is_some(),
         }))
     }
 

@@ -8,9 +8,9 @@ preview_urls = false
 [vars]
 # Emergency stop: set to "1" and redeploy (or change in the dashboard) to refuse every call.
 DISABLED = "0"
-PER_INSTALL_MINUTE = "6"
-PER_INSTALL_DAY = "60"
-GLOBAL_CALLS_DAY = "4000"
+PER_INSTALL_MINUTE = "20"
+PER_INSTALL_DAY = "400"
+GLOBAL_CALLS_DAY = "20000"
 REGISTER_PER_IP_DAY = "5"
 REGISTER_GLOBAL_DAY = "2000"
 

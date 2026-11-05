@@ -34,9 +34,9 @@ impl Default for Config {
             model: "claude-haiku-5-5".into(),
             escalation_model: Some("claude-sonnet-5-5".into()),
             escalate_below: 0.75,
-            timeout: Duration::from_secs(8),
+            timeout: Duration::from_secs(20),
             daily_budget: 500,
-            per_minute: 10,
+            per_minute: 16,
             proxy_url: None,
         }
     }
@@ -76,8 +76,8 @@ pub struct Advisor {
     cooldown_until: AtomicU64,
 }
 
-/// The shared endpoint admits 6 quota units a minute per install (a deep call costs 2); stay under.
-const SHARED_PER_MINUTE: u32 = 5;
+/// The shared endpoint admits 20 quota units a minute per install (a deep call costs 2); stay under.
+const SHARED_PER_MINUTE: u32 = 16;
 /// How long to leave the shared endpoint alone after a 429.
 const COOLDOWN_SECS: u64 = 300;
 

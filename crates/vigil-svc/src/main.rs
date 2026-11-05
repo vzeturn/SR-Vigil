@@ -43,6 +43,7 @@ mod win {
         shared.attach_ai(Arc::new(vigil_svc::ai::LiveBackend::new(Arc::new(
             vigil_svc::winctl::DpapiVault,
         ))));
+        shared.lift_score_only_containment();
         match vigil_svc::winfilter::WfpEngine::open() {
             Ok(e) => shared.attach_engine(Some(Arc::new(e))),
             Err(e) => {
