@@ -1048,6 +1048,9 @@
         "filters_armed": {
           "type": "boolean"
         },
+        "protection": {
+          "type": "boolean"
+        },
         "counts": {
           "$ref": "#/$defs/Counts"
         },
@@ -2584,6 +2587,35 @@
       }
     },
     "purge.status": {
+      "role": "viewer",
+      "params": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object"
+      }
+    },
+    "protection.set": {
+      "role": "admin",
+      "params": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "enabled"
+        ]
+      },
+      "result": {
+        "type": "object"
+      }
+    },
+    "dns.status": {
       "role": "viewer",
       "params": {
         "type": "object",

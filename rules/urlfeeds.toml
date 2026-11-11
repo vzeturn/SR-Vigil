@@ -1,0 +1,27 @@
+# Domain blocklists the local DNS filter downloads (docs/23). HTTPS GET only, nothing is uploaded.
+# `format`: "hosts" (0.0.0.0 domain) or "domains" (one per line). A feed can only add blocks; it can never
+# block `vigil_core::urlfilter::PROTECTED` names, and users can always add an exception.
+
+[[feed]]
+id = "urlhaus"
+category = "malware"
+format = "hosts"
+url = "https://urlhaus.abuse.ch/downloads/hostfile/"
+
+[[feed]]
+id = "phishing-army"
+category = "phishing"
+format = "domains"
+url = "https://phishing.army/download/phishing_army_blocklist.txt"
+
+[[feed]]
+id = "stevenblack-ads"
+category = "ads"
+format = "hosts"
+url = "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts"
+
+[[feed]]
+id = "stevenblack-adult"
+category = "adult"
+format = "hosts"
+url = "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/porn-only/hosts"

@@ -77,6 +77,14 @@ enabled            = false   # opt-in: once a day GET of the signed version cata
 [hash_reputation]
 enabled            = true    # GET of one SHA-256 per unknown unsigned file to hashlookup.circl.lu (docs/20 s5)
 
+[urlfilter]
+enabled            = false   # opt-in: local DNS filter, switches DNS to 127.0.0.1 with the old servers as fallback (docs/23)
+malware            = true
+phishing           = true
+adult              = false
+ads                = false
+allow              = []      # domains (and subdomains) never blocked
+
 [retention]
 connections_days   = 30
 connection_aggregates_days = 365

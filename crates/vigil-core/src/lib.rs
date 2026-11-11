@@ -19,3 +19,4 @@ pub mod profile;
 pub mod redact;
 pub mod rules;
 pub mod storm;
+pub mod urlfilter;

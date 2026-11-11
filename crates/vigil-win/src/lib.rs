@@ -5,6 +5,7 @@
 #![allow(clippy::missing_errors_doc)]
 
 pub mod asr;
+pub mod dnsconf;
 pub mod dpapi;
 pub mod etw;
 pub mod harden;
