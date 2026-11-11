@@ -136,8 +136,9 @@ pub struct Shared {
     pub(crate) storm_reviewed: Mutex<std::collections::HashSet<i64>>,
     pub(crate) respawn_seen: Mutex<RespawnMemo>,
     pub(crate) purge: Mutex<crate::purge::Purge>,
-    /// Executable paths whose user decision changed; the observer re-evaluates them.
-    pub(crate) decided_paths: Mutex<Vec<String>>,
+    /// Executable paths whose evidence changed (user decision, beaconing); the observer re-evaluates them.
+    pub(crate) rejudge_paths: Mutex<Vec<String>>,
+    pub(crate) threats: Mutex<crate::threat::Threats>,
     pub(crate) reopen: Mutex<crate::reopen::Reopen>,
     pub(crate) launchers: Mutex<crate::launcher::Launchers>,
     pub(crate) ai_slots: tokio::sync::Semaphore,
@@ -264,7 +265,8 @@ impl Shared {
             storm_reviewed: Mutex::new(std::collections::HashSet::new()),
             respawn_seen: Mutex::new(Default::default()),
             purge: Mutex::new(crate::purge::Purge::default()),
-            decided_paths: Mutex::new(Vec::new()),
+            rejudge_paths: Mutex::new(Vec::new()),
+            threats: Mutex::new(crate::threat::Threats::default()),
             reopen: Mutex::new(crate::reopen::Reopen::default()),
             launchers: Mutex::new(crate::launcher::Launchers::default()),
             ai_slots: tokio::sync::Semaphore::new(2),
@@ -712,19 +714,20 @@ impl Shared {
     /// Replace the connection table with `current`, emitting opened/closed events for the diff.
     pub fn sync_connections(&self, current: Vec<ConnRow>) {
         let mut opened = Vec::new();
+        let mut fresh = Vec::new();
         let mut closed = Vec::new();
         {
             let mut g = lock(&self.inner);
             let mut next = BTreeMap::new();
             for mut c in current {
-                match g.connections.get(&c.id) {
-                    Some(old) => {
-                        c.first_seen.clone_from(&old.first_seen);
-                        if old.state != c.state {
-                            opened.push(c.clone());
-                        }
+                if let Some(old) = g.connections.get(&c.id) {
+                    c.first_seen.clone_from(&old.first_seen);
+                    if old.state != c.state {
+                        opened.push(c.clone());
                     }
-                    None => opened.push(c.clone()),
+                } else {
+                    fresh.push(c.clone());
+                    opened.push(c.clone());
                 }
                 next.insert(c.id.clone(), c);
             }
@@ -735,6 +738,7 @@ impl Shared {
             }
             g.connections = next;
         }
+        self.track_beacons(&fresh);
         for c in opened {
             self.emit("connections", "event.connection_opened", c.to_json());
         }

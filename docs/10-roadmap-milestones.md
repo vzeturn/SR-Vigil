@@ -213,6 +213,8 @@ root-cause popup. Build order is in `docs/18 §7`.
 
 ## Backlog (post-v1, tracked)
 
+- Suspicious network behaviour (`docs/24`): TLS handshake metadata (SNI, JA4) per flow; ETW-based connection capture so flows shorter than the poll interval are counted; jitter-tolerant beacon detection.
+
 - Inbound blocking option (FR-017): `ALE_AUTH_RECV_ACCEPT` filters, off by default.
 
 - Bundle the WebView2 Evergreen bootstrapper in the MSI (Windows 11 and current Windows 10 already ship the runtime; older Windows 10 needs it installed once).

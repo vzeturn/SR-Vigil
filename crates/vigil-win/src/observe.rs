@@ -84,8 +84,16 @@ fn bootstrap_pins(
     pins
 }
 
-/// Evaluate `path` (child of `parent`) against `pack`; `user_allowed` = an active user allow
-/// decision covers this file (HA-002, which never outranks a hard rule).
+/// What the service has learned about a program while it runs, beyond the file itself.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Live {
+    /// An active user allow decision covers this file (HA-002, never outranks a hard rule).
+    pub user_allowed: bool,
+    /// It calls the same public destination at a machine-regular interval (BEH-002).
+    pub beaconing: bool,
+}
+
+/// Evaluate `path` (child of `parent`) against `pack`, with what was observed live.
 #[must_use]
 pub fn evaluate_image(
     ctx: &Context,
@@ -93,9 +101,9 @@ pub fn evaluate_image(
     path: &str,
     parent: Option<&str>,
     pid: Option<u32>,
-    user_allowed: bool,
+    live: Live,
 ) -> Evaluation {
-    let (ev, ..) = evaluate_with(ctx, pack, path, parent, pid, user_allowed);
+    let (ev, ..) = evaluate_with(ctx, pack, path, parent, pid, live);
     ev
 }
 
@@ -108,7 +116,7 @@ pub fn evaluate_image_detailed(
     parent: Option<&str>,
     pid: Option<u32>,
 ) -> (Evaluation, SignerInfo, VersionInfo) {
-    evaluate_with(ctx, pack, path, parent, pid, false)
+    evaluate_with(ctx, pack, path, parent, pid, Live::default())
 }
 
 fn evaluate_with(
@@ -117,7 +125,7 @@ fn evaluate_with(
     path: &str,
     parent: Option<&str>,
     pid: Option<u32>,
-    user_allowed: bool,
+    live: Live,
 ) -> (Evaluation, SignerInfo, VersionInfo) {
     let signer = trust::verify(path);
     let version = version::read(path).unwrap_or_default();
@@ -134,13 +142,14 @@ fn evaluate_with(
             package_source_trusted: package_source_trusted(path),
             from_internet: from_internet(path),
             hash_known_good: hash_known_good(path, signer.valid()),
+            beaconing: live.beaconing,
             ..Behaviour::default()
         },
         signer: signer.clone(),
         vt_detections: None,
         vt_first_seen_days: None,
         user_denylisted: false,
-        user_allowed,
+        user_allowed: live.user_allowed,
         vigil_self: crate::selfpin::is_vigil_self(path),
     };
     (evaluate(pack, &build_facts(ctx, &obs)), signer, version)

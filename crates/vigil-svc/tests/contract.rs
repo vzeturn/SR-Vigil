@@ -95,7 +95,7 @@ async fn implemented_method_results_match_the_schema() {
     let (a, b) = tokio::io::duplex(1 << 16);
     tokio::spawn(handle_connection(b, Role::Admin, shared()));
     let mut c = Client::new(a);
-    let calls: [(&str, Value); 15] = [
+    let calls: [(&str, Value); 16] = [
         (
             "hello",
             json!({"client": "t", "client_version": "1", "protocol": 1}),
@@ -115,6 +115,7 @@ async fn implemented_method_results_match_the_schema() {
         ("trust.list", json!({})),
         ("pending.list", json!({})),
         ("decision.list", json!({})),
+        ("threat.list", json!({})),
         ("audit.query", json!({})),
         ("settings.get", json!({})),
         ("mode.set", json!({"mode": "learning"})),
@@ -159,6 +160,11 @@ async fn emitted_events_match_the_schema() {
         &s["x-events"]["event.launcher_prompt"],
         "event.launcher_prompt",
         &json!({"launcher": "C:/run.exe", "child": "C:/a.exe", "count": 5, "window_secs": 600, "autostart_entries": 1}),
+    );
+    validate(
+        &s["x-events"]["event.threat_detected"],
+        "event.threat_detected",
+        &json!({"threat_id": "0b6c", "kind": "beaconing", "path": "C:/a.exe", "identity_id": "3", "dest_ip": "203.0.113.9", "dest_port": 443, "interval_secs": 60, "detected_at": "2026-01-01T00:00:00Z", "ai_available": false}),
     );
     sh.remove_process(1, "2026-01-01T00:00:00Z");
     sh.sync_connections(vec![]);

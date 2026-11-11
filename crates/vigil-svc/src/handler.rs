@@ -103,6 +103,7 @@ impl ConnHandler {
             "decision.revoke" => s.revoke_decision(params),
             "decision.exception" => s.decision_exception(params),
             "reopen.answer" => s.reopen_answer(params),
+            "threat.list" => Ok(s.threat_list()),
             "launcher.answer" => s.launcher_answer(params),
             "audit.query" => s.audit_query(params),
             "audit.export" => s.audit_export(params),
@@ -150,13 +151,14 @@ impl Handler for ConnHandler {
         let shared = Arc::clone(&self.shared);
         let method = method.to_string();
         let sync = match method.as_str() {
-            "ai.test" | "ai.explain" => None,
+            "ai.test" | "ai.explain" | "threat.answer" => None,
             _ => Some(self.dispatch(role, &method, &params)),
         };
         async move {
             match (sync, method.as_str()) {
                 (Some(r), _) => r,
                 (None, "ai.test") => Ok(shared.ai_test().await),
+                (None, "threat.answer") => shared.threat_answer(&params).await,
                 (None, _) => shared.ai_explain(&params).await,
             }
         }

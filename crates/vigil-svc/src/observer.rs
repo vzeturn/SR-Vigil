@@ -11,7 +11,7 @@ use vigil_core::observe::Context;
 use vigil_core::rules::{RulePack, SignatureState, Verdict};
 use vigil_store::repo::{Executable, NewEvaluation, insert_evaluation, upsert_executable};
 use vigil_win::hash::HashCache;
-use vigil_win::observe::{env_context, evaluate_image};
+use vigil_win::observe::{Live, env_context, evaluate_image};
 use vigil_win::process::{self, ProcessInfo};
 use vigil_win::{net, trust, version};
 
@@ -162,8 +162,8 @@ fn unseen_images(
 }
 
 /// Drop cached verdicts whose user decision changed, so the next tick re-judges them.
-fn forget_decided(shared: &Shared, cache: &mut HashMap<Key, Verdicted>) {
-    for path in shared.take_decided_paths() {
+fn forget_rejudged(shared: &Shared, cache: &mut HashMap<Key, Verdicted>) {
+    for path in shared.take_rejudge_paths() {
         let path = normalize(&path);
         cache.retain(|(image, _), _| *image != path);
     }
@@ -187,8 +187,11 @@ impl Judge {
     ) -> Verdicted {
         let sh = &self.shared;
         let id = register(sh, &self.hashes, img);
-        let allowed = id.is_some_and(|id| sh.user_allows(id));
-        let ev = evaluate_image(&self.ctx, &self.pack, img, parent, Some(pid), allowed);
+        let live = Live {
+            user_allowed: id.is_some_and(|id| sh.user_allows(id)),
+            beaconing: sh.is_beaconing(img),
+        };
+        let ev = evaluate_image(&self.ctx, &self.pack, img, parent, Some(pid), live);
         if let Some(id) = id
             && before != Some((verdict_name(ev.verdict), ev.score))
         {
@@ -237,7 +240,7 @@ pub async fn run(shared: Arc<Shared>, pack: Arc<RulePack>) -> anyhow::Result<()>
             }
         };
         sync_processes(&shared, &procs);
-        forget_decided(&shared, &mut cache);
+        forget_rejudged(&shared, &mut cache);
 
         let pending = unseen_images(&procs, &cache);
         // A big first scan is spread out so it never hogs a core; steady state has 0-2 new images.

@@ -23,6 +23,7 @@ Get `Vigil-1.0.0.msi` and its `.sha256` from the [latest release](https://github
 - **Local-first and private.** No telemetry, no auto-update. The only network calls are the optional AI advisor (your own Anthropic key, or the project's rate-limited proxy, opt-out), optional VirusTotal, opt-in downloads of the signed version catalogue and the domain blocklists (GET only). Nothing else leaves the machine.
 - **Self-defending.** Programs that clone themselves or flood the machine with script hosts are killed in every mode; a hijacked Safe program is reclassified Malicious ([docs/04 §8](docs/04-enforcement-wfp.md)).
 - **URL filter.** An optional local DNS sinkhole blocks malware, phishing, adult and ad domains from public lists, with protected names and your own exceptions; DNS is restored automatically ([docs/23](docs/23-url-filter.md)).
+- **Suspicious network behaviour.** Programs that call one Internet address at a regular rhythm (beaconing) are flagged from connection timing alone; traffic is never decrypted or read, and nothing about it goes to the AI until you press Analyze ([docs/24](docs/24-suspicious-network-behaviour.md)).
 - **One switch.** Pause protection from the header: nothing is blocked or killed while paused, assessments stay live.
 - **No silent destruction.** Nothing is deleted automatically; persistence items are disabled reversibly after your approval.
 

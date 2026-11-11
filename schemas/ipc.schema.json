@@ -1609,6 +1609,59 @@
         "jsonrpc",
         "method"
       ]
+    },
+    "Threat": {
+      "type": "object",
+      "properties": {
+        "threat_id": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "beaconing"
+          ]
+        },
+        "path": {
+          "type": "string"
+        },
+        "identity_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "dest_ip": {
+          "type": "string"
+        },
+        "dest_port": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "interval_secs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "detected_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "ai_available": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "threat_id",
+        "kind",
+        "path",
+        "identity_id",
+        "dest_ip",
+        "dest_port",
+        "interval_secs",
+        "detected_at",
+        "ai_available"
+      ]
     }
   },
   "x-methods": {
@@ -2795,6 +2848,55 @@
         "type": "object",
         "additionalProperties": false
       }
+    },
+    "threat.list": {
+      "role": "viewer",
+      "params": {
+        "type": "object",
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "threats": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/Threat"
+            }
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "threats"
+        ]
+      }
+    },
+    "threat.answer": {
+      "role": "admin",
+      "params": {
+        "type": "object",
+        "properties": {
+          "threat_id": {
+            "type": "string"
+          },
+          "action": {
+            "enum": [
+              "analyze",
+              "block",
+              "dismiss"
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "threat_id",
+          "action"
+        ]
+      },
+      "result": {
+        "type": "object",
+        "description": "analyze: the advisor's opinion (as ai.explain); block: as decision.submit; dismiss: empty."
+      }
     }
   },
   "x-events": {
@@ -3086,6 +3188,9 @@
         "window_secs",
         "autostart_entries"
       ]
+    },
+    "event.threat_detected": {
+      "$ref": "#/$defs/Threat"
     }
   },
   "oneOf": [

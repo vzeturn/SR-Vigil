@@ -18,6 +18,7 @@ pub mod portable;
 pub mod purge;
 pub mod reopen;
 pub mod state;
+pub mod threat;
 
 #[cfg(windows)]
 pub mod host;

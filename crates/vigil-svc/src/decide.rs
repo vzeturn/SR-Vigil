@@ -318,17 +318,25 @@ impl Shared {
             })
             .and_then(Result::ok)
             .unwrap_or_default();
-        self.decided_paths
+        self.rejudge_paths
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .extend(paths);
     }
 
+    /// Queue `path` for re-evaluation on the next observer tick.
+    pub(crate) fn queue_rejudge(&self, path: &str) {
+        self.rejudge_paths
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .push(path.to_owned());
+    }
+
     /// Paths queued by [`Self::mark_decided`] since the last call.
-    pub fn take_decided_paths(&self) -> Vec<String> {
+    pub fn take_rejudge_paths(&self) -> Vec<String> {
         std::mem::take(
             &mut *self
-                .decided_paths
+                .rejudge_paths
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner),
         )

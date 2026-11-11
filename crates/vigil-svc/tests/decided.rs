@@ -45,14 +45,14 @@ fn allow_reaches_the_verdict_and_revoke_withdraws_it() {
         }))
         .unwrap();
     assert!(s.user_allows(id));
-    assert_eq!(s.take_decided_paths(), vec![PATH.to_string()]);
-    assert_eq!(s.take_decided_paths(), Vec::<String>::new());
+    assert_eq!(s.take_rejudge_paths(), vec![PATH.to_string()]);
+    assert_eq!(s.take_rejudge_paths(), Vec::<String>::new());
 
     let decision_id = out["decision"]["id"].as_str().unwrap().to_owned();
     s.revoke_decision(&json!({ "decision_id": decision_id }))
         .unwrap();
     assert!(!s.user_allows(id));
-    assert_eq!(s.take_decided_paths(), vec![PATH.to_string()]);
+    assert_eq!(s.take_rejudge_paths(), vec![PATH.to_string()]);
 }
 
 #[test]

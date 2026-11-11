@@ -239,7 +239,7 @@ impl Default for AiSettings {
 }
 
 impl AiSettings {
-    fn active(&self) -> bool {
+    pub(crate) fn active(&self) -> bool {
         self.enabled && self.mode != "off"
     }
 
@@ -641,6 +641,17 @@ impl Shared {
     }
 
     /// Redacted payload for an identity; also what `ai.preview` shows.
+    fn ai_parents(&self, exe_id: i64) -> Vec<redact::Parent> {
+        self.parent_paths_of(exe_id)
+            .into_iter()
+            .map(|image| redact::Parent {
+                verdict: self.verdict_of_image(&image),
+                image,
+                signer_org: None,
+            })
+            .collect()
+    }
+
     fn ai_payload(&self, exe_id: i64, s: &AiSettings) -> Result<Payload, AiFail> {
         let (exe, ev, pending) = self
             .with_store(|c| {
@@ -667,6 +678,8 @@ impl Shared {
             })
             .collect();
         let present: Vec<String> = signals.iter().map(|(i, _)| i.clone()).collect();
+        // Network pattern only after the user agreed to share it (`docs/24 Â§3`).
+        let shared_dest = self.consented_dest(&exe.path);
         let input = redact::Input {
             image_path: exe.path.clone(),
             sha256: exe.sha256.clone(),
@@ -678,20 +691,16 @@ impl Shared {
             company: exe.company.clone().unwrap_or_default(),
             product: exe.product.clone().unwrap_or_default(),
             original_filename: exe.original_filename.clone().unwrap_or_default(),
-            parents: self
-                .parent_paths_of(exe_id)
-                .into_iter()
-                .map(|image| redact::Parent {
-                    verdict: self.verdict_of_image(&image),
-                    image,
-                    signer_org: None,
+            parents: self.ai_parents(exe_id),
+            dest: pending
+                .as_ref()
+                .map(|p| redact::Dest {
+                    ip: Some(p.dest_addr.clone()),
+                    dns: p.dns_name.clone(),
+                    port: p.dest_port,
                 })
-                .collect(),
-            dest: pending.as_ref().map(|p| redact::Dest {
-                ip: Some(p.dest_addr.clone()),
-                dns: p.dns_name.clone(),
-                port: p.dest_port,
-            }),
+                .or_else(|| shared_dest.clone()),
+            beaconing: shared_dest.is_some(),
             score: i32::from(ev.score),
             signals,
             hard_rules: ev.hard_rule.iter().cloned().collect(),

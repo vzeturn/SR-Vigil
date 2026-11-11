@@ -110,6 +110,8 @@ Progressive disclosure: the Overview stays simple. Scores explain themselves on 
 
 Rules: no default (Enter does nothing); shortcuts `A`/`B`/`K` active only after the user has clicked inside the window (prevents accidental keystrokes from other apps); `Allow` dropdown offers scope (`once`, `1h`, `24h`, `forever`) and apply-to (`file`, `publisher` when a valid signer exists); `Kill` shows a confirmation chip with the process tree count; one popup per 5 s maximum, the rest queue. **Quiet by default:** the popup and toast appear only for an item with `alert = true` (an established incident); Unknown programs are assessed silently by the AI and wait in the Pending list and its badge. The popup has Previous/Next to revisit items.
 
+**Network prompt** (`ThreatView`, `docs/24`): shown before launcher and pending items, after a frozen reopen. It names the program, the destination and the interval, states that nothing has been sent to the AI, and offers **Ignore**, **Analyze with AI** (only when the advisor is configured; the assessment then appears in place) and **Block**.
+
 ## 6. States and quality bar
 
 - Every view has loading skeletons, empty states with guidance, and error states with retry and "service unreachable" banner (reconnect backoff visible).

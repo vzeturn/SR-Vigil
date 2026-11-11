@@ -31,7 +31,7 @@ Only the fields below are ever sent. Everything else is dropped.
 | `version_info` | CompanyName, ProductName, OriginalFilename, FileDescription |
 | `parent_chain` | up to 3 ancestors: basename + verdict + signer org |
 | `destination` | dest class (`private`, `public`), port, DNS name **only if public**; private/internal IPs and hostnames → class labels; no URLs, no payloads |
-| `behaviour` | counts and flags (beaconing, connection count, first seen, lolbin) |
+| `behaviour` | counts and flags (beaconing, connection count, first seen, lolbin); `beaconing` and its destination are sent only after the user answered **Analyze** on the network prompt (`docs/24 §4`) |
 | `known_software` | label and one-line description when the image name and vendor text match `rules/known_software.toml` (omitted otherwise); evidence only, never grants trust by itself |
 | `rule_result` | score, signals (ids + deltas), hard rules |
 | `command_line` | **not sent** unless `ai.send_cmdline = true`; then truncated to 200 chars, secrets-pattern scrubbed (tokens, `-p`/`--password` values, URLs credentials), hashed fingerprint added |
