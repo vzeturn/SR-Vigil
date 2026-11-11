@@ -36,8 +36,15 @@ pub fn spawn_connect_feed(shared: Arc<Shared>) {
             };
             shared.use_etw_connects(true);
             while let Some(ev) = session.recv() {
-                if let vigil_win::etw::Event::Connect { pid, dest, port } = ev {
-                    shared.track_connect(pid, dest, port);
+                match ev {
+                    vigil_win::etw::Event::Connect { pid, dest, port } => {
+                        shared.track_connect(pid, dest, port);
+                        let _ = shared.assess_destination(pid, &dest.to_string(), port);
+                    }
+                    vigil_win::etw::Event::DnsAnswer { pid, name, addrs } => {
+                        shared.note_dns(pid, &name, &addrs);
+                    }
+                    _ => {}
                 }
             }
             shared.use_etw_connects(false);
@@ -219,6 +226,7 @@ impl Judge {
         let live = Live {
             user_allowed: id.is_some_and(|id| sh.user_allows(id)),
             beaconing: sh.is_beaconing(img),
+            net: sh.net_seen(img),
         };
         let ev = evaluate_image(&self.ctx, &self.pack, img, parent, Some(pid), live);
         if let Some(id) = id
@@ -459,6 +467,8 @@ fn sync_connections(shared: &Shared) {
                 remote_port: (!listening).then_some(c.remote_port),
                 state: c.state,
                 verdict: shared.process_verdict(c.pid),
+                dns_name: None,
+                reputation: None,
                 first_seen: ts.clone(),
                 last_seen: ts.clone(),
             }

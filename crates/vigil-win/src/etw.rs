@@ -37,9 +37,11 @@ pub enum Event {
         dest: IpAddr,
         port: u16,
     },
-    DnsQuery {
+    /// A completed DNS lookup and the addresses it returned (names only, no packets).
+    DnsAnswer {
         pid: u32,
         name: String,
+        addrs: Vec<IpAddr>,
     },
 }
 
@@ -120,20 +122,37 @@ fn network_event(tx: &SyncSender<Event>, rec: &EventRecord, locator: &SchemaLoca
 }
 
 fn dns_event(tx: &SyncSender<Event>, rec: &EventRecord, locator: &SchemaLocator) {
-    // 3006 = DNS query issued.
-    if rec.event_id() != 3006 {
+    // 3008 = DNS query completed, with the answers.
+    if rec.event_id() != 3008 {
         return;
     }
     let Ok(schema) = locator.event_schema(rec) else {
         return;
     };
     let p = Parser::create(rec, &schema);
-    if let Ok(name) = p.try_parse::<String>("QueryName") {
-        let _ = tx.try_send(Event::DnsQuery {
+    let (Ok(name), Ok(results)) = (
+        p.try_parse::<String>("QueryName"),
+        p.try_parse::<String>("QueryResults"),
+    ) else {
+        return;
+    };
+    let addrs = parse_results(&results);
+    if !addrs.is_empty() {
+        let _ = tx.try_send(Event::DnsAnswer {
             pid: rec.process_id(),
             name,
+            addrs,
         });
     }
+}
+
+/// `QueryResults` is `;`-separated: addresses (`1.2.3.4`, `::ffff:1.2.3.4`) mixed with
+/// `type:  5 alias.example` records for CNAMEs, which are skipped.
+fn parse_results(results: &str) -> Vec<IpAddr> {
+    results
+        .split(';')
+        .filter_map(|r| r.trim().parse().ok())
+        .collect()
 }
 
 /// Start a session named `name` covering Kernel-Process, Kernel-Network and DNS-Client. A session
@@ -183,6 +202,16 @@ mod tests {
             }
         }
         None
+    }
+
+    #[test]
+    fn dns_results_keep_addresses_and_skip_aliases() {
+        let got = parse_results("type:  5 edge.example.net;93.184.216.34;::ffff:10.0.0.1;;");
+        let want: Vec<IpAddr> = vec![
+            "93.184.216.34".parse().unwrap(),
+            "::ffff:10.0.0.1".parse().unwrap(),
+        ];
+        assert_eq!(got, want);
     }
 
     #[test]

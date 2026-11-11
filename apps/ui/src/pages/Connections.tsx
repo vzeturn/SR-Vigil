@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ReputationChip } from '../components/ReputationChip';
 import { ScoreBar } from '../components/ScoreBar';
 import { ScoreTip } from '../components/ScoreTip';
 import { VerdictChip } from '../components/VerdictChip';
@@ -24,9 +25,12 @@ export function Connections() {
       header: t('table.remote'),
       width: '3fr',
       cell: (c) => (
-        <span className="mono">
-          {c.dns_name ?? c.remote_addr ?? ''}
-          {c.remote_port ? `:${c.remote_port}` : ''}
+        <span className="remote-cell">
+          <span className="mono">
+            {c.dns_name ?? c.remote_addr ?? ''}
+            {c.remote_port ? `:${c.remote_port}` : ''}
+          </span>
+          <ReputationChip reputation={c.reputation} />
         </span>
       ),
     },

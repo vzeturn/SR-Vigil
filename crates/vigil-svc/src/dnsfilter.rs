@@ -191,6 +191,17 @@ fn verdict(name: &str) -> Option<Category> {
         .check(name, &enabled)
 }
 
+/// NET-001: `name` is on a downloaded malware or phishing list, whether or not the user enabled
+/// blocking for that category (an empty answer when no list has been downloaded).
+#[must_use]
+pub fn listed_bad(name: &str) -> bool {
+    LIST.read()
+        .unwrap_or_else(PoisonError::into_inner)
+        .as_ref()
+        .and_then(|l| l.check(name, &[Category::Malware, Category::Phishing]))
+        .is_some()
+}
+
 fn record(name: &str, hit: Option<Category>) {
     let mut s = stats();
     s.queries += 1;

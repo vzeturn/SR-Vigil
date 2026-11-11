@@ -70,6 +70,8 @@ fn conn(n: u64, remote: &str) -> ConnRow {
         remote_port: Some(443),
         state: "established",
         verdict: None,
+        dns_name: None,
+        reputation: None,
         first_seen: String::new(),
         last_seen: String::new(),
     }

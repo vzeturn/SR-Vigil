@@ -29,6 +29,8 @@ pub struct Facts {
     pub beaconing: bool,
     pub public_dest_no_dns: bool,
     pub risky_port_or_tld: bool,
+    pub bad_destination: bool,
+    pub generated_dest_name: bool,
     pub typosquat: bool,
     pub unbacked_exec_memory: bool,
     pub unsigned_writable_module: bool,
@@ -68,6 +70,8 @@ impl Default for Facts {
             beaconing: false,
             public_dest_no_dns: false,
             risky_port_or_tld: false,
+            bad_destination: false,
+            generated_dest_name: false,
             typosquat: false,
             unbacked_exec_memory: false,
             unsigned_writable_module: false,
@@ -147,6 +151,8 @@ fn matches(w: &When, f: &Facts) -> bool {
         && flag(w.beaconing, f.beaconing)
         && flag(w.public_dest_no_dns, f.public_dest_no_dns)
         && flag(w.risky_port_or_tld, f.risky_port_or_tld)
+        && flag(w.bad_destination, f.bad_destination)
+        && flag(w.generated_dest_name, f.generated_dest_name)
         && flag(w.typosquat, f.typosquat)
         && flag(w.unbacked_exec_memory, f.unbacked_exec_memory)
         && flag(w.unsigned_writable_module, f.unsigned_writable_module)

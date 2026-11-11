@@ -6,6 +6,7 @@ pub mod ai;
 pub mod ai_usage;
 pub mod catalogue;
 pub mod decide;
+pub mod destrep;
 pub mod dnsfilter;
 pub mod enforce;
 pub mod events;

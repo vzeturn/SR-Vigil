@@ -70,6 +70,10 @@ pub struct ConnRow {
     pub remote_port: Option<u16>,
     pub state: &'static str,
     pub verdict: Option<String>,
+    /// Name the program resolved for the remote address (filled by the service, `docs/15`).
+    pub dns_name: Option<String>,
+    /// Offline reputation chip: `"bad"`, `"risky"` or none (filled by the service).
+    pub reputation: Option<&'static str>,
     pub first_seen: String,
     pub last_seen: String,
 }
@@ -83,6 +87,7 @@ impl ConnRow {
             "remote_addr": self.remote_addr, "remote_port": self.remote_port,
             "state": self.state, "verdict": self.verdict, "blocked": false,
             "country": self.remote_addr.as_deref().and_then(|a| a.parse().ok()).and_then(vigil_core::analysis::geo::country),
+            "dns_name": self.dns_name, "reputation": self.reputation,
             "first_seen": self.first_seen, "last_seen": self.last_seen,
         })
     }
@@ -139,6 +144,7 @@ pub struct Shared {
     /// Executable paths whose evidence changed (user decision, beaconing); the observer re-evaluates them.
     pub(crate) rejudge_paths: Mutex<Vec<String>>,
     pub(crate) threats: Mutex<crate::threat::Threats>,
+    pub(crate) destrep: Mutex<crate::destrep::DestRep>,
     pub(crate) reopen: Mutex<crate::reopen::Reopen>,
     pub(crate) launchers: Mutex<crate::launcher::Launchers>,
     pub(crate) ai_slots: tokio::sync::Semaphore,
@@ -267,6 +273,7 @@ impl Shared {
             purge: Mutex::new(crate::purge::Purge::default()),
             rejudge_paths: Mutex::new(Vec::new()),
             threats: Mutex::new(crate::threat::Threats::default()),
+            destrep: Mutex::new(crate::destrep::DestRep::default()),
             reopen: Mutex::new(crate::reopen::Reopen::default()),
             launchers: Mutex::new(crate::launcher::Launchers::default()),
             ai_slots: tokio::sync::Semaphore::new(2),
@@ -716,7 +723,16 @@ impl Shared {
     // ---- connections ----
 
     /// Replace the connection table with `current`, emitting opened/closed events for the diff.
-    pub fn sync_connections(&self, current: Vec<ConnRow>) {
+    pub fn sync_connections(&self, mut current: Vec<ConnRow>) {
+        let known: std::collections::HashSet<String> =
+            lock(&self.inner).connections.keys().cloned().collect();
+        for c in current.iter_mut().filter(|c| !known.contains(&c.id)) {
+            if c.direction == "outbound"
+                && let (Some(ip), Some(port)) = (c.remote_addr.as_deref(), c.remote_port)
+            {
+                (c.dns_name, c.reputation) = self.assess_destination(c.pid, ip, port);
+            }
+        }
         let mut opened = Vec::new();
         let mut fresh = Vec::new();
         let mut closed = Vec::new();
@@ -726,6 +742,8 @@ impl Shared {
             for mut c in current {
                 if let Some(old) = g.connections.get(&c.id) {
                     c.first_seen.clone_from(&old.first_seen);
+                    c.dns_name.clone_from(&old.dns_name);
+                    c.reputation = old.reputation;
                     if old.state != c.state {
                         opened.push(c.clone());
                     }

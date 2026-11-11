@@ -6,7 +6,7 @@
 
 | Topic | Decision |
 |---|---|
-| Bad-site source | Bundled offline lists **plus** a third-party reputation service (Google Safe Browsing / Microsoft SmartScreen). |
+| Bad-site source | Bundled offline lists and the URL-filter malware/phishing feeds; no online destination lookup (revised 2026-11-11, see §4). |
 | Behaviour scope | Full real-time collection through ETW inside the service (elevated, only while protection is on). |
 | Trusted publishers | Score reduction for normal behaviour; high-risk findings still raise a warning. |
 
@@ -17,9 +17,9 @@ CLAUDE.md rule 10 is amended accordingly (see §6). The watching-only UI (no ser
 | ID | Name | Fires when | Delta |
 |---|---|---|---|
 | NET-001 | `reputation_bad_destination` | Destination host/IP is on the offline blocklist or flagged by the reputation service (malware, phishing, unwanted software) | −45 |
-| NET-002 | `risky_destination` | Raw public IP with no DNS name, algorithmically generated name (high entropy), risky TLD, or uncommon port for the program | −15 |
+| NET-002 | `generated_destination_name` | Algorithmically generated DNS name (high entropy). Raw IP without DNS stays BEH-003 and risky port/TLD stays BEH-004 (`docs/03`), so nothing is counted twice | −15 |
 | NET-003 | `unusual_upload` | Bytes sent far exceed bytes received to one public host over a window, above a per-program baseline | −20 |
-| NET-004 | `tool_to_public_host` | Script host / LOLBin (`powershell`, `mshta`, `regsvr32`, `certutil`, …) connects to a public host (consolidates the existing BEH-00x signals) | −20 |
+| NET-004 | `tool_to_public_host` | Consolidated into BEH-001 `lolbin_outbound` (−25, cap 70), now fed live; no separate rule | — |
 | FIL-001 | `drops_executable` | Writes a PE/script to a user-writable folder (Downloads, Temp, AppData, Public) | −15 |
 | FIL-002 | `mass_file_change` | Many files rewritten/renamed with a new extension in a short window (ransomware shape) | −40 |
 | PRC-001 | `suspicious_child` | Spawns a script host or LOLBin with encoded/hidden command line, or an Office/browser parent starts a shell | −25 |
@@ -35,7 +35,7 @@ Rules: hard rules (HR-*) and SG-001 keep absolute priority; NET-001 and FIL-002 
 | ETW `Microsoft-Windows-Kernel-Process` | process start/stop, command line, parent | needs an elevated session |
 | ETW `Microsoft-Windows-Kernel-File` | create/write/rename with PID | high volume: filter by path class and extension in the collector, bounded channel, drop-oldest counter |
 | ETW `Microsoft-Windows-Kernel-Network` | per-connection bytes sent/received | feeds NET-003 |
-| ETW `Microsoft-Windows-DNS-Client` | name ↔ IP mapping per PID | feeds NET-001/002 with the DNS name, not only the IP |
+| ETW `Microsoft-Windows-DNS-Client` | event 3008 `QueryName` + `QueryResults`: name ↔ IP mapping per PID (10 min, bounded) | feeds NET-001/002 with the DNS name, not only the IP; no packet is read, so TLS SNI/JA4 capture is not needed |
 | `GetExtendedTcpTable` + process snapshot | fallback / reconciler | already used by the live scan |
 | Kernel-File open events on a fixed protected-path list | RES-001 | credential stores |
 
@@ -43,12 +43,9 @@ All strings from these events are untrusted data (CLAUDE.md rule 6): never inter
 
 ## 4. Destination reputation
 
-1. **Offline layer (always on):** bundled list of known-bad domains/IPs, risky TLDs and DGA heuristics in `rules/reputation.toml`, embedded like the IP-to-country table. No network.
-2. **Online layer (opt-in, off by default):** a reputation lookup for *public* destinations only. Open research items, to be settled before this layer is built:
-   - **Google Safe Browsing:** use the *Update API v4* (downloads hash prefixes and matches locally; a destination is revealed only to confirm a prefix hit). The Lookup API sends the URL and is rejected for privacy. The public Safe Browsing API is licensed for non-commercial use; commercial use means Web Risk (paid). Confirm the licence fits an MIT/Apache public project before shipping a key.
-   - **Microsoft SmartScreen:** has no public API for third-party apps, and Defender network protection cannot be queried programmatically. Treat as *not available* unless a documented endpoint is found. The alternative is reading Defender's own block events from the Windows event log, which needs no network call.
-   - Any key follows CLAUDE.md rule 7: DPAPI, never over IPC, never logged.
-3. **Privacy:** the settings page states exactly what leaves the machine (hash prefixes only for the Update API). Private and loopback destinations are never sent. No telemetry.
+1. **Offline layer (always on, built):** bundled bad hosts, risky ports/TLDs and the DGA thresholds in `rules/reputation.toml`, embedded like the IP-to-country table, plus the malware and phishing lists of the URL filter when the user has downloaded them (`docs/23`). No network. Each public outbound connect (ETW, or the table poll without ETW) is assessed once per program and finding: a new finding re-evaluates the program and writes an audit row naming the signals.
+2. **Online layer:** not built. Google Safe Browsing and SmartScreen were not chosen (user decision, 2026-11-11): Safe Browsing's licence is non-commercial and SmartScreen has no public API. File-hash lookups (VirusTotal, MalwareBazaar) are tracked separately under rule 10.
+3. **Privacy:** destinations never leave the machine. No telemetry.
 
 ## 5. Scoring and display
 
@@ -58,7 +55,7 @@ All strings from these events are untrusted data (CLAUDE.md rule 6): never inter
 
 ## 6. CLAUDE.md change
 
-Rule 10 becomes: network calls only to the Anthropic API (when enabled), the optional shared AI endpoint, optional VirusTotal, and the optional destination-reputation service (when the user enables it; data as documented in §4). No telemetry, no auto-update in v1.
+None: the offline layer makes no network call. The rule-10 entry for an optional destination-reputation service stays reserved but unused, since no online layer was chosen (§4).
 
 ## 7. Acceptance (M11)
 

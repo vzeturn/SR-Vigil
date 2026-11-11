@@ -83,6 +83,8 @@ fn shared() -> Arc<Shared> {
         remote_port: Some(443),
         state: "established",
         verdict: Some("safe".into()),
+        dns_name: None,
+        reputation: None,
         first_seen: "2026-01-01T00:00:00Z".into(),
         last_seen: "2026-01-01T00:00:00Z".into(),
     }]);

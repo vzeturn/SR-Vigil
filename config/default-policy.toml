@@ -26,10 +26,7 @@ bootstrap_check_required   = true
 respawn_watch              = true
 service_disable_requires_approval = true
 
-[network]
-risky_ports = [1337, 4444, 5555, 6666, 6667, 6697, 9001, 9030, 12345, 31337]
-risky_tlds  = ["zip", "mov", "top", "xyz", "tk", "ml", "ga", "cf", "gq", "click", "icu", "cyou", "su"]
-
+# Risky ports and TLDs (BEH-004) live with the other destination data in rules/reputation.toml.
 [network.beacon_ignore]
 ports = [123]
 host_suffixes = ["time.windows.com", "windowsupdate.com", "update.microsoft.com", "delivery.mp.microsoft.com"]

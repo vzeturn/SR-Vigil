@@ -469,6 +469,12 @@ export const en = {
     empty: 'No rows match.',
     loading: 'Waiting for the service…',
   },
+  reputation: {
+    bad: 'Bad site',
+    badHint: 'This name is on a list of known malware or phishing hosts.',
+    risky: 'Risky',
+    riskyHint: 'Machine-generated name, an address reached without a DNS lookup, or a port or domain ending often used for abuse.',
+  },
   rules: {
     rules: 'Scoring rules',
     publishers: 'Trusted publishers',

@@ -146,11 +146,10 @@ Standing rule for every milestone: `cargo fmt --check`, `cargo clippy -D warning
 
 Design: [docs/15-behaviour-and-reputation.md](15-behaviour-and-reputation.md).
 
-- [ ] Offline `rules/reputation.toml` (bad domains/IPs, risky TLDs, DGA heuristic) and NET-001/002.
-- [ ] ETW collectors: Kernel-Process, Kernel-File, Kernel-Network, DNS-Client (bounded channels, reconciler on loss).
-- [ ] Rules NET-003/004, FIL-001/002, PRC-001, RES-001, TRU-001 with fixtures and mutation checks.
-- [ ] Resolve the research items in docs/15 §4 (Safe Browsing licence and API choice, SmartScreen availability) before adding any online lookup.
-- [ ] Connections page: per-connection reputation chip and owning-process score.
+- [x] Offline `rules/reputation.toml` (bad domains, risky ports and TLDs, DGA heuristic) and NET-001/002; BEH-001/003/004 now fed live from ETW connects and DNS answers.
+- [ ] ETW collectors: Kernel-File, Kernel-Network byte counts, process table fed from Kernel-Process (reconciler on loss). Done: DNS-Client answers (event 3008) map each address to the name the program resolved.
+- [ ] Rules NET-003, FIL-001/002, PRC-001, RES-001, TRU-001 with fixtures and mutation checks (NET-004 is BEH-001, now live).
+- [x] Connections page: per-connection reputation chip and owning-process score.
 - [ ] AI payload `behaviour_events`, prompt update, proxy allowlist and spec regeneration.
 
 ## M12 — Version freshness (approved; in progress)
@@ -213,8 +212,6 @@ root-cause popup. Build order is in `docs/18 §7`.
 
 ## Backlog (post-v1, tracked)
 
-- Suspicious network behaviour (`docs/24`): TLS handshake metadata (SNI, JA4) per flow. Done: jitter-tolerant beacon detection (`docs/03 §6`) and ETW connect capture feeding the beacon tracker (`docs/24 §3`); the ETW trace does not yet feed the process table or DNS names (M11).
-
 - Inbound blocking option (FR-017): `ALE_AUTH_RECV_ACCEPT` filters, off by default.
 
 - Bundle the WebView2 Evergreen bootstrapper in the MSI (Windows 11 and current Windows 10 already ship the runtime; older Windows 10 needs it installed once).
@@ -231,6 +228,6 @@ root-cause popup. Build order is in `docs/18 §7`.
 ## Spec review (open items, consolidated)
 
 - **Needs a Windows VM (elevated):** every unticked acceptance box in M2–M6 (WFP lockout/fail-open, 500 ms kill latency, panic < 1 s, clean-VM scan, 24 h learning soak, uninstall leaves no WFP objects, performance budgets NFR-001/002/005).
-- **Not started:** M11 ETW collectors and reputation rules (NFR-004 depends on them); M12 "installed vs latest" vendor link and the M13-ready catalogue schema.
+- **In progress:** M11 file/byte ETW collectors and the remaining behaviour rules (NFR-004 depends on them); M12 "installed vs latest" vendor link and the M13-ready catalogue schema.
 - **Release:** code-signing certificate (C4), enabling GitHub private vulnerability reporting and secret scanning before the repository goes public.
 - **Decided and reflected in the specs:** English-only UI (FR-022), mode-scaled AI authority and storm kill (CLAUDE.md #2, FR-024).

@@ -619,6 +619,20 @@
             }
           ]
         },
+        "reputation": {
+          "description": "Offline destination reputation (docs/15 §4): bad = listed host, risky = generated name, no DNS answer, or risky port/TLD.",
+          "anyOf": [
+            {
+              "enum": [
+                "bad",
+                "risky"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "blocked": {
           "type": "boolean"
         },

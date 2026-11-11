@@ -56,10 +56,12 @@ SIG-001, SIG-002 and SIG-003 are mutually exclusive (`exclusive_group = "signer_
 | SIG-015 | `os_binary_out_of_place` | Windows-signed OS binary (OS certificate or OS catalog) located in `user_writable`, `removable` or `network_share` paths, e.g. `powershell.exe` copied to Downloads | −30 | |
 | SIG-020 | `typosquat_name` | Image name within Levenshtein distance ≤ 2 of a canonical/popular name, or uses confusable characters, and is not that name | −50 | |
 | LOC-010 | `network_share_or_removable` | Path on UNC share or removable drive | −15 | |
-| BEH-001 | `lolbin_outbound` | LOLBin (`rules/lolbins.toml`) with an outbound connection to a public destination, unless a `context_allow` entry matches the verified parent chain (e.g. Intune/SCCM agents whose own verdict is Safe) | −25 | 70 |
+| BEH-001 | `lolbin_outbound` | LOLBin (`rules/lolbins.toml`) with an outbound connection to a public destination (live: any public outbound connect seen by ETW or the table poll; consolidates `docs/15` NET-004), unless a `context_allow` entry matches the verified parent chain (e.g. Intune/SCCM agents whose own verdict is Safe) | −25 | 70 |
 | BEH-002 | `beaconing` | ≥ 6 connections to the same destination in 30 min with interval coefficient of variation < 0.15, or ≥ 12 with interquartile range ≤ 0.6 × median interval (jittered sleep) (live: per program, remote IP and port; see `docs/24`) | −30 | |
-| BEH-003 | `public_dest_no_dns` | Public IP destination with no preceding DNS resolution for that PID within 60 s | −10 | |
-| BEH-004 | `risky_port_or_tld` | Destination port in the risky list or DNS name TLD in the risky list (`config/default-policy.toml`) | −10 | |
+| BEH-003 | `public_dest_no_dns` | Public IP destination with no DNS answer for that address (ETW DNS-Client, any PID) within the last 10 min; counted only after the DNS feed has run for 10 min, so answers cached before Vigil started are not mistaken for raw-IP use | −10 | |
+| BEH-004 | `risky_port_or_tld` | Destination port in the risky list or DNS name TLD in the risky list (`rules/reputation.toml`) | −10 | |
+| NET-001 | `reputation_bad_destination` | The DNS name the program resolved for a public destination is on the bundled list in `rules/reputation.toml` or on a downloaded malware/phishing list of the URL filter (`docs/23`), subdomains included | −45 | |
+| NET-002 | `generated_destination_name` | The registrable label of that DNS name looks machine-generated: ≥ 12 characters, entropy ≥ 3.2 bits, and ≤ 25 % vowels or ≥ 3 digits mixed with letters (IDN `xn--` labels excluded) | −15 | |
 | BEH-005 | `unbacked_exec_memory` | Executable private memory region not backed by an image file (optional: set `VIGIL_MEMORY_SCAN=1`; only scanned for processes whose own image is not validly signed, because JIT engines also use RWX memory) | −40 | |
 | MOD-001 | `unsigned_writable_module` | A module loaded by the process from a user-writable path has no valid signature (DLL sideloading, T14). Modules inside the program's own install directory are its bundled code and do not count (Electron apps, Python launchers), nor does a uv/pip environment's root (`profile::install_root`) or any `site-packages` module (imported by name, not found by the loader's search order). SIG-010, SIG-011 and MOD-001 share the exclusive group `unsigned_code`: only the worst one applies, so "unsigned" is penalised once. Checked once per new image, from the loaded-module list | −30 | |
 | REP-010 | `vt_low_detections` | VirusTotal 1–4 detections | −20 | |
@@ -101,6 +103,8 @@ SIG-001, SIG-002 and SIG-003 are mutually exclusive (`exclusive_group = "signer_
 | `powershell.exe` (MS-signed) → public host | SIG-001, SIG-004, LOC-001, BEH-001 | 70 (capped) | unknown |
 | MS-signed `powershell.exe` copied to Downloads → public host | SIG-002, SIG-004, SIG-015, BEH-001 | 43 | unknown |
 | Binary with "Microsoft Corporation" metadata, unsigned | HR-007 | 0 | malicious |
+| Small vendor app (88) resolving a listed bad host | SIG-003, SIG-004, LOC-001, NET-001 | 43 | unknown |
+| Unsigned tool in Downloads → generated name on a risky TLD | SIG-010, NET-002, BEH-004 | 10 | unknown |
 | Allowed unknown app whose file is replaced (new hash) | re-evaluate, HA-002 no longer matches | — | re-scored |
 | User allows, blocks or revokes a decision | running copies are re-evaluated on the next observer tick (newest active decision wins) | — | re-scored |
 | Image still running an hour after its last evaluation | re-evaluated (catches expired decisions, new hash reputation, revoked signatures); state and stored evaluation change only when the result changed | — | unchanged or re-scored |

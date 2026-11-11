@@ -98,6 +98,30 @@ fn unsigned_downloads_with_dns() {
 }
 
 #[test]
+fn signed_app_reaching_a_listed_bad_host() {
+    let f = Facts {
+        company_matches_signer: true,
+        has_outbound: true,
+        dest_public: true,
+        bad_destination: true,
+        ..signed(PathClass::ProgramFiles)
+    };
+    check(&f, &["NET-001"], 43, Verdict::Unknown);
+}
+
+#[test]
+fn unsigned_tool_reaching_a_generated_name() {
+    let f = Facts {
+        has_outbound: true,
+        dest_public: true,
+        generated_dest_name: true,
+        risky_port_or_tld: true,
+        ..unsigned(PathClass::UserWritable)
+    };
+    check(&f, &["SIG-010", "NET-002", "BEH-004"], 10, Verdict::Unknown);
+}
+
+#[test]
 fn unsigned_temp_beaconing() {
     let f = Facts {
         beaconing: true,

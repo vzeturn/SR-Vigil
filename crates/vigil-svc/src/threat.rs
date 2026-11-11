@@ -64,7 +64,7 @@ impl Default for Threats {
 }
 
 /// A routable Internet address: not loopback, private, link-local, multicast or unspecified.
-fn is_public(addr: &str) -> bool {
+pub(crate) fn is_public(addr: &str) -> bool {
     match addr.parse::<IpAddr>() {
         Ok(IpAddr::V4(v4)) => {
             !(v4.is_loopback()
@@ -85,7 +85,7 @@ fn is_public(addr: &str) -> bool {
     }
 }
 
-fn now_ms() -> u64 {
+pub(crate) fn now_ms() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |d| u64::try_from(d.as_millis()).unwrap_or(u64::MAX))

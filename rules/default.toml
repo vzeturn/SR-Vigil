@@ -231,6 +231,22 @@ when = { risky_port_or_tld = true }
 score = -10
 
 [[rule]]
+id = "NET-001"
+name = "reputation_bad_destination"
+kind = "signal"
+description = "Connected to a host on the offline bad list or the URL filter's malware or phishing lists"
+when = { bad_destination = true }
+score = -45
+
+[[rule]]
+id = "NET-002"
+name = "generated_destination_name"
+kind = "signal"
+description = "Resolved and connected to an algorithmically generated domain name (DGA shape)"
+when = { generated_dest_name = true }
+score = -15
+
+[[rule]]
 id = "BEH-005"
 name = "unbacked_exec_memory"
 kind = "signal"

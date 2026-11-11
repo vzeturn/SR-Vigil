@@ -91,6 +91,8 @@ pub struct Live {
     pub user_allowed: bool,
     /// It calls the same public destination at a machine-regular interval (BEH-002).
     pub beaconing: bool,
+    /// What its outbound connections looked like (BEH-001, BEH-003/004, NET-001/002).
+    pub net: vigil_core::observe::NetSeen,
 }
 
 /// Evaluate `path` (child of `parent`) against `pack`, with what was observed live.
@@ -143,7 +145,12 @@ fn evaluate_with(
             from_internet: from_internet(path),
             hash_known_good: hash_known_good(path, signer.valid()),
             beaconing: live.beaconing,
-            ..Behaviour::default()
+            has_outbound: live.net.public_outbound,
+            dest_public: live.net.public_outbound,
+            public_dest_no_dns: live.net.no_dns,
+            risky_port_or_tld: live.net.risky_port_or_tld,
+            bad_destination: live.net.bad,
+            generated_dest_name: live.net.generated_name,
         },
         signer: signer.clone(),
         vt_detections: None,

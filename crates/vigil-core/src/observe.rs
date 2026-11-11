@@ -70,6 +70,10 @@ pub struct Behaviour {
     pub beaconing: bool,
     pub public_dest_no_dns: bool,
     pub risky_port_or_tld: bool,
+    /// A destination it reached is on the offline or URL-filter bad list (NET-001).
+    pub bad_destination: bool,
+    /// A destination name it resolved looks machine-generated (NET-002).
+    pub generated_dest_name: bool,
     pub unbacked_exec_memory: bool,
     /// A module loaded from a user-writable path has no valid signature (T14).
     pub unsigned_writable_module: bool,
@@ -79,6 +83,31 @@ pub struct Behaviour {
     pub from_internet: bool,
     /// The file hash is listed as known-good by the hash reputation service (`docs/20 s5`).
     pub hash_known_good: bool,
+}
+
+/// Network findings accumulated for a program while it runs (`docs/15 §2`).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct NetSeen {
+    /// It opened an outbound connection to a public address.
+    pub public_outbound: bool,
+    pub bad: bool,
+    pub generated_name: bool,
+    pub no_dns: bool,
+    pub risky_port_or_tld: bool,
+}
+
+impl NetSeen {
+    /// Fold in one public outbound connection; `true` when this adds a finding.
+    pub fn absorb(&mut self, a: &crate::analysis::reputation::DestAssessment) -> bool {
+        let before = *self;
+        self.public_outbound = true;
+        self.bad |= a.bad;
+        self.generated_name |= a.generated_name;
+        self.no_dns |= a.no_dns;
+        self.risky_port_or_tld |= a.risky_port_or_tld;
+        *self != before
+    }
 }
 
 /// Everything known about one running or candidate image.
@@ -224,6 +253,8 @@ pub fn build_facts(ctx: &Context, obs: &Observation) -> Facts {
         beaconing: obs.behaviour.beaconing,
         public_dest_no_dns: obs.behaviour.public_dest_no_dns,
         risky_port_or_tld: obs.behaviour.risky_port_or_tld,
+        bad_destination: obs.behaviour.bad_destination,
+        generated_dest_name: obs.behaviour.generated_dest_name,
         typosquat: !signer.valid() && is_typosquat(&name, &ctx.canonical_names()),
         unbacked_exec_memory: obs.behaviour.unbacked_exec_memory,
         unsigned_writable_module: obs.behaviour.unsigned_writable_module,

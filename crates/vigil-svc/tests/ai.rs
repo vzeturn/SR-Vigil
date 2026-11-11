@@ -480,6 +480,8 @@ fn live_connection(s: &Shared, id: i64) {
         remote_port: Some(443),
         state: "established",
         verdict: None,
+        dns_name: None,
+        reputation: None,
         first_seen: "t".into(),
         last_seen: "t".into(),
     }]);

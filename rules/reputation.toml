@@ -1,0 +1,26 @@
+# Offline destination reputation (docs/15 §4). Embedded in the binary; nothing is downloaded or sent.
+# NET-001 also consults the malware and phishing lists of the URL filter (rules/urlfeeds.toml) when
+# they have been downloaded. Names are matched with their subdomains, case-insensitively.
+
+[bad]
+# Public safety-test hosts that browsers and reputation services deliberately flag, so a
+# detection can be checked on a real machine without touching real malware.
+domains = [
+    "testsafebrowsing.appspot.com",
+    "malware.testing.google.test",
+    "wicar.org",
+]
+
+[risky]
+# BEH-004: destination ports commonly used by remote-access tools, IRC bots and Tor relays.
+ports = [1337, 4444, 5555, 6666, 6667, 6697, 9001, 9030, 12345, 31337]
+# BEH-004: top-level domains with a high share of abusive registrations.
+tlds = ["zip", "mov", "top", "xyz", "tk", "ml", "ga", "cf", "gq", "click", "icu", "cyou", "su"]
+
+[dga]
+# NET-002: a registrable label looks machine-generated when it is long, has high character
+# entropy, and either almost no vowels or letters mixed with several digits.
+min_label_len = 12
+min_entropy = 3.2
+max_vowel_ratio = 0.25
+min_digits = 3

@@ -55,7 +55,11 @@ export interface ConnectionInfo {
   verdict?: Verdict | null;
   blocked: boolean;
   country?: string | null;
+  reputation?: Reputation | null;
 }
+
+/** Offline destination reputation of a connection (docs/15 §4). */
+export type Reputation = 'bad' | 'risky';
 
 export interface Snapshot {
   status: Status;

@@ -30,6 +30,22 @@ h3 {
 .error {
   color: var(--malicious);
 }
+/* Host plus reputation chip in one table cell: the host truncates, the chip never does. */
+.remote-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  max-width: 100%;
+}
+.remote-cell > .mono {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.remote-cell > .chip {
+  flex: none;
+}
 
 /* ---- Button: primary / secondary (default) / subtle; verdict variants tint the label ---- */
 .btn {
