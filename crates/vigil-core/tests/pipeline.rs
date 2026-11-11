@@ -310,3 +310,18 @@ fn a_known_good_hash_adds_15_but_never_makes_an_unsigned_file_safe() {
     assert!(known.signals.iter().any(|s| s.id == "HASH-001"));
     assert!(known.score < vigil_core::consts::SAFE_MIN);
 }
+
+#[test]
+fn an_owner_named_credential_reader_counts_only_without_a_valid_signature() {
+    let path = r"C:\Program Files\Google\Chrome\Application\chrome.exe";
+    let res = |signer| {
+        let mut o = obs(path, None, signer, "");
+        o.behaviour.files.credential_store_as_owner = true;
+        verdict(&o).2.contains(&"RES-001".to_string())
+    };
+    assert!(!res(ms_signer()));
+    assert!(res(SignerInfo::unsigned()));
+    let mut o = obs(path, None, ms_signer(), "");
+    o.behaviour.files.foreign_credential_store = true;
+    assert!(verdict(&o).2.contains(&"RES-001".to_string()));
+}

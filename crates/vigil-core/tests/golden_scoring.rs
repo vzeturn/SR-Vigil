@@ -144,6 +144,38 @@ fn pinned_microsoft_app_starting_a_shell_loses_the_bonus() {
 }
 
 #[test]
+fn unsigned_tool_dropping_an_executable() {
+    let f = Facts {
+        drops_executable: true,
+        ..unsigned(PathClass::UserWritable)
+    };
+    check(&f, &["SIG-010", "FIL-001"], 20, Verdict::Unknown);
+}
+
+#[test]
+fn signed_app_mass_renaming_user_files() {
+    let f = Facts {
+        company_matches_signer: true,
+        mass_file_change: true,
+        ..signed(PathClass::ProgramFiles)
+    };
+    check(&f, &["FIL-002"], 48, Verdict::Unknown);
+}
+
+#[test]
+fn pinned_microsoft_app_reading_a_foreign_credential_store_loses_the_bonus() {
+    let f = Facts {
+        signer_pinned: true,
+        signer_ms_root: true,
+        company_matches_signer: true,
+        sensitive_resource: true,
+        ..signed(PathClass::ProgramFiles)
+    };
+    check(&f, &["SIG-002", "RES-001"], 73, Verdict::Unknown);
+    assert!(!ids(&eval(&f)).contains(&"TRU-001"));
+}
+
+#[test]
 fn unsigned_tool_reaching_a_generated_name() {
     let f = Facts {
         has_outbound: true,

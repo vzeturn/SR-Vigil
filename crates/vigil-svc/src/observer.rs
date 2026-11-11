@@ -50,6 +50,15 @@ pub fn spawn_connect_feed(shared: Arc<Shared>) {
                         let cmdline = vigil_win::process::command_line(pid);
                         shared.note_spawn(ppid, &image, cmdline.as_deref());
                     }
+                    vigil_win::etw::Event::FileDrop { pid, path } => {
+                        shared.note_file_drop(pid, &path);
+                    }
+                    vigil_win::etw::Event::FileRenamed { pid, ext } => {
+                        shared.note_rename(pid, &ext, crate::threat::now_ms());
+                    }
+                    vigil_win::etw::Event::CredentialOpen { pid, store } => {
+                        shared.note_credential_open(pid, store);
+                    }
                     _ => {}
                 }
             }
@@ -234,6 +243,7 @@ impl Judge {
             beaconing: sh.is_beaconing(img),
             net: sh.net_seen(img),
             spawned_suspicious_child: sh.spawned_suspicious_child(img),
+            files: sh.files_seen(img),
         };
         let ev = evaluate_image(&self.ctx, &self.pack, img, parent, Some(pid), live);
         if let Some(id) = id

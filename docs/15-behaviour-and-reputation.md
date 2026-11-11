@@ -24,7 +24,7 @@ CLAUDE.md rule 10 is amended accordingly (see §6). The watching-only UI (no ser
 | FIL-002 | `mass_file_change` | Many files rewritten/renamed with a new extension in a short window (ransomware shape) | −40 |
 | PRC-001 | `suspicious_child` | Spawns a script host or LOLBin with encoded/hidden command line, or an Office/browser parent starts a shell | −25 |
 | RES-001 | `sensitive_resource` | Reads credential stores (browser `Login Data`/`Cookies`, SAM/SECURITY hives, SSH keys, wallet files) while not being the owning program | −30 |
-| TRU-001 | `trusted_publisher_normal` | Pinned publisher whose chain ends in a Microsoft root doing expected behaviour: no NET-001 or PRC-001 finding this run (FIL-002 and RES-001 join the exclusion in the same change that adds them) | +10 |
+| TRU-001 | `trusted_publisher_normal` | Pinned publisher whose chain ends in a Microsoft root doing expected behaviour: no NET-001, PRC-001, FIL-002 or RES-001 finding this run | +10 |
 
 Rules: hard rules (HR-*) and SG-001 keep absolute priority; NET-001 and FIL-002 may be promoted to hard rules in a later change but are plain signals in v1. A trusted publisher never suppresses NET-001, FIL-002, RES-001 or PRC-001 (Edge to a phishing host is still reported). Adding a signal still requires: rule entry, row in `docs/03`, fixture test.
 
@@ -33,11 +33,11 @@ Rules: hard rules (HR-*) and SG-001 keep absolute priority; NET-001 and FIL-002 
 | Source | Provides | Notes |
 |---|---|---|
 | ETW `Microsoft-Windows-Kernel-Process` | process start/stop with parent PID and image | needs an elevated session; the event carries no command line, so for a child named in `rules/spawn.toml` the collector reads it with `NtQueryInformationProcess(ProcessCommandLineInformation)` right after the start event (missed when the child exits first). Feeds PRC-001 on the parent |
-| ETW `Microsoft-Windows-Kernel-File` | create/write/rename with PID | high volume: filter by path class and extension in the collector, bounded channel, drop-oldest counter |
+| ETW `Microsoft-Windows-Kernel-File` | keywords CREATE (event 12, every open, field `FileName`), RENAME_SETLINK_PATH (27, field `FilePath` = the name **after** the rename) and CREATE_NEW_FILE (30, `FileName`); PID from the event header; paths in NT device form (`\Device\HarddiskVolumeN\...`), matched on their tail so no drive-letter mapping is needed | high volume: the callback queues only events matching `rules/files.toml` (FIL-001 drops, FIL-002 double-extension renames, RES-001 store opens) into the bounded queue shared with the other providers, so a burst cannot crowd out process and network events; when the queue is full the newest event is dropped |
 | ETW `Microsoft-Windows-Kernel-Network` | per-connection bytes sent/received | feeds NET-003 |
 | ETW `Microsoft-Windows-DNS-Client` | event 3008 `QueryName` + `QueryResults`: name ↔ IP mapping per PID (10 min, bounded) | feeds NET-001/002 with the DNS name, not only the IP; no packet is read, so TLS SNI/JA4 capture is not needed |
 | `GetExtendedTcpTable` + process snapshot | fallback / reconciler | already used by the live scan |
-| Kernel-File open events on a fixed protected-path list | RES-001 | credential stores |
+| Kernel-File open events (event 12) on the store list in `rules/files.toml` | RES-001 | attributed to the program behind the PID; an owner-named program is decided at evaluation, where its signature is known |
 
 All strings from these events are untrusted data (CLAUDE.md rule 6): never interpolated into commands, SQL or AI instructions; paths reach the AI only through `vigil-core::redact`.
 

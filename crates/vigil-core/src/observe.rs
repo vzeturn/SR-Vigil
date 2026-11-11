@@ -76,6 +76,8 @@ pub struct Behaviour {
     pub generated_dest_name: bool,
     /// It started a script host with an encoded/hidden command line, or (Office/browser) a shell (PRC-001).
     pub spawned_suspicious_child: bool,
+    /// File and credential-store activity (FIL-001/002, RES-001).
+    pub files: FileSeen,
     pub unbacked_exec_memory: bool,
     /// A module loaded from a user-writable path has no valid signature (T14).
     pub unsigned_writable_module: bool,
@@ -85,6 +87,20 @@ pub struct Behaviour {
     pub from_internet: bool,
     /// The file hash is listed as known-good by the hash reputation service (`docs/20 s5`).
     pub hash_known_good: bool,
+}
+
+/// File findings accumulated for a program while it runs (`docs/15 §2`).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct FileSeen {
+    /// It created an executable or script in a user-writable folder (FIL-001).
+    pub dropped_executable: bool,
+    /// It renamed many user files to one new double extension in a short window (FIL-002).
+    pub mass_renamed: bool,
+    /// It opened a credential store it does not own (RES-001).
+    pub foreign_credential_store: bool,
+    /// It opened a credential store under the owner's name; RES-001 only without a valid signature.
+    pub credential_store_as_owner: bool,
 }
 
 /// Network findings accumulated for a program while it runs (`docs/15 §2`).
@@ -258,6 +274,12 @@ pub fn build_facts(ctx: &Context, obs: &Observation) -> Facts {
         bad_destination: obs.behaviour.bad_destination,
         generated_dest_name: obs.behaviour.generated_dest_name,
         suspicious_child: obs.behaviour.spawned_suspicious_child,
+        drops_executable: obs.behaviour.files.dropped_executable,
+        mass_file_change: obs.behaviour.files.mass_renamed,
+        // A program named like the store's owner counts only when its signature is not valid,
+        // so a fake chrome.exe reading Chrome's logins still fires.
+        sensitive_resource: obs.behaviour.files.foreign_credential_store
+            || (obs.behaviour.files.credential_store_as_owner && !signer.valid()),
         typosquat: !signer.valid() && is_typosquat(&name, &ctx.canonical_names()),
         unbacked_exec_memory: obs.behaviour.unbacked_exec_memory,
         unsigned_writable_module: obs.behaviour.unsigned_writable_module,

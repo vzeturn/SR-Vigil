@@ -2,6 +2,7 @@
 
 pub mod beacon;
 pub mod catalogue;
+pub mod fileact;
 pub mod geo;
 pub mod hashrep;
 pub mod known;

@@ -95,6 +95,8 @@ pub struct Live {
     pub net: vigil_core::observe::NetSeen,
     /// It started a suspicious child process this run (PRC-001).
     pub spawned_suspicious_child: bool,
+    /// File and credential-store activity this run (FIL-001/002, RES-001).
+    pub files: vigil_core::observe::FileSeen,
 }
 
 /// Evaluate `path` (child of `parent`) against `pack`, with what was observed live.
@@ -154,6 +156,7 @@ fn evaluate_with(
             bad_destination: live.net.bad,
             generated_dest_name: live.net.generated_name,
             spawned_suspicious_child: live.spawned_suspicious_child,
+            files: live.files,
         },
         signer: signer.clone(),
         vt_detections: None,

@@ -1,6 +1,6 @@
 //! Live service state: process and connection tables, mode, health and settings.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Instant;
@@ -147,6 +147,9 @@ pub struct Shared {
     pub(crate) destrep: Mutex<crate::destrep::DestRep>,
     /// Lower-cased image paths that started a suspicious child this run (PRC-001).
     pub(crate) spawn_seen: Mutex<std::collections::HashSet<String>>,
+    /// File findings by lower-cased image path this run (FIL-001/002, RES-001).
+    pub(crate) file_seen: Mutex<HashMap<String, vigil_core::observe::FileSeen>>,
+    pub(crate) mass_change: Mutex<vigil_core::analysis::fileact::MassChange>,
     pub(crate) reopen: Mutex<crate::reopen::Reopen>,
     pub(crate) launchers: Mutex<crate::launcher::Launchers>,
     pub(crate) ai_slots: tokio::sync::Semaphore,
@@ -277,6 +280,8 @@ impl Shared {
             threats: Mutex::new(crate::threat::Threats::default()),
             destrep: Mutex::new(crate::destrep::DestRep::default()),
             spawn_seen: Mutex::new(std::collections::HashSet::new()),
+            file_seen: Mutex::new(HashMap::new()),
+            mass_change: Mutex::new(vigil_core::analysis::fileact::MassChange::default()),
             reopen: Mutex::new(crate::reopen::Reopen::default()),
             launchers: Mutex::new(crate::launcher::Launchers::default()),
             ai_slots: tokio::sync::Semaphore::new(2),

@@ -10,6 +10,7 @@ pub mod destrep;
 pub mod dnsfilter;
 pub mod enforce;
 pub mod events;
+pub mod filewatch;
 pub mod handler;
 pub mod hashrep;
 pub mod kill;

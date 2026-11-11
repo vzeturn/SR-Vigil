@@ -255,11 +255,35 @@ when = { suspicious_child = true }
 score = -25
 
 [[rule]]
+id = "FIL-001"
+name = "drops_executable"
+kind = "signal"
+description = "Created an executable or script in Downloads, AppData, Temp or Public"
+when = { drops_executable = true }
+score = -15
+
+[[rule]]
+id = "FIL-002"
+name = "mass_file_change"
+kind = "signal"
+description = "Renamed many user files to one new double extension within a minute"
+when = { mass_file_change = true }
+score = -40
+
+[[rule]]
+id = "RES-001"
+name = "sensitive_resource"
+kind = "signal"
+description = "Opened a browser, SSH, wallet or registry credential store it does not own"
+when = { sensitive_resource = true }
+score = -30
+
+[[rule]]
 id = "TRU-001"
 name = "trusted_publisher_normal"
 kind = "signal"
-description = "Pinned publisher with a Microsoft root and no NET-001 or PRC-001 finding this run"
-when = { signature = "valid", signer_pinned = true, signer_ms_root = true, bad_destination = false, suspicious_child = false }
+description = "Pinned publisher with a Microsoft root and no NET-001, PRC-001, FIL-002 or RES-001 finding this run"
+when = { signature = "valid", signer_pinned = true, signer_ms_root = true, bad_destination = false, suspicious_child = false, mass_file_change = false, sensitive_resource = false }
 score = 10
 
 [[rule]]

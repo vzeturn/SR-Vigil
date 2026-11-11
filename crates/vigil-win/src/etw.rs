@@ -1,4 +1,4 @@
-//! Real-time ETW collection (process start/stop, TCP connects, DNS queries).
+//! Real-time ETW collection (process start/stop, TCP connects, DNS queries, file activity).
 //!
 //! Needs an elevated token: `start` returns `Error::Api` with access denied otherwise, and the
 //! caller degrades to snapshot-only observation.
@@ -12,11 +12,16 @@ use ferrisetw::provider::Provider;
 use ferrisetw::schema_locator::SchemaLocator;
 use ferrisetw::trace::UserTrace;
 
+use vigil_core::analysis::fileact;
+
 use crate::Error;
 
 const KERNEL_PROCESS: &str = "22fb2cd6-0e7b-422b-a0c7-2fad1fd0e716";
 const KERNEL_NETWORK: &str = "7dd42a49-5329-4832-8dfd-43d979153a88";
 const DNS_CLIENT: &str = "1c95126e-7eea-49a9-a3fe-a378b03ddb4d";
+const KERNEL_FILE: &str = "edd08927-9cc4-4e65-b970-c2560fb5c289";
+/// Kernel-File keywords: CREATE (event 12, opens), `RENAME_SETLINK_PATH` (27), `CREATE_NEW_FILE` (30).
+const FILE_KEYWORDS: u64 = 0x80 | 0x800 | 0x1000;
 /// Events buffered for a slow consumer; beyond this new events are dropped (bounded memory).
 const QUEUE: usize = 8192;
 
@@ -42,6 +47,21 @@ pub enum Event {
         pid: u32,
         name: String,
         addrs: Vec<IpAddr>,
+    },
+    /// FIL-001: a new executable or script in a user-writable folder.
+    FileDrop {
+        pid: u32,
+        path: String,
+    },
+    /// FIL-002 candidate: a user file renamed to a double extension; `ext` is the new final one.
+    FileRenamed {
+        pid: u32,
+        ext: String,
+    },
+    /// RES-001 candidate: a credential store (index into `rules/files.toml`) was opened.
+    CredentialOpen {
+        pid: u32,
+        store: usize,
     },
 }
 
@@ -146,6 +166,37 @@ fn dns_event(tx: &SyncSender<Event>, rec: &EventRecord, locator: &SchemaLocator)
     }
 }
 
+/// Only matching file events are queued: Kernel-File is high volume and must not crowd out the
+/// process and network events sharing the queue. Paths are NT device paths (`\Device\...`).
+fn file_event(tx: &SyncSender<Event>, rec: &EventRecord, locator: &SchemaLocator) {
+    let (id, field) = match rec.event_id() {
+        12 | 30 => (rec.event_id(), "FileName"),
+        // RenamePath: `FilePath` is the name after the rename.
+        27 => (27, "FilePath"),
+        _ => return,
+    };
+    let Ok(schema) = locator.event_schema(rec) else {
+        return;
+    };
+    let Ok(path) = Parser::create(rec, &schema).try_parse::<String>(field) else {
+        return;
+    };
+    let pid = rec.process_id();
+    let ev = match id {
+        12 => match fileact::sensitive_store(&path) {
+            Some(store) => Event::CredentialOpen { pid, store },
+            None => return,
+        },
+        30 if fileact::is_executable_drop(&path) => Event::FileDrop { pid, path },
+        27 => match fileact::rename_extension(&path) {
+            Some(ext) => Event::FileRenamed { pid, ext },
+            None => return,
+        },
+        _ => return,
+    };
+    let _ = tx.try_send(ev);
+}
+
 /// `QueryResults` is `;`-separated: addresses (`1.2.3.4`, `::ffff:1.2.3.4`) mixed with
 /// `type:  5 alias.example` records for CNAMEs, which are skipped.
 fn parse_results(results: &str) -> Vec<IpAddr> {
@@ -155,14 +206,14 @@ fn parse_results(results: &str) -> Vec<IpAddr> {
         .collect()
 }
 
-/// Start a session named `name` covering Kernel-Process, Kernel-Network and DNS-Client. A session
+/// Start a session named `name` covering Kernel-Process, Kernel-Network, DNS-Client and Kernel-File. A session
 /// of that name left behind by a crashed run is stopped first (real-time sessions outlive their
 /// process).
 pub fn start(name: &str) -> Result<Session, Error> {
     // Absent session is the normal case; any real problem resurfaces from `start_and_process`.
     let _ = ferrisetw::trace::stop_trace_by_name(name);
     let (tx, rx) = sync_channel(QUEUE);
-    let (t1, t2, t3) = (tx.clone(), tx.clone(), tx);
+    let (t1, t2, t3, t4) = (tx.clone(), tx.clone(), tx.clone(), tx);
     let process = Provider::by_guid(KERNEL_PROCESS)
         .add_callback(move |r: &EventRecord, l: &SchemaLocator| process_event(&t1, r, l))
         .build();
@@ -172,11 +223,16 @@ pub fn start(name: &str) -> Result<Session, Error> {
     let dns = Provider::by_guid(DNS_CLIENT)
         .add_callback(move |r: &EventRecord, l: &SchemaLocator| dns_event(&t3, r, l))
         .build();
+    let file = Provider::by_guid(KERNEL_FILE)
+        .any(FILE_KEYWORDS)
+        .add_callback(move |r: &EventRecord, l: &SchemaLocator| file_event(&t4, r, l))
+        .build();
     let trace = UserTrace::new()
         .named(name.to_string())
         .enable(process)
         .enable(network)
         .enable(dns)
+        .enable(file)
         .start_and_process()
         .map_err(|e| Error::Etw(format!("{e:?}")))?;
     Ok(Session {

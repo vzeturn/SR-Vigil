@@ -32,6 +32,9 @@ pub struct Facts {
     pub bad_destination: bool,
     pub generated_dest_name: bool,
     pub suspicious_child: bool,
+    pub drops_executable: bool,
+    pub mass_file_change: bool,
+    pub sensitive_resource: bool,
     pub typosquat: bool,
     pub unbacked_exec_memory: bool,
     pub unsigned_writable_module: bool,
@@ -74,6 +77,9 @@ impl Default for Facts {
             bad_destination: false,
             generated_dest_name: false,
             suspicious_child: false,
+            drops_executable: false,
+            mass_file_change: false,
+            sensitive_resource: false,
             typosquat: false,
             unbacked_exec_memory: false,
             unsigned_writable_module: false,
@@ -156,6 +162,9 @@ fn matches(w: &When, f: &Facts) -> bool {
         && flag(w.bad_destination, f.bad_destination)
         && flag(w.generated_dest_name, f.generated_dest_name)
         && flag(w.suspicious_child, f.suspicious_child)
+        && flag(w.drops_executable, f.drops_executable)
+        && flag(w.mass_file_change, f.mass_file_change)
+        && flag(w.sensitive_resource, f.sensitive_resource)
         && flag(w.typosquat, f.typosquat)
         && flag(w.unbacked_exec_memory, f.unbacked_exec_memory)
         && flag(w.unsigned_writable_module, f.unsigned_writable_module)

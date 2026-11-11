@@ -1,0 +1,67 @@
+# File and credential-store activity (docs/15 §2). Paths are matched case-insensitively on their
+# tail, so NT device paths (\Device\HarddiskVolume3\...) and drive paths both work. Names are
+# image basenames.
+
+# FIL-001: a new file of these types created in a user-writable folder.
+[drop]
+extensions = [
+  "exe", "dll", "scr", "com", "pif", "cpl", "ps1", "psm1", "vbs", "vbe", "js", "jse", "wsf",
+  "hta", "bat", "cmd", "msi", "jar",
+]
+folders = ["\\downloads\\", "\\appdata\\", "\\temp\\", "\\users\\public\\"]
+
+# FIL-002: one process renaming many user files to a double extension (report.docx.locked)
+# with the same final extension inside a short window.
+[mass_change]
+window_secs = 60
+threshold = 30
+# Only files under a user profile, outside AppData (application state rotates its own files).
+under = "\\users\\"
+not_under = ["\\appdata\\"]
+# Final extensions that ordinary renames produce (temporary, backup, partial downloads, and
+# ordinary document/media types: a photo organiser renaming to .jpg is not ransomware).
+ignored_extensions = [
+  "tmp", "temp", "bak", "old", "orig", "log", "part", "partial", "crdownload", "download",
+  "swp", "lock", "lnk", "url", "txt", "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "csv",
+  "json", "xml", "html", "jpg", "jpeg", "png", "gif", "heic", "webp", "mp3", "mp4", "mov",
+  "zip", "7z", "rar",
+]
+
+# RES-001: opening a credential store while not being its owning program. An owner name counts
+# only when the owner's own signature is valid (checked when the program is evaluated).
+[sensitive]
+# Programs that read every file by design (anti-malware, the search indexer, Vigil).
+always_allowed = [
+  "msmpeng.exe", "mpdefendercoreservice.exe", "nissrv.exe", "mssense.exe",
+  "searchindexer.exe", "searchprotocolhost.exe", "vigilsvc.exe",
+]
+
+[[sensitive.store]]
+name = "chromium_credentials"
+contains = "\\user data\\"
+tails = ["\\login data", "\\login data for account", "\\cookies", "\\web data", "\\local state"]
+owners = ["chrome.exe", "msedge.exe", "brave.exe", "opera.exe", "vivaldi.exe", "msedgewebview2.exe"]
+
+[[sensitive.store]]
+name = "firefox_credentials"
+contains = "\\profiles\\"
+tails = ["\\logins.json", "\\key4.db", "\\cookies.sqlite"]
+owners = ["firefox.exe", "thunderbird.exe"]
+
+[[sensitive.store]]
+name = "registry_secrets"
+contains = "\\system32\\config\\"
+tails = ["\\config\\sam", "\\config\\security"]
+owners = ["lsass.exe", "services.exe"]
+
+[[sensitive.store]]
+name = "ssh_keys"
+contains = "\\.ssh\\"
+tails = ["\\id_rsa", "\\id_ecdsa", "\\id_ed25519", "\\id_dsa"]
+owners = ["ssh.exe", "ssh-agent.exe", "ssh-add.exe", "sshd.exe", "scp.exe", "sftp.exe"]
+
+[[sensitive.store]]
+name = "crypto_wallets"
+contains = "\\"
+tails = ["\\wallet.dat"]
+owners = ["bitcoin-qt.exe", "bitcoind.exe", "litecoin-qt.exe"]
