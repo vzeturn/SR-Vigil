@@ -4,9 +4,10 @@
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use vigil_core::analysis::path::normalize;
+use vigil_core::observe::Context;
 use vigil_core::rules::{RulePack, SignatureState, Verdict};
 use vigil_store::repo::{Executable, NewEvaluation, insert_evaluation, upsert_executable};
 use vigil_win::hash::HashCache;
@@ -21,6 +22,8 @@ const POLL: Duration = Duration::from_millis(500);
 const BURST: usize = 8;
 const BURST_PAUSE: Duration = Duration::from_millis(40);
 const HEARTBEAT: Duration = Duration::from_secs(15);
+/// Running images are re-judged this often; the state only moves when the evidence did.
+const RECHECK: Duration = Duration::from_secs(3600);
 
 type Key = (String, Option<String>);
 
@@ -31,6 +34,13 @@ struct Verdicted {
     identity: String,
     signals: Vec<serde_json::Value>,
     freshness: Option<serde_json::Value>,
+    judged: Instant,
+}
+
+impl Verdicted {
+    fn due(&self) -> bool {
+        self.judged.elapsed() >= RECHECK
+    }
 }
 
 const fn verdict_name(v: Verdict) -> &'static str {
@@ -143,7 +153,8 @@ fn unseen_images(
         };
         let parent = parents.get(&p.pid).and_then(|pp| pp.image.clone());
         let key = (normalize(image), parent.as_deref().map(normalize));
-        if !cache.contains_key(&key) && !pending.iter().any(|(k, ..)| *k == key) {
+        let fresh = cache.get(&key).is_some_and(|v| !v.due());
+        if !fresh && !pending.iter().any(|(k, ..)| *k == key) {
             pending.push((key, image.to_string(), parent, p.pid));
         }
     }
@@ -158,10 +169,50 @@ fn forget_decided(shared: &Shared, cache: &mut HashMap<Key, Verdicted>) {
     }
 }
 
+struct Judge {
+    ctx: Context,
+    pack: Arc<RulePack>,
+    hashes: HashCache,
+    shared: Arc<Shared>,
+}
+
+impl Judge {
+    /// Evaluate one image; a new evaluation row is stored only when the result moved from `before`.
+    fn judge(
+        &self,
+        img: &str,
+        parent: Option<&str>,
+        pid: u32,
+        before: Option<(&'static str, u8)>,
+    ) -> Verdicted {
+        let sh = &self.shared;
+        let id = register(sh, &self.hashes, img);
+        let allowed = id.is_some_and(|id| sh.user_allows(id));
+        let ev = evaluate_image(&self.ctx, &self.pack, img, parent, Some(pid), allowed);
+        if let Some(id) = id
+            && before != Some((verdict_name(ev.verdict), ev.score))
+        {
+            record(sh, id, &ev);
+        }
+        Verdicted {
+            verdict: verdict_name(ev.verdict),
+            score: ev.score,
+            identity: id.map(|id| id.to_string()).unwrap_or_default(),
+            signals: signals_of(&ev),
+            freshness: freshness_note(img),
+            judged: Instant::now(),
+        }
+    }
+}
+
 /// Run until the task is dropped.
 pub async fn run(shared: Arc<Shared>, pack: Arc<RulePack>) -> anyhow::Result<()> {
-    let ctx = Arc::new(env_context()?);
-    let hashes = Arc::new(HashCache::new());
+    let judge = Arc::new(Judge {
+        ctx: env_context()?,
+        pack,
+        hashes: HashCache::new(),
+        shared: Arc::clone(&shared),
+    });
     let mut cache: HashMap<Key, Verdicted> = HashMap::new();
     let mut tick = tokio::time::interval(POLL);
     tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -195,31 +246,14 @@ pub async fn run(shared: Arc<Shared>, pack: Arc<RulePack>) -> anyhow::Result<()>
             if burst {
                 tokio::time::sleep(BURST_PAUSE).await;
             }
-            let (ctx, pack, hashes, sh) = (
-                Arc::clone(&ctx),
-                Arc::clone(&pack),
-                Arc::clone(&hashes),
-                Arc::clone(&shared),
-            );
-            let img = image.clone();
-            let par = parent.clone();
-            let v = tokio::task::spawn_blocking(move || {
-                let id = register(&sh, &hashes, &img);
-                let allowed = id.is_some_and(|id| sh.user_allows(id));
-                let ev = evaluate_image(&ctx, &pack, &img, par.as_deref(), Some(pid), allowed);
-                if let Some(id) = id {
-                    record(&sh, id, &ev);
-                }
-                let identity = id.map(|id| id.to_string()).unwrap_or_default();
-                Verdicted {
-                    verdict: verdict_name(ev.verdict),
-                    score: ev.score,
-                    identity,
-                    signals: signals_of(&ev),
-                    freshness: freshness_note(&img),
-                }
-            })
-            .await?;
+            let (j, img, par) = (Arc::clone(&judge), image.clone(), parent.clone());
+            let before = cache.get(&key).map(|p| (p.verdict, p.score));
+            let v = tokio::task::spawn_blocking(move || j.judge(&img, par.as_deref(), pid, before))
+                .await?;
+            if before == Some((v.verdict, v.score)) {
+                cache.insert(key, v); // hourly re-check found nothing new
+                continue;
+            }
             for (row, old) in shared.apply_evaluation(
                 &image,
                 parent.as_deref(),
@@ -399,4 +433,41 @@ fn sync_connections(shared: &Shared) {
         })
         .collect();
     shared.sync_connections(rows);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn cached(age: Duration) -> Verdicted {
+        Verdicted {
+            verdict: "safe",
+            score: 90,
+            identity: "1".into(),
+            signals: vec![],
+            freshness: None,
+            judged: Instant::now().checked_sub(age).unwrap(),
+        }
+    }
+
+    #[test]
+    fn running_images_are_rechecked_after_an_hour() {
+        let image = r"C:\Tools\app.exe";
+        let procs = [ProcessInfo {
+            pid: 10,
+            ppid: 0,
+            name: "app.exe".into(),
+            image: Some(image.into()),
+            start_time: None,
+            threads: 1,
+            ram_bytes: 0,
+            cpu_ticks: 0,
+        }];
+        let key = (normalize(image), None);
+
+        let mut cache = HashMap::from([(key.clone(), cached(Duration::from_secs(60)))]);
+        assert_eq!(unseen_images(&procs, &cache).len(), 0);
+        cache.insert(key, cached(RECHECK));
+        assert_eq!(unseen_images(&procs, &cache).len(), 1);
+    }
 }

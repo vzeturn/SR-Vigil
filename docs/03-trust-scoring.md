@@ -103,6 +103,7 @@ SIG-001, SIG-002 and SIG-003 are mutually exclusive (`exclusive_group = "signer_
 | Binary with "Microsoft Corporation" metadata, unsigned | HR-007 | 0 | malicious |
 | Allowed unknown app whose file is replaced (new hash) | re-evaluate, HA-002 no longer matches | — | re-scored |
 | User allows, blocks or revokes a decision | running copies are re-evaluated on the next observer tick (newest active decision wins) | — | re-scored |
+| Image still running an hour after its last evaluation | re-evaluated (catches expired decisions, new hash reputation, revoked signatures); state and stored evaluation change only when the result changed | — | unchanged or re-scored |
 
 For rows decided by a hard rule the table shows only the deciding rule; every other signal that fired (for example SIG-002 or LOC-001 on a tampered but otherwise normal file) is still recorded in the evaluation's `signals` array and shown in the UI.
 
