@@ -120,6 +120,30 @@ fn signed_office_app_starting_a_shell() {
 }
 
 #[test]
+fn pinned_microsoft_app_behaving_normally() {
+    let f = Facts {
+        signer_pinned: true,
+        signer_ms_root: true,
+        company_matches_signer: true,
+        ..signed(PathClass::ProgramFiles)
+    };
+    check(&f, &["SIG-002", "TRU-001"], 100, Verdict::Safe);
+}
+
+#[test]
+fn pinned_microsoft_app_starting_a_shell_loses_the_bonus() {
+    let f = Facts {
+        signer_pinned: true,
+        signer_ms_root: true,
+        company_matches_signer: true,
+        suspicious_child: true,
+        ..signed(PathClass::ProgramFiles)
+    };
+    check(&f, &["SIG-002", "PRC-001"], 78, Verdict::Unknown);
+    assert!(!ids(&eval(&f)).contains(&"TRU-001"));
+}
+
+#[test]
 fn unsigned_tool_reaching_a_generated_name() {
     let f = Facts {
         has_outbound: true,

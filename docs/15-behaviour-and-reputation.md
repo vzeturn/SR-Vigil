@@ -24,7 +24,7 @@ CLAUDE.md rule 10 is amended accordingly (see §6). The watching-only UI (no ser
 | FIL-002 | `mass_file_change` | Many files rewritten/renamed with a new extension in a short window (ransomware shape) | −40 |
 | PRC-001 | `suspicious_child` | Spawns a script host or LOLBin with encoded/hidden command line, or an Office/browser parent starts a shell | −25 |
 | RES-001 | `sensitive_resource` | Reads credential stores (browser `Login Data`/`Cookies`, SAM/SECURITY hives, SSH keys, wallet files) while not being the owning program | −30 |
-| TRU-001 | `trusted_publisher_normal` | Pinned Microsoft/Apple publisher doing expected behaviour (no NET-001, FIL-002, RES-001 or PRC-001 hit) | +10 |
+| TRU-001 | `trusted_publisher_normal` | Pinned publisher whose chain ends in a Microsoft root doing expected behaviour: no NET-001 or PRC-001 finding this run (FIL-002 and RES-001 join the exclusion in the same change that adds them) | +10 |
 
 Rules: hard rules (HR-*) and SG-001 keep absolute priority; NET-001 and FIL-002 may be promoted to hard rules in a later change but are plain signals in v1. A trusted publisher never suppresses NET-001, FIL-002, RES-001 or PRC-001 (Edge to a phishing host is still reported). Adding a signal still requires: rule entry, row in `docs/03`, fixture test.
 

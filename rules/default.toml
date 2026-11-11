@@ -255,6 +255,14 @@ when = { suspicious_child = true }
 score = -25
 
 [[rule]]
+id = "TRU-001"
+name = "trusted_publisher_normal"
+kind = "signal"
+description = "Pinned publisher with a Microsoft root and no NET-001 or PRC-001 finding this run"
+when = { signature = "valid", signer_pinned = true, signer_ms_root = true, bad_destination = false, suspicious_child = false }
+score = 10
+
+[[rule]]
 id = "BEH-005"
 name = "unbacked_exec_memory"
 kind = "signal"

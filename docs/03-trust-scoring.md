@@ -63,6 +63,7 @@ SIG-001, SIG-002 and SIG-003 are mutually exclusive (`exclusive_group = "signer_
 | NET-001 | `reputation_bad_destination` | The DNS name the program resolved for a public destination is on the bundled list in `rules/reputation.toml` or on a downloaded malware/phishing list of the URL filter (`docs/23`), subdomains included | −45 | |
 | NET-002 | `generated_destination_name` | The registrable label of that DNS name looks machine-generated: ≥ 12 characters, entropy ≥ 3.2 bits, and ≤ 25 % vowels or ≥ 3 digits mixed with letters (IDN `xn--` labels excluded) | −15 | |
 | PRC-001 | `suspicious_child` | The program started a script host or LOLBin from `rules/spawn.toml` whose command line is encoded (`-enc`/`-ec` and other `-EncodedCommand` prefixes), hidden or download-and-run, or it is an Office app or browser that started a shell (browser native-messaging hosts excepted). Scored on the parent, never on the OS script host | −25 | |
+| TRU-001 | `trusted_publisher_normal` | Valid signature from a pinned publisher whose chain ends in a Microsoft root, and no NET-001 or PRC-001 finding this run (a trusted publisher never suppresses those) | +10 | |
 | BEH-005 | `unbacked_exec_memory` | Executable private memory region not backed by an image file (optional: set `VIGIL_MEMORY_SCAN=1`; only scanned for processes whose own image is not validly signed, because JIT engines also use RWX memory) | −40 | |
 | MOD-001 | `unsigned_writable_module` | A module loaded by the process from a user-writable path has no valid signature (DLL sideloading, T14). Modules inside the program's own install directory are its bundled code and do not count (Electron apps, Python launchers), nor does a uv/pip environment's root (`profile::install_root`) or any `site-packages` module (imported by name, not found by the loader's search order). SIG-010, SIG-011 and MOD-001 share the exclusive group `unsigned_code`: only the worst one applies, so "unsigned" is penalised once. Checked once per new image, from the loaded-module list | −30 | |
 | REP-010 | `vt_low_detections` | VirusTotal 1–4 detections | −20 | |
@@ -107,6 +108,8 @@ SIG-001, SIG-002 and SIG-003 are mutually exclusive (`exclusive_group = "signer_
 | Small vendor app (88) resolving a listed bad host | SIG-003, SIG-004, LOC-001, NET-001 | 43 | unknown |
 | Unsigned tool in Downloads → generated name on a risky TLD | SIG-010, NET-002, BEH-004 | 10 | unknown |
 | Signed Office app (88) starting a shell | SIG-003, SIG-004, LOC-001, PRC-001 | 63 | unknown |
+| Pinned Microsoft app (103, clamped) behaving normally | SIG-002, SIG-004, LOC-001, TRU-001 | 100 | safe |
+| Pinned Microsoft app starting a shell (no TRU-001) | SIG-002, SIG-004, LOC-001, PRC-001 | 78 | unknown |
 | Allowed unknown app whose file is replaced (new hash) | re-evaluate, HA-002 no longer matches | — | re-scored |
 | User allows, blocks or revokes a decision | running copies are re-evaluated on the next observer tick (newest active decision wins) | — | re-scored |
 | Image still running an hour after its last evaluation | re-evaluated (catches expired decisions, new hash reputation, revoked signatures); state and stored evaluation change only when the result changed | — | unchanged or re-scored |
