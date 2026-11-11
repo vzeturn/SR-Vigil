@@ -11,6 +11,11 @@ pub struct BeaconConfig {
     pub min_samples: usize,
     pub max_cv: f64,
     pub min_interval_ms: f64,
+    /// Jittered beacons (sleep ± random %) fail the CV test; they are caught by a robust rule
+    /// that needs more samples: interquartile range of the intervals over their median at most
+    /// `jitter_max_spread` (a uniform ± j jitter gives about j).
+    pub jitter_min_samples: usize,
+    pub jitter_max_spread: f64,
 }
 
 impl Default for BeaconConfig {
@@ -20,6 +25,8 @@ impl Default for BeaconConfig {
             min_samples: 6,
             max_cv: 0.15,
             min_interval_ms: 5_000.0,
+            jitter_min_samples: 12,
+            jitter_max_spread: 0.6,
         }
     }
 }
@@ -41,12 +48,29 @@ pub fn is_beaconing(timestamps_ms: &[u64], cfg: &BeaconConfig) -> bool {
         return false;
     }
     let intervals: Vec<f64> = window.windows(2).map(|w| (w[1] - w[0]) as f64).collect();
+    is_regular(&intervals, cfg)
+        || (window.len() >= cfg.jitter_min_samples && is_jittered(intervals, cfg))
+}
+
+/// Coefficient of variation below `max_cv` (a fixed sleep).
+#[allow(clippy::cast_precision_loss)]
+fn is_regular(intervals: &[f64], cfg: &BeaconConfig) -> bool {
     let mean = intervals.iter().sum::<f64>() / intervals.len() as f64;
     if mean < cfg.min_interval_ms {
         return false;
     }
     let var = intervals.iter().map(|i| (i - mean).powi(2)).sum::<f64>() / intervals.len() as f64;
     var.sqrt() / mean < cfg.max_cv
+}
+
+/// Tight interquartile spread around the median (a randomised sleep). Quartiles ignore the odd
+/// missed or extra connection, which would wreck a mean-based test.
+fn is_jittered(mut intervals: Vec<f64>, cfg: &BeaconConfig) -> bool {
+    intervals.sort_by(f64::total_cmp);
+    let n = intervals.len();
+    let median = intervals[n / 2];
+    median >= cfg.min_interval_ms
+        && (intervals[3 * n / 4] - intervals[n / 4]) / median <= cfg.jitter_max_spread
 }
 
 /// Flows tracked at once; beyond this the stalest flow is dropped (bounded memory).
@@ -127,6 +151,11 @@ impl<K: Eq + Hash + Clone> BeaconTracker<K> {
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss
+)]
 mod tests {
     use super::*;
 
@@ -152,6 +181,59 @@ mod tests {
     #[test]
     fn irregular_traffic_is_not() {
         let t = [0, 1_000, 90_000, 100_000, 400_000, 410_000, 900_000].map(|x| x + 1_000_000);
+        assert!(!is_beaconing(&t, &BeaconConfig::default()));
+    }
+
+    /// `step` ± `jitter` (fraction) from a fixed LCG, so the fixture is reproducible.
+    fn jittered(step: u64, jitter: f64, n: usize) -> Vec<u64> {
+        let mut seed: u64 = 0x2545_F491_4F6C_DD1D;
+        let mut t = 1_000_000;
+        (0..n)
+            .map(|_| {
+                seed = seed.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
+                let unit = (seed >> 11) as f64 / (1u64 << 53) as f64; // [0, 1)
+                t += (step as f64 * (1.0 + jitter * (2.0 * unit - 1.0))) as u64;
+                t
+            })
+            .collect()
+    }
+
+    #[test]
+    fn jittered_beacon_is_caught_with_enough_samples() {
+        let cfg = BeaconConfig::default();
+        for jitter in [0.3, 0.5] {
+            let t = jittered(60_000, jitter, 13);
+            let gaps: Vec<f64> = t.windows(2).map(|w| (w[1] - w[0]) as f64).collect();
+            assert!(
+                !is_regular(&gaps, &cfg),
+                "±{jitter} must need the jitter rule"
+            );
+            assert!(is_beaconing(&t, &cfg), "±{jitter}");
+            assert!(!is_beaconing(&t[..11], &cfg), "±{jitter} needs 12 samples");
+        }
+    }
+
+    #[test]
+    fn jittered_beacon_survives_one_missed_connection() {
+        let mut t = jittered(60_000, 0.3, 21);
+        t.remove(10);
+        assert!(is_beaconing(&t, &BeaconConfig::default()));
+    }
+
+    #[test]
+    fn bursty_traffic_with_many_samples_is_not() {
+        let gaps = [
+            3_000, 70_000, 5_000, 200_000, 8_000, 40_000, 6_000, 300_000, 4_000, 90_000, 7_000,
+            150_000, 5_000, 60_000,
+        ];
+        let mut ts = 1_000_000;
+        let t: Vec<u64> = gaps
+            .iter()
+            .map(|g| {
+                ts += g;
+                ts
+            })
+            .collect();
         assert!(!is_beaconing(&t, &BeaconConfig::default()));
     }
 

@@ -57,7 +57,7 @@ SIG-001, SIG-002 and SIG-003 are mutually exclusive (`exclusive_group = "signer_
 | SIG-020 | `typosquat_name` | Image name within Levenshtein distance ≤ 2 of a canonical/popular name, or uses confusable characters, and is not that name | −50 | |
 | LOC-010 | `network_share_or_removable` | Path on UNC share or removable drive | −15 | |
 | BEH-001 | `lolbin_outbound` | LOLBin (`rules/lolbins.toml`) with an outbound connection to a public destination, unless a `context_allow` entry matches the verified parent chain (e.g. Intune/SCCM agents whose own verdict is Safe) | −25 | 70 |
-| BEH-002 | `beaconing` | ≥ 6 connections to the same destination in 30 min with interval coefficient of variation < 0.15 (live: per program, remote IP and port; see `docs/24`) | −30 | |
+| BEH-002 | `beaconing` | ≥ 6 connections to the same destination in 30 min with interval coefficient of variation < 0.15, or ≥ 12 with interquartile range ≤ 0.6 × median interval (jittered sleep) (live: per program, remote IP and port; see `docs/24`) | −30 | |
 | BEH-003 | `public_dest_no_dns` | Public IP destination with no preceding DNS resolution for that PID within 60 s | −10 | |
 | BEH-004 | `risky_port_or_tld` | Destination port in the risky list or DNS name TLD in the risky list (`config/default-policy.toml`) | −10 | |
 | BEH-005 | `unbacked_exec_memory` | Executable private memory region not backed by an image file (optional: set `VIGIL_MEMORY_SCAN=1`; only scanned for processes whose own image is not validly signed, because JIT engines also use RWX memory) | −40 | |
@@ -128,7 +128,7 @@ For rows decided by a hard rule the table shows only the deciding rule; every ot
 
 ## 6. Beaconing detector (pure function in `vigil-core`)
 
-Input: timestamps of new connections per `(identity, dest_ip, dest_port)` in a sliding 30-minute window. If `n ≥ 6`, compute intervals `Δ`, mean `μ`, standard deviation `σ`; flag when `σ/μ < 0.15` and `μ ≥ 5 s`. Ignore destinations in `beacon_ignore` (NTP, Windows Update, configured telemetry) and loopback/LAN unless configured.
+Input: timestamps of new connections per `(identity, dest_ip, dest_port)` in a sliding 30-minute window. If `n ≥ 6`, compute intervals `Δ`, mean `μ`, standard deviation `σ`; flag when `σ/μ < 0.15` and `μ ≥ 5 s`. Jittered beacons (a sleep randomised by up to about ±50 %) fail that test, so with `n ≥ 12` also flag when the median interval `m ≥ 5 s` and `(Q3 − Q1)/m ≤ 0.6` over the intervals; quartiles ignore an odd missed or extra connection. Bursty human traffic has a spread well above 1. Ignore destinations in `beacon_ignore` (NTP, Windows Update, configured telemetry) and loopback/LAN unless configured.
 
 ## 7. Path classes
 

@@ -40,6 +40,8 @@ window_minutes   = 30
 min_samples      = 6
 max_cv           = 0.15
 min_interval_sec = 5
+jitter_min_samples = 12   # jittered sleep: ≥ 12 samples and
+jitter_max_spread  = 0.6  # (Q3 − Q1) / median interval ≤ 0.6
 
 [evaluation]
 hash_cache_ttl_days        = 30

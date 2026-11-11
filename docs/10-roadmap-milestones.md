@@ -213,7 +213,7 @@ root-cause popup. Build order is in `docs/18 §7`.
 
 ## Backlog (post-v1, tracked)
 
-- Suspicious network behaviour (`docs/24`): TLS handshake metadata (SNI, JA4) per flow; ETW-based connection capture so flows shorter than the poll interval are counted; jitter-tolerant beacon detection.
+- Suspicious network behaviour (`docs/24`): TLS handshake metadata (SNI, JA4) per flow; ETW-based connection capture so flows shorter than the poll interval are counted. Jitter-tolerant beacon detection is done (`docs/03 §6`).
 
 - Inbound blocking option (FR-017): `ALE_AUTH_RECV_ACCEPT` filters, off by default.
 
