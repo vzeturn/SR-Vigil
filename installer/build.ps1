@@ -1,9 +1,9 @@
 <#
 .SYNOPSIS  Build the Vigil MSI. Requires: Rust, pnpm, and the WiX CLI (dotnet tool install --global wix).
-.EXAMPLE   .\installer\build.ps1 -Version 0.1.0 [-SignCert <thumbprint>]
+.EXAMPLE   .\installer\build.ps1 -Version 1.0.0 [-SignCert <thumbprint>]
 #>
 param(
-    [string]$Version = '0.1.0',
+    [string]$Version = '1.0.0',
     [string]$SignCert = '',
     # build: compile and stage dist/bin only (CI signs the binaries next); package: wrap dist/bin in the MSI.
     [ValidateSet('all', 'build', 'package')][string]$Stage = 'all'

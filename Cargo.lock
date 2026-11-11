@@ -2180,7 +2180,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "vigil-ai"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "jsonschema",
  "reqwest",
@@ -2193,7 +2193,7 @@ dependencies = [
 
 [[package]]
 name = "vigil-core"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "base64 0.22.1",
  "ed25519-dalek",
@@ -2207,7 +2207,7 @@ dependencies = [
 
 [[package]]
 name = "vigil-ipc"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "jsonschema",
  "serde",
@@ -2217,7 +2217,7 @@ dependencies = [
 
 [[package]]
 name = "vigil-store"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "rusqlite",
  "serde_json",
@@ -2228,7 +2228,7 @@ dependencies = [
 
 [[package]]
 name = "vigil-svc"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "jsonschema",
@@ -2254,7 +2254,7 @@ dependencies = [
 
 [[package]]
 name = "vigil-win"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "ferrisetw",
  "serde_json",
@@ -2269,7 +2269,7 @@ dependencies = [
 
 [[package]]
 name = "vigilctl"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -2677,7 +2677,7 @@ checksum = "3ad82d2a33cdc9674dc7465672f271e096168fcdbe0f799d9e6db8c5892679dc"
 
 [[package]]
 name = "xtask"
-version = "0.1.0"
+version = "1.0.0"
 
 [[package]]
 name = "yoke"

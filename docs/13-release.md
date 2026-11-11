@@ -7,8 +7,8 @@
 Prerequisites on the **build** machine only (end users need nothing): Rust (stable), Node 22 + pnpm, the WiX CLI (`dotnet tool install --global wix`), and optionally a code-signing certificate.
 
 ```powershell
-.\installer\build.ps1 -Version 0.1.0            # unsigned
-.\installer\build.ps1 -Version 0.1.0 -SignCert <sha1-thumbprint>   # signed
+.\installer\build.ps1 -Version 1.0.0            # unsigned
+.\installer\build.ps1 -Version 1.0.0 -SignCert <sha1-thumbprint>   # signed
 ```
 
 Output: `dist\Vigil-<version>.msi` and `dist\Vigil-<version>.msi.sha256`. The binaries link the C runtime statically (`.cargo/config.toml`), so no Visual C++ redistributable is needed. The UI uses the system WebView2 runtime, which ships with Windows 11 and current Windows 10; on an older Windows 10 without it, install the Evergreen runtime once (tracked in `docs/10`).

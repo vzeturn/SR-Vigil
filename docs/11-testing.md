@@ -141,3 +141,9 @@ Disposable Windows 10 and Windows 11 VM snapshots, standard user plus an admin a
 - Automated: `cargo test -p vigil-core motw posture`, `cargo test -p vigil-core --test pipeline` (SRC-001), `cargo test -p vigil-svc --test kill` (orphan block lifted).
 - Automated: `cargo test -p vigil-core hashrep` and the HASH-001 case in `pipeline`.
 - Manual: `vigilctl posture` lists each recommended ASR rule with its state. Download an unsigned exe with a browser and run it: the evaluation lists SRC-001. Revoke a kill decision: the program is no longer killed within one scan.
+
+## URL filter and protection switch checks (M18)
+
+- Automated: `cargo test -p vigil-core urlfilter`, `cargo test -p vigil-svc dnsfilter`, `cargo test -p vigil-svc --test pause` (paused: no kill, lockdown refused).
+- Manual (Windows, elevated): `vigilctl` settings enable `urlfilter`, then `nslookup` a name from the ads list returns `0.0.0.0` and `nslookup microsoft.com` resolves; disable and confirm the adapter DNS is back to its original value. Kill `vigil-svc` and restart it: the stale backup is restored.
+- Manual: `vigilctl protection off`, start a looping test program in `enforce`: nothing is killed; `vigilctl protection on` resumes.

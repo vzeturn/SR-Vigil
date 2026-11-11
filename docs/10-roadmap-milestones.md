@@ -204,6 +204,13 @@ root-cause popup. Build order is in `docs/18 §7`.
 - [x] Staged `build.ps1` (`-Stage build|package`) and a SignPath signing job with a signature gate in `release.yml`.
 - [ ] Owner: SignPath approval, `SIGNPATH_ORGANIZATION_ID`/`SIGNPATH_API_TOKEN`, first signed tag, Defender reputation submission.
 
+## M18 — URL filter and protection switch (design in `docs/23`)
+
+- [x] Local DNS sinkhole with malware, phishing, adult and ads lists, protected names, user exceptions, reversible adapter DNS.
+- [x] `dns.status`, `protection.set`, `vigilctl protection`, header switch in the UI.
+- [ ] Windows VM check: enable the filter, resolve a listed test name, reboot, kill the service and confirm DNS is restored.
+- [ ] UI page for filter categories and exceptions (today: `settings.set` / CLI).
+
 ## Backlog (post-v1, tracked)
 
 - Inbound blocking option (FR-017): `ALE_AUTH_RECV_ACCEPT` filters, off by default.

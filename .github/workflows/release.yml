@@ -93,3 +93,23 @@ jobs:
             dist/*.msi
             dist/*.sha256
             **/*.cdx.json
+
+  publish:
+    needs: msi
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: vigil-release
+          path: release
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes="docs/release-notes/${GITHUB_REF_NAME}.md"
+          gh release create "$GITHUB_REF_NAME" --title "Vigil ${GITHUB_REF_NAME#v}" \
+            --notes-file "$notes" $(find release -type f \( -name '*.msi' -o -name '*.sha256' -o -name '*.cdx.json' \))
