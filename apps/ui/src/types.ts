@@ -313,3 +313,23 @@ export interface LockdownReport {
   kept: { name: string; path?: string | null; why: string }[];
   held: LockdownHeld[];
 }
+
+export type UrlCategory = 'malware' | 'phishing' | 'adult' | 'ads';
+
+/** `settings.urlfilter` (`docs/23 §2`). */
+export interface UrlFilterSettings extends Record<UrlCategory, boolean> {
+  enabled: boolean;
+  allow: string[];
+}
+
+/** `dns.status`. */
+export interface DnsStatus {
+  enabled: boolean;
+  listening: boolean;
+  domains: number;
+  queries: number;
+  blocked: number;
+  by_category: Record<UrlCategory, number>;
+  recent: { domain: string; category: UrlCategory; at: string }[];
+  lists_loaded_at: string | null;
+}

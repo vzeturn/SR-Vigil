@@ -1,6 +1,7 @@
 import {
   Activity,
   Bell,
+  Globe,
   ListChecks,
   Network,
   Power,
@@ -25,6 +26,7 @@ import { Popup } from './pages/Popup';
 import { Processes } from './pages/Processes';
 import { RulesTrust } from './pages/RulesTrust';
 import { Startup } from './pages/Startup';
+import { WebFilter } from './pages/WebFilter';
 import { Settings } from './pages/Settings';
 import { useVigil } from './store';
 
@@ -36,6 +38,7 @@ const PAGES = {
   lockdown: { icon: ShieldAlert, view: Lockdown },
   kills: { icon: OctagonX, view: Kills },
   startup: { icon: Power, view: Startup },
+  webfilter: { icon: Globe, view: WebFilter },
   audit: { icon: ScrollText, view: Audit },
   rules: { icon: ShieldCheck, view: RulesTrust },
   settings: { icon: Cog, view: Settings },
@@ -46,7 +49,7 @@ type PageId = keyof typeof PAGES;
 /** Sidebar sections, in task order; Settings sits apart at the foot. */
 const NAV_GROUPS: { id: string; pages: PageId[] }[] = [
   { id: 'monitor', pages: ['overview', 'pending', 'processes', 'connections'] },
-  { id: 'respond', pages: ['lockdown', 'kills', 'startup'] },
+  { id: 'respond', pages: ['lockdown', 'kills', 'startup', 'webfilter'] },
   { id: 'review', pages: ['audit', 'rules'] },
 ];
 

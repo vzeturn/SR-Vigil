@@ -12,6 +12,7 @@ Stop name resolution for domains on public blocklists before a connection exists
 - Lists are declared in `rules/urlfeeds.toml` (id, category, format `hosts`/`domains`, HTTPS URL). Categories: `malware`, `phishing`, `adult`, `ads`. A domain blocks its subdomains.
 - Settings (`urlfilter.*` in `default-policy.toml`, via `settings.set`): `enabled` (off by default), `malware` and `phishing` (on), `adult` and `ads` (off), `allow` (user exceptions, domain plus subdomains).
 - `dns.status` (Viewer) returns state, list size, counters per category and the last blocked names.
+- The UI's *Web filter* page (`docs/07 §4.8a`) shows that status and edits the switch, the categories and the exceptions; the CLI and `settings.set` remain available.
 
 ## 3. Safety properties
 

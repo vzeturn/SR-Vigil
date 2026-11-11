@@ -93,6 +93,7 @@ export function createMockBridge(rows = 200): Bridge {
     calls_today: 0,
   };
 
+  let urlfilter = { enabled: false, malware: true, phishing: true, adult: false, ads: false, allow: [] as string[] };
   const handlers: Record<string, (params: unknown) => unknown> = {
     'ai.activity': () => {
       const u = { assessed: 0, calls: 0, cached: 0, tokens_in: 0, tokens_out: 0, allowed: 0, blocked: 0, killed: 0, left_to_user: 0, cost_usd: 0 };
@@ -169,6 +170,24 @@ export function createMockBridge(rows = 200): Bridge {
     },
     'enforcement.panic': status,
     'threat.list': () => ({ threats: [] }),
+    'settings.get': () => ({ urlfilter }),
+    'settings.set': (params) => {
+      const patch = (params as { settings?: { urlfilter?: Partial<typeof urlfilter> } }).settings?.urlfilter;
+      urlfilter = { ...urlfilter, ...patch };
+      return { urlfilter };
+    },
+    'dns.status': () => ({
+      enabled: urlfilter.enabled,
+      listening: urlfilter.enabled,
+      categories: [],
+      domains: 182_340,
+      queries: 4_210,
+      blocked: 37,
+      by_category: { malware: 4, phishing: 2, adult: 0, ads: 31 },
+      recent: [{ domain: 'ads.example.net', category: 'ads', at: new Date().toISOString() }],
+      upstream: null,
+      lists_loaded_at: null,
+    }),
   };
 
   return {

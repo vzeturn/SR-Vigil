@@ -90,6 +90,9 @@ Progressive disclosure: the Overview stays simple. Scores explain themselves on 
 ### 4.8 Audit
 - Filterable timeline (kind, actor, identity), chain-integrity badge (`chain_ok`), export JSON/CSV.
 
+### 4.8a Web filter
+- Under *Respond*. On/off switch with state (Active, Starting, Paused, Off), list size and counters from `dns.status` (polled every 5 s), category checkboxes with a blocked count each, the *Always allow* list (add a domain or pasted URL, remove), recently blocked names with an *Allow* button, and the DNS-over-HTTPS note. Changes go through `settings.set {urlfilter}`; Viewers see it read-only (`docs/23`).
+
 ### 4.9 Settings
 - Language, theme, notifications/sound, popup behaviour (max rate, position), default decision scope, learning duration, never-kill additions, log level, data retention, service diagnostics (version, uptime, ETW drops, WFP filter counts), "Run first-time setup" wizard.
 

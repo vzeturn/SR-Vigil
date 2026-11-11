@@ -209,7 +209,7 @@ root-cause popup. Build order is in `docs/18 §7`.
 - [x] Local DNS sinkhole with malware, phishing, adult and ads lists, protected names, user exceptions, reversible adapter DNS.
 - [x] `dns.status`, `protection.set`, `vigilctl protection`, header switch in the UI.
 - [ ] Windows VM check: enable the filter, resolve a listed test name, reboot, kill the service and confirm DNS is restored.
-- [ ] UI page for filter categories and exceptions (today: `settings.set` / CLI).
+- [x] UI page for filter categories and exceptions (*Web filter*, `docs/07 §4.8a`).
 
 ## Backlog (post-v1, tracked)
 
