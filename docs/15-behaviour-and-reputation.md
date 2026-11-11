@@ -18,7 +18,7 @@ CLAUDE.md rule 10 is amended accordingly (see §6). The watching-only UI (no ser
 |---|---|---|---|
 | NET-001 | `reputation_bad_destination` | Destination host/IP is on the offline blocklist or flagged by the reputation service (malware, phishing, unwanted software) | −45 |
 | NET-002 | `generated_destination_name` | Algorithmically generated DNS name (high entropy). Raw IP without DNS stays BEH-003 and risky port/TLD stays BEH-004 (`docs/03`), so nothing is counted twice | −15 |
-| NET-003 | `unusual_upload` | Bytes sent far exceed bytes received to one public host over a window, above a per-program baseline | −20 |
+| NET-003 | `unusual_upload` | Bytes sent far exceed bytes received to one public host within a window: fixed thresholds in `rules/upload.toml` (≥ 50 MB and ≥ 10× received in 10 min) rather than a learned per-program baseline; pinned publishers are exempt | −20 |
 | NET-004 | `tool_to_public_host` | Consolidated into BEH-001 `lolbin_outbound` (−25, cap 70), now fed live; no separate rule | — |
 | FIL-001 | `drops_executable` | Writes a PE/script to a user-writable folder (Downloads, Temp, AppData, Public) | −15 |
 | FIL-002 | `mass_file_change` | Many files rewritten/renamed with a new extension in a short window (ransomware shape) | −40 |
@@ -34,7 +34,7 @@ Rules: hard rules (HR-*) and SG-001 keep absolute priority; NET-001 and FIL-002 
 |---|---|---|
 | ETW `Microsoft-Windows-Kernel-Process` | process start/stop with parent PID and image | needs an elevated session; the event carries no command line, so for a child named in `rules/spawn.toml` the collector reads it with `NtQueryInformationProcess(ProcessCommandLineInformation)` right after the start event (missed when the child exits first). Feeds PRC-001 on the parent |
 | ETW `Microsoft-Windows-Kernel-File` | keywords CREATE (event 12, every open, field `FileName`), RENAME_SETLINK_PATH (27, field `FilePath` = the name **after** the rename) and CREATE_NEW_FILE (30, `FileName`); PID from the event header; paths in NT device form (`\Device\HarddiskVolumeN\...`), matched on their tail so no drive-letter mapping is needed | high volume: the callback queues only events matching `rules/files.toml` (FIL-001 drops, FIL-002 double-extension renames, RES-001 store opens) into the bounded queue shared with the other providers, so a burst cannot crowd out process and network events; when the queue is full the newest event is dropped |
-| ETW `Microsoft-Windows-Kernel-Network` | per-connection bytes sent/received | feeds NET-003 |
+| ETW `Microsoft-Windows-Kernel-Network` | events 10/11 (TCPv4 sent/received), 26/27 (TCPv6) and 42/43 (UDPv4), fields `PID`, `daddr` (remote address) and `size`; no payload | per-packet volume: totals per (pid, address) are kept on the callback thread and only a crossed NET-003 threshold is queued (once per window); feeds NET-003 |
 | ETW `Microsoft-Windows-DNS-Client` | event 3008 `QueryName` + `QueryResults`: name ↔ IP mapping per PID (10 min, bounded) | feeds NET-001/002 with the DNS name, not only the IP; no packet is read, so TLS SNI/JA4 capture is not needed |
 | `GetExtendedTcpTable` + process snapshot | fallback / reconciler | already used by the live scan |
 | Kernel-File open events (event 12) on the store list in `rules/files.toml` | RES-001 | attributed to the program behind the PID; an owner-named program is decided at evaluation, where its signature is known |

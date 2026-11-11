@@ -326,3 +326,23 @@ fn virustotal_bands() {
     };
     check(&off, &["SIG-003"], 75, Verdict::Unknown);
 }
+
+#[test]
+fn unpinned_signed_app_uploading_far_more_than_it_receives() {
+    let f = Facts {
+        company_matches_signer: true,
+        has_outbound: true,
+        dest_public: true,
+        unusual_upload: true,
+        ..signed(PathClass::ProgramFiles)
+    };
+    check(&f, &["NET-003"], 68, Verdict::Unknown);
+    let pinned = Facts {
+        signer_pinned: true,
+        ..f
+    };
+    assert!(
+        !ids(&eval(&pinned)).contains(&"NET-003"),
+        "pinned publishers are exempt"
+    );
+}

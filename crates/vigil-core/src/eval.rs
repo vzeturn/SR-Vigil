@@ -27,6 +27,7 @@ pub struct Facts {
     pub has_outbound: bool,
     pub dest_public: bool,
     pub beaconing: bool,
+    pub unusual_upload: bool,
     pub public_dest_no_dns: bool,
     pub risky_port_or_tld: bool,
     pub bad_destination: bool,
@@ -72,6 +73,7 @@ impl Default for Facts {
             has_outbound: false,
             dest_public: false,
             beaconing: false,
+            unusual_upload: false,
             public_dest_no_dns: false,
             risky_port_or_tld: false,
             bad_destination: false,
@@ -157,6 +159,7 @@ fn matches(w: &When, f: &Facts) -> bool {
         && flag(w.has_outbound, f.has_outbound)
         && flag(w.dest_public, f.dest_public)
         && flag(w.beaconing, f.beaconing)
+        && flag(w.unusual_upload, f.unusual_upload)
         && flag(w.public_dest_no_dns, f.public_dest_no_dns)
         && flag(w.risky_port_or_tld, f.risky_port_or_tld)
         && flag(w.bad_destination, f.bad_destination)

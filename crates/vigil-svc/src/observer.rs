@@ -41,6 +41,12 @@ pub fn spawn_connect_feed(shared: Arc<Shared>) {
                         shared.track_connect(pid, dest, port);
                         let _ = shared.assess_destination(pid, &dest.to_string(), port);
                     }
+                    vigil_win::etw::Event::Upload {
+                        pid,
+                        dest,
+                        sent,
+                        recv,
+                    } => shared.note_upload(pid, dest, sent, recv),
                     vigil_win::etw::Event::DnsAnswer { pid, name, addrs } => {
                         shared.note_dns(pid, &name, &addrs);
                     }

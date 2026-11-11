@@ -135,6 +135,7 @@ pub struct When {
     pub has_outbound: Option<bool>,
     pub dest_public: Option<bool>,
     pub beaconing: Option<bool>,
+    pub unusual_upload: Option<bool>,
     pub public_dest_no_dns: Option<bool>,
     pub risky_port_or_tld: Option<bool>,
     pub bad_destination: Option<bool>,

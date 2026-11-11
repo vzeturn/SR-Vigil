@@ -247,6 +247,14 @@ when = { generated_dest_name = true }
 score = -15
 
 [[rule]]
+id = "NET-003"
+name = "unusual_upload"
+kind = "signal"
+description = "Sent far more than it received to one public address within a window (rules/upload.toml); pinned publishers (browsers, sync clients) are exempt"
+when = { unusual_upload = true, signer_pinned = false }
+score = -20
+
+[[rule]]
 id = "PRC-001"
 name = "suspicious_child"
 kind = "signal"

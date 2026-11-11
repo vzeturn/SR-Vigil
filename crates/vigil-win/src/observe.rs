@@ -155,6 +155,7 @@ fn evaluate_with(
             risky_port_or_tld: live.net.risky_port_or_tld,
             bad_destination: live.net.bad,
             generated_dest_name: live.net.generated_name,
+            unusual_upload: live.net.unusual_upload,
             spawned_suspicious_child: live.spawned_suspicious_child,
             files: live.files,
         },

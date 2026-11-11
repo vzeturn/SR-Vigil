@@ -74,6 +74,8 @@ pub struct Behaviour {
     pub bad_destination: bool,
     /// A destination name it resolved looks machine-generated (NET-002).
     pub generated_dest_name: bool,
+    /// It sent far more than it received to one public address within a window (NET-003).
+    pub unusual_upload: bool,
     /// It started a script host with an encoded/hidden command line, or (Office/browser) a shell (PRC-001).
     pub spawned_suspicious_child: bool,
     /// File and credential-store activity (FIL-001/002, RES-001).
@@ -113,6 +115,8 @@ pub struct NetSeen {
     pub generated_name: bool,
     pub no_dns: bool,
     pub risky_port_or_tld: bool,
+    /// NET-003, from Kernel-Network byte counts (not from a destination assessment).
+    pub unusual_upload: bool,
 }
 
 impl NetSeen {
@@ -273,6 +277,7 @@ pub fn build_facts(ctx: &Context, obs: &Observation) -> Facts {
         risky_port_or_tld: obs.behaviour.risky_port_or_tld,
         bad_destination: obs.behaviour.bad_destination,
         generated_dest_name: obs.behaviour.generated_dest_name,
+        unusual_upload: obs.behaviour.unusual_upload,
         suspicious_child: obs.behaviour.spawned_suspicious_child,
         drops_executable: obs.behaviour.files.dropped_executable,
         mass_file_change: obs.behaviour.files.mass_renamed,

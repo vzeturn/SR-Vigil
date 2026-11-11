@@ -1,4 +1,5 @@
-//! Real-time ETW collection (process start/stop, TCP connects, DNS queries, file activity).
+//! Real-time ETW collection (process start/stop, TCP connects and byte counts, DNS queries, file
+//! activity).
 //!
 //! Needs an elevated token: `start` returns `Error::Api` with access denied otherwise, and the
 //! caller degrades to snapshot-only observation.
@@ -13,6 +14,7 @@ use ferrisetw::schema_locator::SchemaLocator;
 use ferrisetw::trace::UserTrace;
 
 use vigil_core::analysis::fileact;
+use vigil_core::analysis::upload::UploadTracker;
 
 use crate::Error;
 
@@ -24,6 +26,12 @@ const KERNEL_FILE: &str = "edd08927-9cc4-4e65-b970-c2560fb5c289";
 const FILE_KEYWORDS: u64 = 0x80 | 0x800 | 0x1000;
 /// Events buffered for a slow consumer; beyond this new events are dropped (bounded memory).
 const QUEUE: usize = 8192;
+
+fn now_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| u64::try_from(d.as_millis()).unwrap_or(u64::MAX))
+}
 
 /// A normalised ETW event. All strings are untrusted host data.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -41,6 +49,13 @@ pub enum Event {
         pid: u32,
         dest: IpAddr,
         port: u16,
+    },
+    /// NET-003: totals between `pid` and `dest` crossed the upload thresholds (once per window).
+    Upload {
+        pid: u32,
+        dest: IpAddr,
+        sent: u64,
+        recv: u64,
     },
     /// A completed DNS lookup and the addresses it returned (names only, no packets).
     DnsAnswer {
@@ -120,15 +135,46 @@ fn process_event(tx: &SyncSender<Event>, rec: &EventRecord, locator: &SchemaLoca
     let _ = tx.try_send(ev);
 }
 
-fn network_event(tx: &SyncSender<Event>, rec: &EventRecord, locator: &SchemaLocator) {
-    // 12 = TCPv4 connect attempt, 28 = TCPv6 connect attempt.
-    if !matches!(rec.event_id(), 12 | 28) {
-        return;
-    }
+/// Send/receive events are summed in `uploads` on the callback thread; only a crossed threshold
+/// is queued, so per-packet volume never reaches the shared queue.
+fn network_event(
+    tx: &SyncSender<Event>,
+    uploads: &mut UploadTracker,
+    rec: &EventRecord,
+    locator: &SchemaLocator,
+) {
+    // 10/26 = TCPv4/v6 sent, 11/27 = received, 42/43 = UDPv4 sent/received;
+    // 12/28 = TCPv4/v6 connect attempt.
+    let traffic = match rec.event_id() {
+        10 | 26 | 42 => Some(true),
+        11 | 27 | 43 => Some(false),
+        12 | 28 => None,
+        _ => return,
+    };
     let Ok(schema) = locator.event_schema(rec) else {
         return;
     };
     let p = Parser::create(rec, &schema);
+    if let Some(sent) = traffic {
+        let (Ok(pid), Ok(dest), Ok(size)) = (
+            p.try_parse::<u32>("PID"),
+            p.try_parse::<IpAddr>("daddr"),
+            p.try_parse::<u32>("size"),
+        ) else {
+            return;
+        };
+        let size = u64::from(size);
+        let (s, r) = if sent { (size, 0) } else { (0, size) };
+        if let Some(u) = uploads.note(pid, dest, s, r, now_ms()) {
+            let _ = tx.try_send(Event::Upload {
+                pid,
+                dest,
+                sent: u.sent,
+                recv: u.recv,
+            });
+        }
+        return;
+    }
     let (Ok(pid), Ok(dest), Ok(port)) = (
         p.try_parse::<u32>("PID"),
         p.try_parse::<IpAddr>("daddr"),
@@ -217,8 +263,11 @@ pub fn start(name: &str) -> Result<Session, Error> {
     let process = Provider::by_guid(KERNEL_PROCESS)
         .add_callback(move |r: &EventRecord, l: &SchemaLocator| process_event(&t1, r, l))
         .build();
+    let mut uploads = UploadTracker::default();
     let network = Provider::by_guid(KERNEL_NETWORK)
-        .add_callback(move |r: &EventRecord, l: &SchemaLocator| network_event(&t2, r, l))
+        .add_callback(move |r: &EventRecord, l: &SchemaLocator| {
+            network_event(&t2, &mut uploads, r, l);
+        })
         .build();
     let dns = Provider::by_guid(DNS_CLIENT)
         .add_callback(move |r: &EventRecord, l: &SchemaLocator| dns_event(&t3, r, l))

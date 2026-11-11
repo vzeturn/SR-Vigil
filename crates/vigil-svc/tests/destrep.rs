@@ -112,3 +112,18 @@ fn polled_connections_carry_name_and_chip() {
     assert_eq!(c["reputation"], "risky");
     assert!(s.net_seen(PATH).generated_name);
 }
+
+#[test]
+fn an_upload_to_a_public_address_marks_the_program_once() {
+    let s = setup();
+    s.note_upload(9, ip("192.168.1.20"), 900_000_000, 0);
+    assert!(
+        !s.net_seen(PATH).unusual_upload,
+        "a NAS backup is not counted"
+    );
+    s.note_upload(9, ip("::ffff:203.0.113.7"), 60_000_000, 1_000);
+    assert!(s.net_seen(PATH).unusual_upload);
+    assert_eq!(s.take_rejudge_paths(), vec![PATH.to_string()]);
+    s.note_upload(9, ip("203.0.113.8"), 60_000_000, 1_000);
+    assert!(s.take_rejudge_paths().is_empty(), "re-judged once");
+}

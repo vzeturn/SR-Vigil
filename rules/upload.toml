@@ -1,0 +1,9 @@
+# NET-003: unusual upload (docs/15 §2). Byte counts per (process, remote address) from
+# Kernel-Network send/receive events; payloads are never read. Only public addresses count.
+
+# Totals are summed over a fixed window that restarts after it ends.
+window_secs = 600
+# Bytes sent to one address within the window before it counts.
+min_sent_bytes = 50_000_000
+# And sent must be at least this many times what was received from that address.
+min_ratio = 10

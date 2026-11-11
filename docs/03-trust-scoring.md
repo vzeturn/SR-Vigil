@@ -64,6 +64,7 @@ SIG-001, SIG-002 and SIG-003 are mutually exclusive (`exclusive_group = "signer_
 | NET-002 | `generated_destination_name` | The registrable label of that DNS name looks machine-generated: ≥ 12 characters, entropy ≥ 3.2 bits, and ≤ 25 % vowels or ≥ 3 digits mixed with letters (IDN `xn--` labels excluded) | −15 | |
 | PRC-001 | `suspicious_child` | The program started a script host or LOLBin from `rules/spawn.toml` whose command line is encoded (`-enc`/`-ec` and other `-EncodedCommand` prefixes), hidden or download-and-run, or it is an Office app or browser that started a shell (browser native-messaging hosts excepted). Scored on the parent, never on the OS script host | −25 | |
 | FIL-001 | `drops_executable` | The program created an executable or script (extensions in `rules/files.toml`) under a Downloads, AppData, Temp or Public folder | −15 | |
+| NET-003 | `unusual_upload` | Within one 10-minute window the program sent ≥ 50 MB to one public address and at least 10× what it received from it (TCP and UDPv4 byte counts, `rules/upload.toml`); programs signed by a pinned publisher (browsers, sync clients) are exempt; private and local addresses never count | −20 | |
 | FIL-002 | `mass_file_change` | The program renamed 30 or more user files (under `\Users\`, outside AppData) to one new double extension (`report.docx.locked`) within 60 s; ordinary document, media, archive, backup and temporary extensions are ignored | −40 | |
 | RES-001 | `sensitive_resource` | The program opened a credential store from `rules/files.toml` (Chromium `Login Data`/`Cookies`/`Local State`, Firefox `logins.json`/`key4.db`, SAM/SECURITY hives, SSH private keys, `wallet.dat`) and is not its owner. A program named like the owner counts only when its own signature is not valid; anti-malware, the search indexer and Vigil never count | −30 | |
 | TRU-001 | `trusted_publisher_normal` | Valid signature from a pinned publisher whose chain ends in a Microsoft root, and no NET-001, PRC-001, FIL-002 or RES-001 finding this run (a trusted publisher never suppresses those) | +10 | |
@@ -110,6 +111,7 @@ SIG-001, SIG-002 and SIG-003 are mutually exclusive (`exclusive_group = "signer_
 | Binary with "Microsoft Corporation" metadata, unsigned | HR-007 | 0 | malicious |
 | Small vendor app (88) resolving a listed bad host | SIG-003, SIG-004, LOC-001, NET-001 | 43 | unknown |
 | Unsigned tool in Downloads → generated name on a risky TLD | SIG-010, NET-002, BEH-004 | 10 | unknown |
+| Small vendor app (88) uploading far more than it receives | SIG-003, SIG-004, LOC-001, NET-003 | 68 | unknown |
 | Signed Office app (88) starting a shell | SIG-003, SIG-004, LOC-001, PRC-001 | 63 | unknown |
 | Pinned Microsoft app (103, clamped) behaving normally | SIG-002, SIG-004, LOC-001, TRU-001 | 100 | safe |
 | Pinned Microsoft app starting a shell (no TRU-001) | SIG-002, SIG-004, LOC-001, PRC-001 | 78 | unknown |

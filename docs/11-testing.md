@@ -166,6 +166,11 @@ Disposable Windows 10 and Windows 11 VM snapshots, standard user plus an admin a
   - FIL-002: from an unsigned tool, rename 30 copies of a test document to `name.docx.probe` within a minute. The tool's score drops by 40 with `"signals":["FIL-002"],"extension":"probe"`. Renaming 30 photos to `.jpg` does nothing.
   - RES-001: with Chrome closed, read `%LocalAppData%\Google\Chrome\User Data\Default\Login Data` from an unsigned tool. Its score drops by 30 with `"store":"chromium_credentials"`; Chrome itself and Defender scanning the file leave no row.
 
+## Unusual upload checks (NET-003, docs/15 §2)
+
+- Automated: `cargo test -p vigil-core upload` (thresholds, once per window, balanced exchange ignored), `cargo test -p vigil-core --test golden_scoring` (NET-003 row, pinned publishers exempt), `cargo test -p vigil-svc --test destrep` (private addresses ignored, marked and re-judged once).
+- Manual (Windows, elevated, service running): from an unsigned test program, POST 60 MB of random data to a public echo-free endpoint you control within 10 minutes. The program's score drops by 20 and the audit log has a `verdict` row with `"signals":["NET-003"]`, the address and the byte totals. Copying the same file to a NAS on the LAN, or uploading it from Chrome, leaves no row.
+
 ## Suspicious network behaviour checks (docs/24)
 
 - Automated: `cargo test -p vigil-core beacon` (regular, jittered, bursty fixtures), `cargo test -p vigil-svc --test threat` (consent gate, ETW feed replaces the poll), `cargo test -p vigil-win etw` (elevated: a loopback connect arrives as a `Connect` event; skipped otherwise).

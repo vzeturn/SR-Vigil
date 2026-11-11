@@ -159,6 +159,33 @@ impl Shared {
         }
     }
 
+    /// NET-003: `pid` sent `sent` bytes to `dest` while receiving `recv` within one window.
+    /// Private and local addresses (backups to a NAS) do not count.
+    pub fn note_upload(&self, pid: u32, dest: IpAddr, sent: u64, recv: u64) {
+        let ip = canonical(dest).to_string();
+        if !is_public(&ip) {
+            return;
+        }
+        let Some(path) = self.row_by_pid(pid).and_then(|r| r.path) else {
+            return;
+        };
+        {
+            let mut d = lock(&self.destrep);
+            let seen = d.seen.entry(path.to_ascii_lowercase()).or_default();
+            if seen.unusual_upload {
+                return;
+            }
+            seen.unusual_upload = true;
+        }
+        self.queue_rejudge(&path);
+        self.audit(
+            "service",
+            AuditKind::Verdict,
+            Some(&path),
+            &json!({ "signals": ["NET-003"], "dest_ip": ip, "sent_bytes": sent, "recv_bytes": recv }),
+        );
+    }
+
     /// Network findings for `path` this run (feeds the rule engine on re-evaluation).
     #[must_use]
     pub fn net_seen(&self, path: &str) -> NetSeen {
