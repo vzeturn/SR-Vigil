@@ -25,6 +25,6 @@ Prices and eligibility change: verify on the provider's site before applying. Se
 2. Add repository variable `SIGNPATH_ORGANIZATION_ID` and secret `SIGNPATH_API_TOKEN`.
 3. Tag `vX.Y.Z`; confirm the `msi` job passes the signature check.
 4. Submit the signed MSI to the Microsoft Defender Security Intelligence portal to build reputation.
-5. Run `vigilctl trust bootstrap` after the first signed install so the signer thumbprint becomes the Vigil self-pin (HA-001). Pin the new certificate before retiring an old one.
+5. HA-001 self-trust is hash-based and needs no step here (`docs/03`).
 
 Keys and tokens live only in the provider and the CI secret store, never in the repository (`CLAUDE.md` rule 7 spirit, `STANDARDS §4`).

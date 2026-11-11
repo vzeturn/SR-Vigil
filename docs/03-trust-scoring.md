@@ -81,7 +81,7 @@ SIG-001, SIG-002 and SIG-003 are mutually exclusive (`exclusive_group = "signer_
 
 | ID | Name | Condition | Result |
 |---|---|---|---|
-| HA-001 | `vigil_self` | Vigil binary under its install dir whose signer thumbprint equals the self-pin recorded at install | safe |
+| HA-001 | `vigil_self` | `vigil-svc.exe`, `vigil-ui.exe` or `vigilctl.exe` in the running Vigil binary's own (admin-only) directory whose SHA-256 still equals the self-pin taken when that process first evaluated one | safe |
 | HA-002 | `user_allow_identity` | Unexpired user `allow` decision matching the identity (`file`: sha256+path, or `publisher`: signer thumbprint + product) and no HR-* | safe |
 | SG-001 | `never_kill_set` | Identity flagged `never_kill` in `system_processes.toml` and not under HR-001/002/003 | blocks kill/deny actions; never lowers a verdict |
 
@@ -102,6 +102,7 @@ SIG-001, SIG-002 and SIG-003 are mutually exclusive (`exclusive_group = "signer_
 | MS-signed `powershell.exe` copied to Downloads → public host | SIG-002, SIG-004, SIG-015, BEH-001 | 43 | unknown |
 | Binary with "Microsoft Corporation" metadata, unsigned | HR-007 | 0 | malicious |
 | Allowed unknown app whose file is replaced (new hash) | re-evaluate, HA-002 no longer matches | — | re-scored |
+| User allows, blocks or revokes a decision | running copies are re-evaluated on the next observer tick (newest active decision wins) | — | re-scored |
 
 For rows decided by a hard rule the table shows only the deciding rule; every other signal that fired (for example SIG-002 or LOC-001 on a tampered but otherwise normal file) is still recorded in the evaluation's `signals` array and shown in the UI.
 

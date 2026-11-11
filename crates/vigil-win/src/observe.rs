@@ -84,7 +84,8 @@ fn bootstrap_pins(
     pins
 }
 
-/// Evaluate `path` (child of `parent`) against `pack`.
+/// Evaluate `path` (child of `parent`) against `pack`; `user_allowed` = an active user allow
+/// decision covers this file (HA-002, which never outranks a hard rule).
 #[must_use]
 pub fn evaluate_image(
     ctx: &Context,
@@ -92,8 +93,10 @@ pub fn evaluate_image(
     path: &str,
     parent: Option<&str>,
     pid: Option<u32>,
+    user_allowed: bool,
 ) -> Evaluation {
-    evaluate_image_detailed(ctx, pack, path, parent, pid).0
+    let (ev, ..) = evaluate_with(ctx, pack, path, parent, pid, user_allowed);
+    ev
 }
 
 /// Like [`evaluate_image`], but also returns the signature and version evidence it was based on.
@@ -104,6 +107,17 @@ pub fn evaluate_image_detailed(
     path: &str,
     parent: Option<&str>,
     pid: Option<u32>,
+) -> (Evaluation, SignerInfo, VersionInfo) {
+    evaluate_with(ctx, pack, path, parent, pid, false)
+}
+
+fn evaluate_with(
+    ctx: &Context,
+    pack: &RulePack,
+    path: &str,
+    parent: Option<&str>,
+    pid: Option<u32>,
+    user_allowed: bool,
 ) -> (Evaluation, SignerInfo, VersionInfo) {
     let signer = trust::verify(path);
     let version = version::read(path).unwrap_or_default();
@@ -126,8 +140,8 @@ pub fn evaluate_image_detailed(
         vt_detections: None,
         vt_first_seen_days: None,
         user_denylisted: false,
-        user_allowed: false,
-        vigil_self: false,
+        user_allowed,
+        vigil_self: crate::selfpin::is_vigil_self(path),
     };
     (evaluate(pack, &build_facts(ctx, &obs)), signer, version)
 }

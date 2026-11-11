@@ -26,9 +26,9 @@ What the MSI does (`installer/Vigil.wxs`):
 
 1. Sign `vigil-svc.exe`, `vigilctl.exe`, `vigil-ui.exe`, then the MSI, with SHA-256 and an RFC 3161 timestamp (`build.ps1 -SignCert` does this with `signtool`).
 2. Publish the MSI SHA-256 beside the download.
-3. After the first signed install run `vigilctl trust bootstrap` (or let the installer record it) so the signer thumbprint becomes the Vigil self-pin (HA-001). Rotate certificates by pinning the new thumbprint before retiring the old one.
+3. Nothing to record for HA-001: each Vigil process pins the SHA-256 of the installed binaries itself (`docs/03`).
 
-Keep the private key in an HSM or a CI secret store; never commit it. An unsigned build is for development only and sets the self-pin from the binary hash when `VIGIL_DEV=1`.
+Keep the private key in an HSM or a CI secret store; never commit it. An unsigned build still self-pins by hash, but Windows SmartScreen will warn on it.
 
 ## 3. Supply-chain gates
 

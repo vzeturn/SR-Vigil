@@ -55,7 +55,7 @@
 
 Status: **done** = implemented and compile/unit verified; **VM** = implemented, needs the manual check in `docs/11` §10; **tracked** = deferred, listed in `docs/10` backlog.
 
-- Binaries Authenticode-signed (`installer/build.ps1 -SignCert`, `docs/13`); self-pin from the signer thumbprint (HA-001). Status: signing script done, pin recording VM/tracked.
+- Binaries Authenticode-signed (`installer/build.ps1 -SignCert`, `docs/13`); self-pin (HA-001) is the SHA-256 of Vigil's binaries in the install directory, taken at first use by each Vigil process; a replaced binary no longer matches and is judged like any other file.
 - Service DACL restricts control to SYSTEM and Administrators (query-only for users); restart-on-failure recovery configured in `installer/Vigil.wxs`. Status: VM.
 - Data dir ACL verified at start (re-applied if drifted, audited as `config_change`). Status: done (`vigil_win::harden::ensure_data_dir_acl`), elevated check VM.
 - Load-library search path hardened (`SetDefaultDllDirectories`, System32 only). Status: done.
@@ -77,5 +77,5 @@ Status: **done** = implemented and compile/unit verified; **VM** = implemented, 
 
 ## 7. Development vs release signing
 
-- Dev builds: unsigned; the self-pin is created from the dev binary hash on first run when `VIGIL_DEV=1` is set; this flag is compiled out of release builds.
-- Release: signed with the owner's certificate; `vigilctl trust bootstrap` and the installer record the Vigil self-pin thumbprint.
+- The self-pin is hash-based in every build (signed or not), so HA-001 never depends on a certificate being configured.
+- Release: additionally signed with the owner's certificate when SignPath is configured (`docs/22`).

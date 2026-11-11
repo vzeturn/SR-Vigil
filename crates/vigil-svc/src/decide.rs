@@ -295,8 +295,43 @@ impl Shared {
             "event.pending_resolved",
             json!({ "pending_id": pending_id.map(|p| p.to_string()), "action": d.action.as_str(), "by": "user" }),
         );
+        self.mark_decided(&d);
         let (applied, warnings) = self.enforce_decision(&d);
         Ok(json!({ "decision": decision_json(&d), "applied": applied, "warnings": warnings }))
+    }
+
+    /// Whether the newest active user decision covering `executable_id` allows it (HA-002).
+    pub fn user_allows(&self, executable_id: i64) -> bool {
+        self.with_store(|c| decisions::active_for(c, executable_id, OffsetDateTime::now_utc()))
+            .and_then(Result::ok)
+            .and_then(|ds| ds.into_iter().next())
+            .is_some_and(|d| d.action == Action::Allow)
+    }
+
+    /// Queue every path `d` covers for re-evaluation, so live verdicts follow the decision.
+    fn mark_decided(&self, d: &Decision) {
+        let paths = self
+            .with_store(|c| match (&d.publisher_thumbprint, d.apply_to) {
+                (Some(t), ApplyTo::Publisher) => vigil_store::repo::paths_by_thumbprint(c, t),
+                _ => vigil_store::repo::executable_by_id(c, d.executable_id)
+                    .map(|e| e.map(|e| vec![e.path]).unwrap_or_default()),
+            })
+            .and_then(Result::ok)
+            .unwrap_or_default();
+        self.decided_paths
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .extend(paths);
+    }
+
+    /// Paths queued by [`Self::mark_decided`] since the last call.
+    pub fn take_decided_paths(&self) -> Vec<String> {
+        std::mem::take(
+            &mut *self
+                .decided_paths
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
+        )
     }
 
     /// `decision.revoke`
@@ -306,7 +341,9 @@ impl Shared {
         let revoked = self
             .with_store(|c| {
                 let now = OffsetDateTime::now_utc();
-                let exe = decisions::get_decision(c, id)?
+                let decision = decisions::get_decision(c, id)?;
+                let exe = decision
+                    .as_ref()
                     .and_then(|d| {
                         vigil_store::repo::executable_by_id(c, d.executable_id).transpose()
                     })
@@ -321,13 +358,14 @@ impl Shared {
                         }
                     }
                 }
-                Ok::<_, vigil_store::StoreError>(done)
+                Ok::<_, vigil_store::StoreError>(decision.filter(|_| done))
             })
             .ok_or_else(no_store)?
             .map_err(store_err)?;
-        if !revoked {
+        let Some(revoked) = revoked else {
             return Err(RpcError::new(NOT_FOUND, "no such active decision"));
-        }
+        };
+        self.mark_decided(&revoked);
         self.audit(
             "user",
             AuditKind::DecisionRevoked,

@@ -136,6 +136,8 @@ pub struct Shared {
     pub(crate) storm_reviewed: Mutex<std::collections::HashSet<i64>>,
     pub(crate) respawn_seen: Mutex<RespawnMemo>,
     pub(crate) purge: Mutex<crate::purge::Purge>,
+    /// Executable paths whose user decision changed; the observer re-evaluates them.
+    pub(crate) decided_paths: Mutex<Vec<String>>,
     pub(crate) reopen: Mutex<crate::reopen::Reopen>,
     pub(crate) launchers: Mutex<crate::launcher::Launchers>,
     pub(crate) ai_slots: tokio::sync::Semaphore,
@@ -262,6 +264,7 @@ impl Shared {
             storm_reviewed: Mutex::new(std::collections::HashSet::new()),
             respawn_seen: Mutex::new(Default::default()),
             purge: Mutex::new(crate::purge::Purge::default()),
+            decided_paths: Mutex::new(Vec::new()),
             reopen: Mutex::new(crate::reopen::Reopen::default()),
             launchers: Mutex::new(crate::launcher::Launchers::default()),
             ai_slots: tokio::sync::Semaphore::new(2),

@@ -22,6 +22,7 @@ pub mod persist;
 pub mod pipe;
 pub mod process;
 pub mod scan;
+pub mod selfpin;
 pub mod trust;
 pub mod version;
 pub mod wfp;

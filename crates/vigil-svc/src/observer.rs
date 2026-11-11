@@ -92,17 +92,11 @@ fn freshness_note(path: &str) -> Option<serde_json::Value> {
     }))
 }
 
-fn persist(
-    shared: &Shared,
-    hashes: &HashCache,
-    path: &str,
-    ev: &vigil_core::eval::Evaluation,
-) -> String {
+/// Upsert the executable row for `path`; `None` when it cannot be hashed or stored.
+fn register(shared: &Shared, hashes: &HashCache, path: &str) -> Option<i64> {
     let signer = trust::verify(path);
     let ver = version::read(path).unwrap_or_default();
-    let Ok(sha256) = hashes.sha256(Path::new(path)) else {
-        return String::new();
-    };
+    let sha256 = hashes.sha256(Path::new(path)).ok()?;
     let exe = Executable {
         sha256,
         path: path.to_string(),
@@ -113,6 +107,12 @@ fn persist(
         original_filename: Some(ver.original_filename).filter(|s| !s.is_empty()),
         signature_status: sig_status(signer.state).into(),
     };
+    shared
+        .with_store(|c| upsert_executable(c, &exe, &now()))
+        .and_then(Result::ok)
+}
+
+fn record(shared: &Shared, id: i64, ev: &vigil_core::eval::Evaluation) {
     let new = NewEvaluation {
         score: ev.score,
         verdict: verdict_name(ev.verdict).into(),
@@ -125,15 +125,9 @@ fn persist(
         rule_pack_version: ev.rule_pack_version.clone(),
         source: "rules".into(),
     };
-    let ts = now();
-    shared
-        .with_store(|c| {
-            upsert_executable(c, &exe, &ts)
-                .and_then(|id| insert_evaluation(c, id, &new, &ts).map(|_| id))
-        })
-        .and_then(Result::ok)
-        .map(|id| id.to_string())
-        .unwrap_or_default()
+    if let Some(Err(e)) = shared.with_store(|c| insert_evaluation(c, id, &new, &now())) {
+        tracing::warn!(error = %e, "evaluation not stored");
+    }
 }
 
 /// Images (with their parent) not yet evaluated, one entry per distinct key.
@@ -154,6 +148,14 @@ fn unseen_images(
         }
     }
     pending
+}
+
+/// Drop cached verdicts whose user decision changed, so the next tick re-judges them.
+fn forget_decided(shared: &Shared, cache: &mut HashMap<Key, Verdicted>) {
+    for path in shared.take_decided_paths() {
+        let path = normalize(&path);
+        cache.retain(|(image, _), _| *image != path);
+    }
 }
 
 /// Run until the task is dropped.
@@ -184,6 +186,7 @@ pub async fn run(shared: Arc<Shared>, pack: Arc<RulePack>) -> anyhow::Result<()>
             }
         };
         sync_processes(&shared, &procs);
+        forget_decided(&shared, &mut cache);
 
         let pending = unseen_images(&procs, &cache);
         // A big first scan is spread out so it never hogs a core; steady state has 0-2 new images.
@@ -201,8 +204,13 @@ pub async fn run(shared: Arc<Shared>, pack: Arc<RulePack>) -> anyhow::Result<()>
             let img = image.clone();
             let par = parent.clone();
             let v = tokio::task::spawn_blocking(move || {
-                let ev = evaluate_image(&ctx, &pack, &img, par.as_deref(), Some(pid));
-                let identity = persist(&sh, &hashes, &img, &ev);
+                let id = register(&sh, &hashes, &img);
+                let allowed = id.is_some_and(|id| sh.user_allows(id));
+                let ev = evaluate_image(&ctx, &pack, &img, par.as_deref(), Some(pid), allowed);
+                if let Some(id) = id {
+                    record(&sh, id, &ev);
+                }
+                let identity = id.map(|id| id.to_string()).unwrap_or_default();
                 Verdicted {
                     verdict: verdict_name(ev.verdict),
                     score: ev.score,
