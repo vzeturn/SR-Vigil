@@ -25,6 +25,7 @@ struct Waiting {
     started: u64,
     block_id: i64,
     image: String,
+    #[cfg_attr(not(windows), allow(dead_code))]
     deadline: Instant,
 }
 
@@ -181,6 +182,7 @@ impl Shared {
     }
 
     /// Kill prompts nobody answered in time. Called every tick.
+    #[cfg(windows)]
     pub(crate) fn reopen_sweep(&self) {
         let Some(ctl) = self.control() else { return };
         let now = Instant::now();

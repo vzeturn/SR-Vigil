@@ -450,6 +450,7 @@ impl Shared {
 
     /// Not-yet-Safe parents with a few copies or script hosts: below every kill threshold, so the
     /// advisor decides case by case (`storm_review`). Safe and never-kill programs are not asked about.
+    #[cfg(windows)]
     pub(crate) fn storm_suspects(&self) -> Vec<(ProcRow, usize)> {
         let rows = self.all_rows();
         let procs = storm_procs(&rows);

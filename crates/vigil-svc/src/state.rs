@@ -820,6 +820,7 @@ impl Shared {
     /// Verdict of the owning process for connection rows (set by the observer before `sync`).
     #[must_use]
     /// Identity id of a live process, once it has been evaluated.
+    #[cfg(windows)]
     pub(crate) fn identity_of(&self, pid: u32) -> Option<String> {
         lock(&self.inner)
             .processes
