@@ -96,7 +96,8 @@ jobs:
 
   publish:
     needs: msi
-    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    # sign is skipped on unsigned builds; without !cancelled() that skip would cascade here.
+    if: ${{ !cancelled() && needs.msi.result == 'success' && startsWith(github.ref, 'refs/tags/v') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
