@@ -57,6 +57,7 @@ export function createMockBridge(rows = 200): Bridge {
   const status = (): Snapshot['status'] => ({
     service_version: '0.1.0',
     mode: 'observe',
+    protection: true,
     health: 'healthy',
     filters_armed: false,
     counts: { safe: count('safe'), unknown: count('unknown'), malicious: count('malicious'), pending: pending.length },
@@ -132,6 +133,7 @@ export function createMockBridge(rows = 200): Bridge {
     'audit.export': () => ({ format: 'csv', content: 'seq,ts,actor,kind,target,details,hash\r\n', count: 0 }),
     'ai.test':() => ({ ok: ai.has_key || ai.source === 'shared', latency_ms: 120, model: ai.model }),
     'process.kill': () => ({ ok: true, detail: 'terminated' }),
+    'protection.set': () => status(),
     'purge.status': () => ({ active: false, spared: {}, kept: [], held: [] }),
     'persistence.scan': () => ({ findings: persistence.map((p) => ({ ...p })) }),
     'persistence.apply': (params) => {

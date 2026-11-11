@@ -127,6 +127,8 @@ pub struct Shared {
     engine: Mutex<Option<Arc<dyn FilterEngine>>>,
     last_applied: Mutex<Option<(Desired, bool)>>,
     armed: AtomicBool,
+    /// User switched protection off: nothing is blocked or killed automatically, assessment goes on.
+    paused: AtomicBool,
     once: Mutex<Vec<(String, Instant)>>,
     pub(crate) ai: Mutex<Option<Arc<dyn crate::ai::AiBackend>>>,
     pub(crate) ai_inflight: Mutex<std::collections::HashSet<i64>>,
@@ -211,7 +213,7 @@ impl Shared {
     #[must_use]
     pub fn new(opts: Options) -> Self {
         let mut settings = default_settings();
-        let (mut mode, mut learning) = ("observe", None);
+        let (mut mode, mut learning, mut paused) = ("observe", None, false);
         if let Some(conn) = &opts.store {
             let get = |k: &str| -> Option<String> {
                 conn.query_row("SELECT value FROM settings WHERE key = ?1", [k], |r| {
@@ -229,6 +231,7 @@ impl Shared {
                 _ => "observe",
             };
             learning = get("learning_started_at");
+            paused = get("protection_paused").as_deref() == Some("1");
         }
         let (bus, _) = broadcast::channel(4096);
         Self {
@@ -252,6 +255,7 @@ impl Shared {
             engine: Mutex::new(None),
             last_applied: Mutex::new(None),
             armed: AtomicBool::new(false),
+            paused: AtomicBool::new(paused),
             once: Mutex::new(Vec::new()),
             ai: Mutex::new(None),
             ai_inflight: Mutex::new(std::collections::HashSet::new()),
@@ -328,6 +332,44 @@ impl Shared {
     }
 
     #[must_use]
+    pub fn protection_paused(&self) -> bool {
+        self.paused.load(Ordering::SeqCst)
+    }
+
+    /// True when the service may block or kill on its own: `enforce` mode and protection not paused.
+    #[must_use]
+    pub fn enforcing(&self) -> bool {
+        !self.protection_paused() && self.mode_and_health().0 == "enforce"
+    }
+
+    /// `protection.set`: pause or resume all automatic blocking and killing. Verdicts, scores and
+    /// events keep flowing; manual actions by the user still work. Reversible and audited.
+    pub fn set_protection(&self, on: bool) -> Result<Value, RpcError> {
+        if self.paused.swap(!on, Ordering::SeqCst) != on {
+            return Ok(self.status());
+        }
+        self.persist("protection_paused", if on { "0" } else { "1" });
+        if !on {
+            self.purge_finish();
+        }
+        if let Err(e) = self.resync_enforcement() {
+            self.fail_enforcement(&e);
+        }
+        self.audit(
+            "user",
+            vigil_core::audit::AuditKind::ConfigChange,
+            None,
+            &json!({ "protection": if on { "on" } else { "paused" } }),
+        );
+        self.emit(
+            "enforcement",
+            "event.enforcement_changed",
+            json!({ "mode": self.mode_and_health().0, "filters_armed": self.armed.load(Ordering::SeqCst), "reason": "protection" }),
+        );
+        Ok(self.status())
+    }
+
+    #[must_use]
     pub fn status(&self) -> Value {
         let pending = self
             .with_store(vigil_store::repo::pending_count)
@@ -342,7 +384,7 @@ impl Shared {
         };
         json!({
             "protocol": vigil_ipc::PROTOCOL, "service_version": SERVICE_VERSION,
-            "mode": g.mode, "health": g.health, "health_detail": g.health_detail,
+            "mode": g.mode, "protection": !self.protection_paused(), "health": g.health, "health_detail": g.health_detail,
             "filters_armed": self.armed.load(Ordering::SeqCst),
             "counts": { "safe": count("safe"), "unknown": count("unknown"),
                         "malicious": count("malicious"), "pending": pending },

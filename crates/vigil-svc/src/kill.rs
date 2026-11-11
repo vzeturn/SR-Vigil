@@ -333,6 +333,9 @@ impl Shared {
 
     /// Kill any running copy of a blocked image (matched by path or hash). Returns kill count.
     pub fn respawn_scan(&self) -> usize {
+        if self.protection_paused() {
+            return 0;
+        }
         let Some(ctl) = self.control() else { return 0 };
         self.release_orphan_blocks();
         let ids: Vec<i64> = self
@@ -424,7 +427,7 @@ impl Shared {
 
     /// In `enforce`, kill processes a *hard rule* marked Malicious (never a score or AI alone).
     pub fn auto_kill_malicious(&self) -> usize {
-        if self.mode_and_health().0 != "enforce" {
+        if !self.enforcing() {
             return 0;
         }
         let mut n = 0;
@@ -473,6 +476,9 @@ impl Shared {
     /// reclassify them Malicious (a hijacked Safe program included), kill the whole tree and block
     /// the image. Sibling clones of a verified-safe program (browsers) and the never-kill set are exempt.
     pub fn storm_scan(&self) -> usize {
+        if self.protection_paused() {
+            return 0;
+        }
         let rows = self.all_rows();
         let procs = storm_procs(&rows);
         let mut n = 0;

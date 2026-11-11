@@ -36,6 +36,8 @@ const ALLOWED: &[&str] = &[
     "purge.start",
     "purge.stop",
     "purge.status",
+    "dns.status",
+    "protection.set",
     "process.get",
     "process.modules",
     "process.kill",

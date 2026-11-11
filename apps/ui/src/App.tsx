@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { enableProtection, syncTrayLabels, syncTrayPending } from './bridge';
+import { getBridge, enableProtection, syncTrayLabels, syncTrayPending } from './bridge';
 import { LiveScan } from './components/LiveScan';
 import { Kills } from './pages/Kills';
 import { Lockdown } from './pages/Lockdown';
@@ -57,6 +57,14 @@ function Shell() {
   const [page, setPage] = useState<PageId>('overview');
   const [enabling, setEnabling] = useState(false);
   const [enableFailed, setEnableFailed] = useState(false);
+  const active = snapshot?.status.protection !== false;
+  const [toggleFailed, setToggleFailed] = useState(false);
+  const setProtection = (enabled: boolean) => {
+    setToggleFailed(false);
+    getBridge()
+      .then((b) => b.rpc('protection.set', { enabled }))
+      .catch(() => setToggleFailed(true));
+  };
   const enable = async () => {
     setEnabling(true);
     setEnableFailed(!(await enableProtection()));
@@ -131,8 +139,26 @@ function Shell() {
       <main className="main">
         <div className="page-head">
           <h1>{t(`nav.${page}`)}</h1>
-          <span className={`status-pill${link.up ? ' up' : ''}`} role="status">
-            {link.up ? t('link.protected') : t('link.watching')}
+          <span className="page-head-actions">
+            {link.up && (
+              <button
+                type="button"
+                className={`btn${active ? '' : ' primary'}`}
+                title={t('link.pauseHelp')}
+                aria-pressed={!active}
+                onClick={() => setProtection(!active)}
+              >
+                {active ? t('link.pause') : t('link.resume')}
+              </button>
+            )}
+            {toggleFailed && (
+              <span className="hero-error" role="alert">
+                {t('link.toggleFailed')}
+              </span>
+            )}
+            <span className={`status-pill${link.up && active ? ' up' : ''}`} role="status">
+              {!link.up ? t('link.watching') : active ? t('link.protected') : t('link.paused')}
+            </span>
           </span>
         </div>
         {!link.up && (

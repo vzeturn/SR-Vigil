@@ -64,7 +64,8 @@ mod win {
         tokio::spawn(vigil_svc::ai_usage::digest_loop(Arc::clone(&shared)));
         if let Ok(dir) = host::data_dir() {
             tokio::spawn(vigil_svc::catalogue::run(Arc::clone(&shared), dir.clone()));
-            tokio::spawn(vigil_svc::hashrep::run(Arc::clone(&shared), dir));
+            tokio::spawn(vigil_svc::hashrep::run(Arc::clone(&shared), dir.clone()));
+            tokio::spawn(vigil_svc::dnsfilter::run(Arc::clone(&shared), dir));
         }
         shared.audit(
             "service",
@@ -74,11 +75,15 @@ mod win {
         );
         let obs = tokio::spawn(observer::run(Arc::clone(&shared), pack));
         let pipe = tokio::spawn(host::serve_pipe(shared));
-        tokio::select! {
+        let result = tokio::select! {
             () = stop => Ok(()),
             r = obs => r?,
             r = pipe => r?,
+        };
+        if let Ok(dir) = host::data_dir() {
+            vigil_svc::dnsfilter::shutdown(&dir); // never leave DNS pointing at a listener that is gone
         }
+        result
     }
 
     pub fn console() -> anyhow::Result<()> {

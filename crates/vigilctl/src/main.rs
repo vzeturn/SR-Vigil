@@ -41,6 +41,11 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
+    /// Pause or resume all automatic blocking and killing; assessments keep running (needs an elevated shell).
+    Protection {
+        #[arg(value_parser = ["on", "off"])]
+        state: String,
+    },
     /// Remove every Vigil filter and return to observe mode (needs an elevated shell).
     Panic,
     /// Set the enforcement mode (needs an elevated shell).
@@ -165,6 +170,10 @@ fn main() -> anyhow::Result<()> {
             Ok(())
         }
         Command::Status { json } => status::run(json),
+        Command::Protection { state } => control::purge(
+            "protection.set",
+            serde_json::json!({ "enabled": state == "on" }),
+        ),
         Command::Panic => control::panic(),
         Command::Mode {
             mode,

@@ -13,6 +13,8 @@ export interface Counts {
 export interface Status {
   service_version: string;
   mode: Mode;
+  /** false while the user has paused automatic blocking and killing. */
+  protection?: boolean;
   health: Health;
   health_detail?: string | null;
   filters_armed: boolean;

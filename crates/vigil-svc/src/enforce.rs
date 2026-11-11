@@ -238,8 +238,12 @@ impl Shared {
         let Some(engine) = self.engine() else {
             return Ok(());
         };
-        let armed_wanted = self.mode_and_health().0 == "enforce";
-        let desired = self.desired(armed_wanted)?;
+        let armed_wanted = self.enforcing();
+        let desired = if self.protection_paused() {
+            Desired::default() // paused: no persistent deny filters either
+        } else {
+            self.desired(armed_wanted)?
+        };
         let key = (desired.clone(), armed_wanted);
         if self.last_applied_slot().as_ref() == Some(&key) {
             return Ok(());

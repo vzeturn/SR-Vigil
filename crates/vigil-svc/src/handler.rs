@@ -69,6 +69,13 @@ impl ConnHandler {
             "purge.start" => s.purge_start(params, "user"),
             "purge.stop" => Ok(s.purge_stop("user")),
             "purge.status" => Ok(s.purge_status()),
+            "protection.set" => s.set_protection(
+                params
+                    .get("enabled")
+                    .and_then(Value::as_bool)
+                    .ok_or_else(|| RpcError::new(INVALID_PARAMS, "enabled must be a boolean"))?,
+            ),
+            "dns.status" => Ok(crate::dnsfilter::status(s)),
             "process.list" => s.list_processes(params),
             "process.get" => s.get_process(
                 params

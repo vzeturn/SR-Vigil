@@ -166,6 +166,9 @@ impl Shared {
     }
 
     fn kill_waiting(&self, ctl: &dyn crate::kill::ProcessControl, pid: u32, w: &Waiting) {
+        if self.protection_paused() {
+            return;
+        }
         if ctl.terminate(pid, w.started) == KillOutcome::Terminated {
             let _ = self.with_store(|c| vigil_store::blocks::count_respawn_kill(c, w.block_id));
             self.audit(

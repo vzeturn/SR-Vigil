@@ -1030,7 +1030,7 @@ impl Shared {
         };
         let confident =
             a.opinion.verdict == "malicious" && a.opinion.confidence >= s.auto_threshold;
-        let acts = s.mode == "auto" && self.mode_and_health().0 == "enforce" && confident;
+        let acts = s.mode == "auto" && self.enforcing() && confident;
         self.audit(
             "ai",
             AuditKind::AiDecision,
@@ -1066,7 +1066,7 @@ impl Shared {
                 if a.opinion.verdict == "malicious" && a.opinion.confidence >= s.auto_threshold {
                     self.escalate_pending(exe_id);
                 }
-                if s.mode == "auto" && self.mode_and_health().0 == "enforce" {
+                if s.mode == "auto" && self.enforcing() {
                     self.ai_auto(exe_id, s, &a, score, hard_rule);
                 }
             }

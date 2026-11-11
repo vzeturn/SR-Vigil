@@ -178,6 +178,12 @@ impl Shared {
 
     /// `purge.start`: stop everything untrusted and begin the hold.
     pub fn purge_start(&self, params: &Value, actor: &str) -> Result<Value, RpcError> {
+        if self.protection_paused() {
+            return Err(RpcError::new(
+                INVALID_STATE,
+                "protection is paused; turn it on to use lockdown",
+            ));
+        }
         let ctl = self
             .control()
             .ok_or_else(|| RpcError::new(INVALID_STATE, "process control unavailable"))?;
@@ -262,7 +268,7 @@ impl Shared {
         self.purge_status()
     }
 
-    fn purge_finish(&self) {
+    pub(crate) fn purge_finish(&self) {
         let mut p = self.purge_state();
         if let Some(run) = p.run.take() {
             let out = run.report(false);
