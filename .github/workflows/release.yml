@@ -71,7 +71,7 @@ jobs:
         with:
           name: ${{ needs.sign.result == 'success' && 'vigil-bin-signed' || 'vigil-bin-unsigned' }}
           path: dist/bin
-      - run: dotnet tool install --global wix
+      - run: dotnet tool install --global wix --version 5.0.2
       - run: cargo install cargo-cyclonedx --locked
       - name: Package MSI
         run: ./installer/build.ps1 -Version $env:VERSION -Stage package

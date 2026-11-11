@@ -18,12 +18,15 @@ vigil-core = { path = "../vigil-core" }
 sha2.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
-ferrisetw.workspace = true
-winreg.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
 
-[dependencies.windows]
+# The crate is empty off Windows; keep its OS bindings out of Linux builds.
+[target.'cfg(windows)'.dependencies]
+ferrisetw.workspace = true
+winreg.workspace = true
+
+[target.'cfg(windows)'.dependencies.windows]
 workspace = true
 features = [
   "Win32_Foundation",

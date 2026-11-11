@@ -9,6 +9,7 @@ param(
     [ValidateSet('all', 'build', 'package')][string]$Stage = 'all'
 )
 $ErrorActionPreference = 'Stop'
+$Version = $Version.TrimStart('v')   # tags are vX.Y.Z; MSI versions are numeric
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
@@ -33,9 +34,12 @@ if ($SignCert) {
     }
 }
 
-wix extension add -g WixToolset.Util.wixext | Out-Null
+# The extension must match the WiX CLI major version or `wix build` cannot load it.
+$wixVersion = (wix --version) -replace '\+.*$', ''
+wix extension add -g "WixToolset.Util.wixext/$wixVersion" | Out-Null
+if ($LASTEXITCODE) { throw "WiX Util extension $wixVersion unavailable" }
 $msi = Join-Path $root "dist\Vigil-$Version.msi"
-wix build installer\Vigil.wxs -ext WixToolset.Util.wixext -d Version=$Version -d BinDir=$bin -arch x64 -o $msi
+wix build installer\Vigil.wxs -ext "WixToolset.Util.wixext/$wixVersion" -d Version=$Version -d BinDir=$bin -arch x64 -o $msi
 if ($LASTEXITCODE) { throw 'wix build failed' }
 if ($SignCert) { signtool sign /sha1 $SignCert /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 $msi }
 Get-FileHash $msi -Algorithm SHA256 | ForEach-Object { "$($_.Hash)  $(Split-Path -Leaf $msi)" } | Set-Content "$msi.sha256"
