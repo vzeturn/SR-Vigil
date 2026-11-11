@@ -150,6 +150,8 @@ pub struct Shared {
     /// File findings by lower-cased image path this run (FIL-001/002, RES-001).
     pub(crate) file_seen: Mutex<HashMap<String, vigil_core::observe::FileSeen>>,
     pub(crate) mass_change: Mutex<vigil_core::analysis::fileact::MassChange>,
+    /// Process starts from ETW not yet seen by the observer (pid, parent pid, drive path).
+    pub(crate) started: Mutex<std::collections::VecDeque<(u32, u32, String)>>,
     pub(crate) reopen: Mutex<crate::reopen::Reopen>,
     pub(crate) launchers: Mutex<crate::launcher::Launchers>,
     pub(crate) ai_slots: tokio::sync::Semaphore,
@@ -282,6 +284,7 @@ impl Shared {
             spawn_seen: Mutex::new(std::collections::HashSet::new()),
             file_seen: Mutex::new(HashMap::new()),
             mass_change: Mutex::new(vigil_core::analysis::fileact::MassChange::default()),
+            started: Mutex::new(std::collections::VecDeque::new()),
             reopen: Mutex::new(crate::reopen::Reopen::default()),
             launchers: Mutex::new(crate::launcher::Launchers::default()),
             ai_slots: tokio::sync::Semaphore::new(2),

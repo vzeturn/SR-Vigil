@@ -20,6 +20,7 @@ pub mod portable;
 pub mod purge;
 pub mod reopen;
 pub mod spawnwatch;
+pub mod started;
 pub mod state;
 pub mod threat;
 

@@ -972,11 +972,22 @@ fn query_dos_map() -> Vec<(String, String)> {
 }
 
 fn resolve_path(nt: &str, ctx: &EventContext) -> String {
+    resolve_with(nt, &ctx.dos_map)
+}
+
+/// `\Device\HarddiskVolumeN\rest` as `C:\rest` (ETW reports images this way); other paths
+/// unchanged.
+#[must_use]
+pub fn dos_path(nt: &str) -> String {
+    static MAP: Mutex<Vec<(String, String)>> = Mutex::new(Vec::new());
+    resolve_with(nt, &MAP)
+}
+
+fn resolve_with(nt: &str, map: &Mutex<Vec<(String, String)>>) -> String {
     if !nt.to_lowercase().starts_with("\\device\\") {
         return nt.to_owned();
     }
-    let mut map = ctx
-        .dos_map
+    let mut map = map
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
     if let Some(p) = nt_to_dos(nt, &map) {

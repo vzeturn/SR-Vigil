@@ -50,11 +50,12 @@ pub fn spawn_connect_feed(shared: Arc<Shared>) {
                     vigil_win::etw::Event::DnsAnswer { pid, name, addrs } => {
                         shared.note_dns(pid, &name, &addrs);
                     }
-                    vigil_win::etw::Event::ProcessStart { pid, ppid, image }
-                        if vigil_core::analysis::spawn::inspects(&image) =>
-                    {
-                        let cmdline = vigil_win::process::command_line(pid);
-                        shared.note_spawn(ppid, &image, cmdline.as_deref());
+                    vigil_win::etw::Event::ProcessStart { pid, ppid, image } => {
+                        if vigil_core::analysis::spawn::inspects(&image) {
+                            let cmdline = vigil_win::process::command_line(pid);
+                            shared.note_spawn(ppid, &image, cmdline.as_deref());
+                        }
+                        shared.note_process_start(pid, ppid, vigil_win::wfp::dos_path(&image));
                     }
                     vigil_win::etw::Event::FileDrop { pid, path } => {
                         shared.note_file_drop(pid, &path);
@@ -65,7 +66,7 @@ pub fn spawn_connect_feed(shared: Arc<Shared>) {
                     vigil_win::etw::Event::CredentialOpen { pid, store } => {
                         shared.note_credential_open(pid, store);
                     }
-                    _ => {}
+                    vigil_win::etw::Event::ProcessStop { .. } => {}
                 }
             }
             shared.use_etw_connects(false);
@@ -218,6 +219,30 @@ fn unseen_images(
     pending
 }
 
+/// Images started (ETW) and gone before the snapshot saw them: a dropper that runs for 100 ms
+/// still gets a verdict, an evaluation row and, if malicious, an alert. The snapshot stays the
+/// source of truth for running processes and repairs anything ETW lost.
+fn exited_images(
+    shared: &Shared,
+    procs: &[process::ProcessInfo],
+    cache: &HashMap<Key, Verdicted>,
+    pending: &[(Key, String, Option<String>, u32)],
+) -> Vec<(Key, String, Option<String>, u32)> {
+    let mut out: Vec<(Key, String, Option<String>, u32)> = Vec::new();
+    for (pid, ppid, image) in shared.take_started() {
+        if procs.iter().any(|p| p.pid == pid) || !Path::new(&image).is_absolute() {
+            continue;
+        }
+        let parent = shared.row_by_pid(ppid).and_then(|r| r.path);
+        let key = (normalize(&image), parent.as_deref().map(normalize));
+        let known = cache.contains_key(&key) || pending.iter().chain(&out).any(|(k, ..)| *k == key);
+        if !known {
+            out.push((key, image, parent, pid));
+        }
+    }
+    out
+}
+
 /// Drop cached verdicts whose user decision changed, so the next tick re-judges them.
 fn forget_rejudged(shared: &Shared, cache: &mut HashMap<Key, Verdicted>) {
     for path in shared.take_rejudge_paths() {
@@ -302,7 +327,9 @@ pub async fn run(shared: Arc<Shared>, pack: Arc<RulePack>) -> anyhow::Result<()>
         sync_processes(&shared, &procs);
         forget_rejudged(&shared, &mut cache);
 
-        let pending = unseen_images(&procs, &cache);
+        let mut pending = unseen_images(&procs, &cache);
+        let gone = exited_images(&shared, &procs, &cache, &pending);
+        pending.extend(gone);
         // A big first scan is spread out so it never hogs a core; steady state has 0-2 new images.
         let burst = pending.len() > BURST;
         for (key, image, parent, pid) in pending {
@@ -534,5 +561,48 @@ mod tests {
         assert_eq!(unseen_images(&procs, &cache).len(), 0);
         cache.insert(key, cached(RECHECK));
         assert_eq!(unseen_images(&procs, &cache).len(), 1);
+    }
+
+    #[test]
+    fn images_gone_before_the_snapshot_are_judged_once() {
+        let shared = Shared::new(crate::state::Options {
+            store: None,
+            rules: serde_json::json!([]),
+            trust: vec![],
+            rule_pack_version: "1".into(),
+            network_critical: vec![],
+            never_kill: vec![],
+        });
+        let running = ProcessInfo {
+            pid: 10,
+            ppid: 0,
+            name: "app.exe".into(),
+            image: Some(r"C:\Tools\app.exe".into()),
+            start_time: None,
+            threads: 1,
+            ram_bytes: 0,
+            cpu_ticks: 0,
+        };
+        let dropper = r"C:\Users\a\AppData\Local\Temp\d.exe";
+        for (pid, image) in [
+            (10, r"C:\Tools\app.exe"),
+            (11, dropper),
+            (12, dropper),
+            (13, r"\Device\Unmapped\x.exe"),
+        ] {
+            shared.note_process_start(pid, 10, image.into());
+        }
+        let cache = HashMap::new();
+        let gone = exited_images(&shared, &[running], &cache, &[]);
+        let images: Vec<&str> = gone.iter().map(|(_, i, ..)| i.as_str()).collect();
+        assert_eq!(
+            images,
+            [dropper],
+            "running and unmapped images are left to the snapshot"
+        );
+        assert!(
+            shared.take_started().is_empty(),
+            "each start is handled once"
+        );
     }
 }
