@@ -1,0 +1,2 @@
+# Prompt text is part of the AI contract (proxy/src/spec.json): identical bytes on every OS.
+crates/vigil-ai/src/prompt/*.txt text eol=lf
