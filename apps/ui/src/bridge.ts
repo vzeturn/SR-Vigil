@@ -1,4 +1,4 @@
-import type { Link, PendingItem, LauncherPrompt, ReopenPrompt, Snapshot, Verdict } from './types';
+import type { Link, PendingItem, LauncherPrompt, ReopenPrompt, Snapshot, ThreatPrompt, Verdict } from './types';
 
 /** The only door to the service. In a browser (dev, tests) a mock stands in for the Tauri shell. */
 export interface Bridge {
@@ -7,10 +7,12 @@ export interface Bridge {
   onLink(cb: (l: Link) => void): Promise<() => void>;
   /** Fired when the service queues a new pending decision (payload may be absent). */
   onPending(cb: (p: PendingItem | null) => void): Promise<() => void>;
-  /** Fired when a killed program is reopened by the user and waits frozen for an answer. */
   /** Fired once when a launcher keeps starting a stopped program. */
   onLauncher(cb: (p: LauncherPrompt) => void): Promise<() => void>;
+  /** Fired when a killed program is reopened by the user and waits frozen for an answer. */
   onReopen(cb: (p: ReopenPrompt) => void): Promise<() => void>;
+  /** Fired when a program starts calling one Internet address at a regular interval. */
+  onThreat(cb: (p: ThreatPrompt) => void): Promise<() => void>;
 }
 
 const inTauri = '__TAURI_INTERNALS__' in globalThis;
@@ -27,6 +29,7 @@ async function tauriBridge(): Promise<Bridge> {
     onPending: (cb) => listen<PendingItem | null>('vigil://pending', (e) => cb(e.payload)),
     onLauncher: (cb) => listen<LauncherPrompt>('vigil://launcher', (e) => cb(e.payload)),
     onReopen: (cb) => listen<ReopenPrompt>('vigil://reopen', (e) => cb(e.payload)),
+    onThreat: (cb) => listen<ThreatPrompt>('vigil://threat', (e) => cb(e.payload)),
   };
 }
 
@@ -44,7 +47,6 @@ export async function syncTrayPending(tooltip: string): Promise<void> {
   await invoke('set_tray_pending', { tooltip });
 }
 
-/** Hide the popup window (Esc / Later): the item stays pending and blocked. No-op outside Tauri. */
 /** Installs the service via one UAC prompt (desktop shell only; resolves false when declined). */
 export async function enableProtection(): Promise<boolean> {
   if (!('__TAURI_INTERNALS__' in window)) return false;
@@ -179,6 +181,7 @@ export async function localKill(f: LocalFinding): Promise<string> {
   }
 }
 
+/** Hide the popup window (Esc / Later): the item stays pending and blocked. No-op outside Tauri. */
 export async function hidePopup(): Promise<void> {
   if (!inTauri) return;
   const { getCurrentWindow } = await import('@tauri-apps/api/window');

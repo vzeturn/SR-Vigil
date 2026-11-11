@@ -31,6 +31,8 @@ const ALLOWED: &[&str] = &[
     "decision.exception",
     "reopen.answer",
     "launcher.answer",
+    "threat.list",
+    "threat.answer",
     "audit.query",
     "enforcement.panic",
     "purge.start",
@@ -137,6 +139,11 @@ fn forward_pending(app: &AppHandle, client: &mut Client<NamedPipeClient>) {
             }
             "event.launcher_prompt" => {
                 let _ = app.emit("vigil://launcher", params);
+                crate::popup::show(app);
+            }
+            "event.threat_detected" => {
+                // The service asks once per program per run; nothing goes to the AI until answered.
+                let _ = app.emit("vigil://threat", params);
                 crate::popup::show(app);
             }
             "event.ai_digest" => {

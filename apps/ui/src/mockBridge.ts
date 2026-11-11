@@ -168,6 +168,7 @@ export function createMockBridge(rows = 200): Bridge {
       return { decision, applied: true };
     },
     'enforcement.panic': status,
+    'threat.list': () => ({ threats: [] }),
   };
 
   return {
@@ -190,5 +191,6 @@ export function createMockBridge(rows = 200): Bridge {
     onPending: () => Promise.resolve(() => undefined),
     onLauncher: () => Promise.resolve(() => undefined),
     onReopen: () => Promise.resolve(() => undefined),
+    onThreat: () => Promise.resolve(() => undefined),
   };
 }

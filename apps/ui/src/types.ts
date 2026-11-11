@@ -210,6 +210,20 @@ export interface ReopenPrompt {
   received_at?: number;
 }
 
+/** A program calls the same Internet address at a machine-regular interval (`docs/24`). */
+export interface ThreatPrompt {
+  threat_id: string;
+  kind: 'beaconing';
+  path: string;
+  identity_id: string | null;
+  dest_ip: string;
+  dest_port: number;
+  interval_secs: number;
+  detected_at: string;
+  /** AI analysis is configured; otherwise only block or ignore are offered. */
+  ai_available: boolean;
+}
+
 /** A program keeps starting something Vigil stopped: ask what to do about the launcher. */
 export interface LauncherPrompt {
   launcher: string;

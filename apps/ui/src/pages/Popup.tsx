@@ -5,6 +5,7 @@ import type { AiOpinion } from '../types';
 import { AiAssessment } from '../components/AiAssessment';
 import { LauncherView } from '../components/LauncherView';
 import { ReopenView } from '../components/ReopenView';
+import { ThreatView } from '../components/ThreatView';
 import { useFitPopup } from '../components/useFitPopup';
 import { DecisionControls } from '../components/DecisionControls';
 import { destinationText, hasConnection, itemName } from '../components/pendingView';
@@ -13,10 +14,12 @@ import { ScoreTip } from '../components/ScoreTip';
 import { VerdictChip } from '../components/VerdictChip';
 import { useVigil } from '../store';
 
-/** Content of the always-on-top window: a reopen question outranks the pending queue. */
+/** Content of the always-on-top window: a frozen reopen first, then network consent, then the rest. */
 export function Popup() {
-  const { reopen, launcher } = useVigil();
+  const { reopen, launcher, threats } = useVigil();
   if (reopen) return <ReopenView prompt={reopen} />;
+  const [threat] = threats;
+  if (threat) return <ThreatView key={threat.threat_id} prompt={threat} />;
   return launcher ? <LauncherView prompt={launcher} /> : <PendingPopup />;
 }
 
