@@ -610,6 +610,10 @@ impl Shared {
             .cloned()
     }
 
+    pub(crate) fn row_by_pid(&self, pid: u32) -> Option<ProcRow> {
+        lock(&self.inner).processes.get(&pid).cloned()
+    }
+
     pub(crate) fn all_rows(&self) -> Vec<ProcRow> {
         lock(&self.inner).processes.values().cloned().collect()
     }

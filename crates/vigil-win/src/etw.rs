@@ -4,7 +4,7 @@
 //! caller degrades to snapshot-only observation.
 
 use std::net::IpAddr;
-use std::sync::mpsc::{Receiver, Sender, channel};
+use std::sync::mpsc::{Receiver, SyncSender, sync_channel};
 
 use ferrisetw::EventRecord;
 use ferrisetw::parser::Parser;
@@ -17,6 +17,8 @@ use crate::Error;
 const KERNEL_PROCESS: &str = "22fb2cd6-0e7b-422b-a0c7-2fad1fd0e716";
 const KERNEL_NETWORK: &str = "7dd42a49-5329-4832-8dfd-43d979153a88";
 const DNS_CLIENT: &str = "1c95126e-7eea-49a9-a3fe-a378b03ddb4d";
+/// Events buffered for a slow consumer; beyond this new events are dropped (bounded memory).
+const QUEUE: usize = 8192;
 
 /// A normalised ETW event. All strings are untrusted host data.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -54,6 +56,12 @@ impl Session {
         self.events.try_iter().collect()
     }
 
+    /// Block for the next event; `None` once the trace has stopped delivering.
+    #[must_use]
+    pub fn recv(&self) -> Option<Event> {
+        self.events.recv().ok()
+    }
+
     /// Wait up to `timeout` for the next event.
     #[must_use]
     pub fn recv_timeout(&self, timeout: std::time::Duration) -> Option<Event> {
@@ -61,7 +69,7 @@ impl Session {
     }
 }
 
-fn process_event(tx: &Sender<Event>, rec: &EventRecord, locator: &SchemaLocator) {
+fn process_event(tx: &SyncSender<Event>, rec: &EventRecord, locator: &SchemaLocator) {
     let Ok(schema) = locator.event_schema(rec) else {
         return;
     };
@@ -87,10 +95,10 @@ fn process_event(tx: &Sender<Event>, rec: &EventRecord, locator: &SchemaLocator)
         },
         _ => return,
     };
-    let _ = tx.send(ev);
+    let _ = tx.try_send(ev);
 }
 
-fn network_event(tx: &Sender<Event>, rec: &EventRecord, locator: &SchemaLocator) {
+fn network_event(tx: &SyncSender<Event>, rec: &EventRecord, locator: &SchemaLocator) {
     // 12 = TCPv4 connect attempt, 28 = TCPv6 connect attempt.
     if !matches!(rec.event_id(), 12 | 28) {
         return;
@@ -108,10 +116,10 @@ fn network_event(tx: &Sender<Event>, rec: &EventRecord, locator: &SchemaLocator)
     };
     // ETW delivers `dport` in network byte order.
     let port = port.swap_bytes();
-    let _ = tx.send(Event::Connect { pid, dest, port });
+    let _ = tx.try_send(Event::Connect { pid, dest, port });
 }
 
-fn dns_event(tx: &Sender<Event>, rec: &EventRecord, locator: &SchemaLocator) {
+fn dns_event(tx: &SyncSender<Event>, rec: &EventRecord, locator: &SchemaLocator) {
     // 3006 = DNS query issued.
     if rec.event_id() != 3006 {
         return;
@@ -121,16 +129,20 @@ fn dns_event(tx: &Sender<Event>, rec: &EventRecord, locator: &SchemaLocator) {
     };
     let p = Parser::create(rec, &schema);
     if let Ok(name) = p.try_parse::<String>("QueryName") {
-        let _ = tx.send(Event::DnsQuery {
+        let _ = tx.try_send(Event::DnsQuery {
             pid: rec.process_id(),
             name,
         });
     }
 }
 
-/// Start a session named `name` covering Kernel-Process, Kernel-Network and DNS-Client.
+/// Start a session named `name` covering Kernel-Process, Kernel-Network and DNS-Client. A session
+/// of that name left behind by a crashed run is stopped first (real-time sessions outlive their
+/// process).
 pub fn start(name: &str) -> Result<Session, Error> {
-    let (tx, rx) = channel();
+    // Absent session is the normal case; any real problem resurfaces from `start_and_process`.
+    let _ = ferrisetw::trace::stop_trace_by_name(name);
+    let (tx, rx) = sync_channel(QUEUE);
     let (t1, t2, t3) = (tx.clone(), tx.clone(), tx);
     let process = Provider::by_guid(KERNEL_PROCESS)
         .add_callback(move |r: &EventRecord, l: &SchemaLocator| process_event(&t1, r, l))

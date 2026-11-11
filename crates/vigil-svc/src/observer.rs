@@ -1,5 +1,6 @@
-//! Unprivileged observer: polls processes and the TCP table, classifies new images, and keeps
-//! [`Shared`] current. ETW (DNS names, instant connect events) needs elevation and is added in M3.
+//! Observer: polls processes and the TCP table, classifies new images, and keeps [`Shared`]
+//! current. When elevated, an ETW trace also delivers every outbound connect, including those
+//! shorter than the poll interval, to the beacon tracker ([`spawn_connect_feed`]).
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -18,6 +19,34 @@ use vigil_win::{net, trust, version};
 use crate::state::{ConnRow, ProcRow, Shared, now};
 
 const POLL: Duration = Duration::from_millis(500);
+const ETW_SESSION: &str = "VigilSvc-connect";
+
+/// Start the ETW connect feed on its own thread. Without elevation, or once the trace stops,
+/// beacon tracking falls back to the table poll.
+pub fn spawn_connect_feed(shared: Arc<Shared>) {
+    let spawned = std::thread::Builder::new()
+        .name("etw-connect".into())
+        .spawn(move || {
+            let session = match vigil_win::etw::start(ETW_SESSION) {
+                Ok(s) => s,
+                Err(e) => {
+                    tracing::warn!(error = %e, "etw connect feed unavailable, polling only");
+                    return;
+                }
+            };
+            shared.use_etw_connects(true);
+            while let Some(ev) = session.recv() {
+                if let vigil_win::etw::Event::Connect { pid, dest, port } = ev {
+                    shared.track_connect(pid, dest, port);
+                }
+            }
+            shared.use_etw_connects(false);
+            tracing::warn!("etw connect feed stopped, polling only");
+        });
+    if let Err(e) = spawned {
+        tracing::warn!(error = %e, "etw connect thread not started");
+    }
+}
 /// More new images than this in one tick counts as a burst (first scan, installer, build).
 const BURST: usize = 8;
 const BURST_PAUSE: Duration = Duration::from_millis(40);

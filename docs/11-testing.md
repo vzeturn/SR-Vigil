@@ -147,3 +147,8 @@ Disposable Windows 10 and Windows 11 VM snapshots, standard user plus an admin a
 - Automated: `cargo test -p vigil-core urlfilter`, `cargo test -p vigil-svc dnsfilter`, `cargo test -p vigil-svc --test pause` (paused: no kill, lockdown refused).
 - Manual (Windows, elevated): `vigilctl` settings enable `urlfilter`, then `nslookup` a name from the ads list returns `0.0.0.0` and `nslookup microsoft.com` resolves; disable and confirm the adapter DNS is back to its original value. Kill `vigil-svc` and restart it: the stale backup is restored.
 - Manual: `vigilctl protection off`, start a looping test program in `enforce`: nothing is killed; `vigilctl protection on` resumes.
+
+## Suspicious network behaviour checks (docs/24)
+
+- Automated: `cargo test -p vigil-core beacon` (regular, jittered, bursty fixtures), `cargo test -p vigil-svc --test threat` (consent gate, ETW feed replaces the poll), `cargo test -p vigil-win etw` (elevated: a loopback connect arrives as a `Connect` event; skipped otherwise).
+- Manual (Windows, elevated, service running): from an unsigned test program, open and immediately close a TCP connection to a public test address every 60 s ± 30 % for 15 minutes. A `beaconing` prompt appears although each connection lasts under 100 ms. `logman query -ets` lists `VigilSvc-connect`; kill the service process and start it again: it starts without an "already exists" error.

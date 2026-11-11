@@ -73,6 +73,7 @@ mod win {
             None,
             &serde_json::json!({}),
         );
+        observer::spawn_connect_feed(Arc::clone(&shared));
         let obs = tokio::spawn(observer::run(Arc::clone(&shared), pack));
         let pipe = tokio::spawn(host::serve_pipe(shared));
         let result = tokio::select! {

@@ -19,7 +19,7 @@ Metadata is enough for the pattern that matters: a malware heartbeat is regular 
 
 ## 3. How it works
 
-1. Every new outbound connection to a public address (not loopback, private, link-local, multicast or unspecified) is recorded as one sample for the flow *(program path, remote IP, remote port)*. Connection rows come from the existing table poll; no packet is captured.
+1. Every new outbound connection to a public address (not loopback, private, link-local, multicast or unspecified) is recorded as one sample for the flow *(program path, remote IP, remote port)*. Samples come from an ETW trace of TCP connect attempts (Microsoft-Windows-Kernel-Network, events 12/28) when the service is elevated, so connections shorter than the 500 ms table poll are counted too; while that trace runs the poll no longer feeds the tracker, so nothing is counted twice. Without the trace (not elevated, or it stopped) the table poll is the source. A trace left by a crashed run is stopped before a new one starts. No packet is captured.
 2. `vigil_core::analysis::beacon::BeaconTracker` keeps the samples of the last 30 min per flow, at most 4096 flows (the stalest is evicted, silent flows are forgotten). A flow is beaconing when it has at least 6 samples, a mean interval of at least 5 s and an interval coefficient of variation below 0.15, or, for a randomised (jittered) sleep, at least 12 samples whose interquartile interval range is at most 0.6 × the median of at least 5 s (`docs/03`, BEH-002). Each flow is reported once.
 3. On the first report for a program in this run, the service:
    - marks the program so its next evaluation carries BEH-002 (−30) and queues it for re-evaluation;
@@ -42,7 +42,7 @@ Without consent `ai_payload` reports `beaconing = false` and no destination, so 
 
 ## 5. Limits
 
-- Connections shorter than the poll interval (about 500 ms) can be missed; an ETW-based capture is tracked in `docs/10` backlog.
+- Without the ETW trace, connections shorter than the poll interval (about 500 ms) can be missed. With it, a connect from a process that started and exited between two process polls has no known program and is skipped.
 - Beacons jittered by more than about ±50 %, and data hidden inside long-lived connections, are out of scope.
 - Detection state lives in memory and resets when the service restarts.
 - TLS handshake metadata (SNI, JA4) is not inspected yet; tracked in `docs/10` backlog.

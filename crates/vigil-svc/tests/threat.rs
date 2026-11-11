@@ -144,3 +144,31 @@ fn local_traffic_and_safe_programs_raise_no_prompt() {
     assert!(s.is_beaconing(PATH), "still scored (BEH-002)");
     assert_eq!(threats(&s), Vec::<Value>::new());
 }
+
+#[test]
+fn etw_connects_count_short_flows_and_replace_the_poll() {
+    let (s, _) = setup("unknown");
+    let dest: std::net::IpAddr = "203.0.113.9".parse().unwrap();
+    s.use_etw_connects(true);
+    // The poll never saw these (each lasted less than its interval); ETW reports every one.
+    for i in 0..5 {
+        s.track_connect_at(9, dest, 443, 1_000_000 + i * MINUTE);
+    }
+    // While ETW feeds the tracker, a polled row of the same flow is not counted again.
+    s.track_beacons_at(&[conn(99, "203.0.113.9")], 1_000_000 + 5 * MINUTE - 1);
+    assert!(
+        !s.is_beaconing(PATH),
+        "5 connects, the polled duplicate ignored"
+    );
+    s.track_connect_at(9, dest, 443, 1_000_000 + 5 * MINUTE);
+    assert!(s.is_beaconing(PATH));
+
+    // Private destinations and unknown processes are ignored as before.
+    let (s, _) = setup("unknown");
+    s.use_etw_connects(true);
+    for i in 0..8 {
+        s.track_connect_at(9, "10.0.0.7".parse().unwrap(), 443, 1_000_000 + i * MINUTE);
+        s.track_connect_at(4242, dest, 443, 1_000_000 + i * MINUTE);
+    }
+    assert!(!s.is_beaconing(PATH));
+}

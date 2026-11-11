@@ -46,6 +46,9 @@ pub(crate) struct Threats {
     /// Programs whose network pattern the user agreed to share with the advisor.
     consented: HashMap<String, redact::Dest>,
     pending: HashMap<String, Threat>,
+    /// ETW delivers every connect, short ones included; the table poll then stops feeding the
+    /// tracker so no connection is counted twice.
+    etw: bool,
 }
 
 impl Default for Threats {
@@ -55,6 +58,7 @@ impl Default for Threats {
             flagged: HashSet::new(),
             consented: HashMap::new(),
             pending: HashMap::new(),
+            etw: false,
         }
     }
 }
@@ -92,36 +96,58 @@ fn lock(t: &std::sync::Mutex<Threats>) -> std::sync::MutexGuard<'_, Threats> {
 }
 
 impl Shared {
-    /// Feed brand-new connections to the beacon tracker (called by `sync_connections`).
+    /// Feed brand-new connections to the beacon tracker (called by `sync_connections`). Ignored
+    /// once the ETW feed is live ([`Self::use_etw_connects`]).
     pub(crate) fn track_beacons(&self, fresh: &[ConnRow]) {
         self.track_beacons_at(fresh, now_ms());
     }
 
     /// [`Self::track_beacons`] with an explicit clock (milliseconds since the Unix epoch).
     pub fn track_beacons_at(&self, fresh: &[ConnRow], at_ms: u64) {
+        if lock(&self.threats).etw {
+            return;
+        }
         let outbound: Vec<(u32, &str, u16)> = fresh
             .iter()
             .filter(|c| c.direction == "outbound")
             .filter_map(|c| Some((c.pid, c.remote_addr.as_deref()?, c.remote_port?)))
-            .filter(|(_, ip, _)| is_public(ip))
             .collect();
-        if outbound.is_empty() {
+        for (pid, ip, port) in outbound {
+            self.track_flow(pid, ip, port, at_ms);
+        }
+    }
+
+    /// Feed the tracker from ETW connect events (`true`) or from the table poll (`false`,
+    /// the fallback when no trace runs), `docs/24 §3`.
+    pub fn use_etw_connects(&self, on: bool) {
+        lock(&self.threats).etw = on;
+    }
+
+    /// One outbound connect reported by ETW, short-lived ones included.
+    pub(crate) fn track_connect(&self, pid: u32, dest: IpAddr, port: u16) {
+        self.track_connect_at(pid, dest, port, now_ms());
+    }
+
+    /// [`Self::track_connect`] with an explicit clock.
+    pub fn track_connect_at(&self, pid: u32, dest: IpAddr, port: u16, at_ms: u64) {
+        self.track_flow(pid, &dest.to_string(), port, at_ms);
+    }
+
+    fn track_flow(&self, pid: u32, ip: &str, port: u16, at_ms: u64) {
+        if !is_public(ip) {
             return;
         }
-        let rows = self.all_rows();
-        for (pid, ip, port) in outbound {
-            let Some(row) = rows.iter().find(|r| r.pid == pid) else {
-                continue;
-            };
-            let Some(path) = row.path.as_deref() else {
-                continue;
-            };
-            let key = (path.to_ascii_lowercase(), ip.to_owned(), port);
-            let hit = lock(&self.threats).tracker.observe(key, at_ms);
-            if let Some(every) = hit {
-                let id = row.identity_id.as_deref().and_then(|i| i.parse().ok());
-                self.on_beacon(path, id, row.verdict.as_deref(), (ip, port), every / 1000);
-            }
+        let Some(row) = self.row_by_pid(pid) else {
+            return;
+        };
+        let Some(path) = row.path.as_deref() else {
+            return;
+        };
+        let key = (path.to_ascii_lowercase(), ip.to_owned(), port);
+        let hit = lock(&self.threats).tracker.observe(key, at_ms);
+        if let Some(every) = hit {
+            let id = row.identity_id.as_deref().and_then(|i| i.parse().ok());
+            self.on_beacon(path, id, row.verdict.as_deref(), (ip, port), every / 1000);
         }
     }
 
