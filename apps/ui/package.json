@@ -2,6 +2,7 @@
   "name": "vigil-ui",
   "private": true,
   "version": "1.0.0",
+  "packageManager": "pnpm@11.5.0",
   "type": "module",
   "license": "MIT OR Apache-2.0",
   "scripts": {
