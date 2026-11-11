@@ -1,4 +1,8 @@
-//! Beaconing detector (`docs/03 §6`): a pure function over connection timestamps.
+//! Beaconing detector (`docs/03 §6`, `docs/24`): a pure function over connection timestamps,
+//! plus a bounded tracker that feeds it from a stream of new outbound connections.
+
+use std::collections::HashMap;
+use std::hash::Hash;
 
 /// Detector thresholds (`[beaconing]` in `config/default-policy.toml`).
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -45,6 +49,83 @@ pub fn is_beaconing(timestamps_ms: &[u64], cfg: &BeaconConfig) -> bool {
     var.sqrt() / mean < cfg.max_cv
 }
 
+/// Flows tracked at once; beyond this the stalest flow is dropped (bounded memory).
+pub const MAX_FLOWS: usize = 4096;
+
+#[derive(Debug, Default)]
+struct Flow {
+    times: Vec<u64>,
+    reported: bool,
+}
+
+/// New-connection times per flow (`K` = identity, destination, port). Reports a flow once, when
+/// it first looks like beaconing; a flow silent for a whole window is forgotten and may report again.
+#[derive(Debug)]
+pub struct BeaconTracker<K> {
+    cfg: BeaconConfig,
+    flows: HashMap<K, Flow>,
+}
+
+impl<K: Eq + Hash + Clone> BeaconTracker<K> {
+    #[must_use]
+    pub fn new(cfg: BeaconConfig) -> Self {
+        Self {
+            cfg,
+            flows: HashMap::new(),
+        }
+    }
+
+    /// Record a new connection of `key` at `at_ms` (non-decreasing). `Some(mean interval ms)` the
+    /// first time the flow is beaconing.
+    #[allow(clippy::cast_precision_loss)]
+    pub fn observe(&mut self, key: K, at_ms: u64) -> Option<u64> {
+        self.forget_older_than(at_ms);
+        if !self.flows.contains_key(&key) && self.flows.len() >= MAX_FLOWS {
+            self.evict_stalest();
+        }
+        let window = self.cfg.window_ms;
+        let flow = self.flows.entry(key).or_default();
+        flow.times.retain(|t| at_ms.saturating_sub(*t) <= window);
+        flow.times.push(at_ms);
+        if flow.reported || !is_beaconing(&flow.times, &self.cfg) {
+            return None;
+        }
+        flow.reported = true;
+        let (first, last) = (flow.times[0], at_ms);
+        Some((last - first) / (flow.times.len() as u64 - 1))
+    }
+
+    fn forget_older_than(&mut self, now_ms: u64) {
+        let window = self.cfg.window_ms;
+        self.flows.retain(|_, f| {
+            f.times
+                .last()
+                .is_some_and(|t| now_ms.saturating_sub(*t) <= window)
+        });
+    }
+
+    fn evict_stalest(&mut self) {
+        let stalest = self
+            .flows
+            .iter()
+            .min_by_key(|(_, f)| f.times.last().copied().unwrap_or(0))
+            .map(|(k, _)| k.clone());
+        if let Some(k) = stalest {
+            self.flows.remove(&k);
+        }
+    }
+
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.flows.len()
+    }
+
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.flows.is_empty()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -84,5 +165,39 @@ mod tests {
             !is_beaconing(&sparse, &BeaconConfig::default()),
             "only 4 fit in 30 min"
         );
+    }
+
+    #[test]
+    fn tracker_reports_a_regular_flow_once() {
+        let mut t = BeaconTracker::new(BeaconConfig::default());
+        let hits: Vec<_> = at(60_000, 8)
+            .into_iter()
+            .filter_map(|ts| t.observe(("a.exe", "203.0.113.9", 443), ts))
+            .collect();
+        assert_eq!(hits, vec![60_000]);
+    }
+
+    #[test]
+    fn tracker_keeps_flows_apart_and_ignores_irregular_ones() {
+        let mut t = BeaconTracker::new(BeaconConfig::default());
+        let irregular = [0, 1_000, 90_000, 100_000, 400_000, 410_000, 900_000];
+        let mut hits = 0;
+        for (i, ts) in at(60_000, 7).into_iter().enumerate() {
+            let other = if i % 2 == 0 { "b.exe" } else { "c.exe" };
+            hits += usize::from(t.observe((other, "203.0.113.9", 443), ts).is_some());
+            let _ = t.observe(("d.exe", "203.0.113.9", 443), 1_000_000 + irregular[i]);
+        }
+        assert_eq!(hits, 0);
+    }
+
+    #[test]
+    fn tracker_forgets_silent_flows_and_stays_bounded() {
+        let mut t = BeaconTracker::new(BeaconConfig::default());
+        for i in 0..(MAX_FLOWS as u64 + 10) {
+            let _ = t.observe(i, 1_000 + i);
+        }
+        assert_eq!(t.len(), MAX_FLOWS);
+        let _ = t.observe(u64::MAX, 1_000 + BeaconConfig::default().window_ms * 2);
+        assert_eq!(t.len(), 1);
     }
 }
