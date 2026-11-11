@@ -153,6 +153,11 @@ Disposable Windows 10 and Windows 11 VM snapshots, standard user plus an admin a
 - Automated: `cargo test -p vigil-core reputation` (bundled list, DGA, risky port/TLD), `cargo test -p vigil-core --test golden_scoring` (NET-001/002 rows), `cargo test -p vigil-svc --test destrep` (DNS answer names a connection, re-judge once, raw-IP warm-up, chip on polled rows), `cargo test -p vigil-win etw` (`QueryResults` parsing).
 - Manual (Windows, elevated, service running): `curl https://wicar.org/` from an unsigned copy of `curl.exe` in Downloads. The Connections page shows `wicar.org` with a *Bad site* chip, the program's score drops by 45 (NET-001) and the audit log has a `verdict` row with `"signals":["NET-001"]`. Opening an ordinary site shows no chip.
 
+## Suspicious child checks (PRC-001, docs/15 §2)
+
+- Automated: `cargo test -p vigil-core spawn` (encoded/hidden markers, `-EncodedCommand` prefixes, Office shell, browser native-messaging exemption), `cargo test -p vigil-core --test golden_scoring` (PRC-001 row), `cargo test -p vigil-svc --test spawnwatch` (parent marked and re-judged once, unknown parent ignored).
+- Manual (Windows, elevated, service running): in Word, run a macro `Shell "cmd /c whoami"`. WINWORD.EXE's score drops by 25 and the audit log has a `verdict` row with `"signals":["PRC-001"],"child":"cmd.exe"` and no command line. Running `powershell -enc ZABpAHIA` from an unsigned tool in Downloads marks that tool the same way; a 1Password or Bitwarden browser extension (native messaging through `cmd.exe`) leaves the browser unmarked.
+
 ## Suspicious network behaviour checks (docs/24)
 
 - Automated: `cargo test -p vigil-core beacon` (regular, jittered, bursty fixtures), `cargo test -p vigil-svc --test threat` (consent gate, ETW feed replaces the poll), `cargo test -p vigil-win etw` (elevated: a loopback connect arrives as a `Connect` event; skipped otherwise).

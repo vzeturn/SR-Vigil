@@ -1,0 +1,34 @@
+# PRC-001 suspicious child process (docs/15 §2). The signal goes to the *parent* image.
+# Names are compared case-insensitively; markers are lower-case substrings of the child command line.
+
+[script]
+# Script hosts and LOLBins whose command line is inspected for the markers below.
+hosts = [
+  "powershell.exe", "pwsh.exe", "cmd.exe", "wscript.exe", "cscript.exe", "mshta.exe",
+  "rundll32.exe", "regsvr32.exe", "certutil.exe", "bitsadmin.exe",
+]
+# PowerShell resolves any prefix of -EncodedCommand (and -ec) to it; checked per argument.
+encoded_flag_hosts = ["powershell.exe", "pwsh.exe"]
+markers = [
+  "-windowstyle hidden", "-window hidden", "-win hidden", "-w hidden",
+  "frombase64string", "downloadstring", "downloadfile", "invoke-expression", "iex(", "iex (",
+  "javascript:", "vbscript:", "-urlcache", "scrobj.dll", "/i:http",
+]
+
+[shell]
+# Any of these started by an Office app or a browser raises PRC-001 whatever its command line.
+names = [
+  "cmd.exe", "powershell.exe", "pwsh.exe", "wscript.exe", "cscript.exe", "mshta.exe",
+  "bash.exe", "wsl.exe",
+]
+office = [
+  "winword.exe", "excel.exe", "powerpnt.exe", "outlook.exe", "msaccess.exe", "onenote.exe",
+  "mspub.exe", "visio.exe",
+]
+browsers = [
+  "msedge.exe", "chrome.exe", "firefox.exe", "brave.exe", "opera.exe", "vivaldi.exe",
+  "iexplore.exe",
+]
+# Browsers start extension native-messaging hosts through cmd.exe; these markers exempt only
+# a browser parent (an Office parent never gets this exemption).
+browser_native_messaging = ["chrome-extension://", "\\\\.\\pipe\\chrome.nativemessaging"]

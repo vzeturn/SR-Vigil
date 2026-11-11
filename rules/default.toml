@@ -247,6 +247,14 @@ when = { generated_dest_name = true }
 score = -15
 
 [[rule]]
+id = "PRC-001"
+name = "suspicious_child"
+kind = "signal"
+description = "Started a script host with an encoded or hidden command line, or an Office app or browser started a shell"
+when = { suspicious_child = true }
+score = -25
+
+[[rule]]
 id = "BEH-005"
 name = "unbacked_exec_memory"
 kind = "signal"

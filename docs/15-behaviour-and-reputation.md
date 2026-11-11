@@ -32,7 +32,7 @@ Rules: hard rules (HR-*) and SG-001 keep absolute priority; NET-001 and FIL-002 
 
 | Source | Provides | Notes |
 |---|---|---|
-| ETW `Microsoft-Windows-Kernel-Process` | process start/stop, command line, parent | needs an elevated session |
+| ETW `Microsoft-Windows-Kernel-Process` | process start/stop with parent PID and image | needs an elevated session; the event carries no command line, so for a child named in `rules/spawn.toml` the collector reads it with `NtQueryInformationProcess(ProcessCommandLineInformation)` right after the start event (missed when the child exits first). Feeds PRC-001 on the parent |
 | ETW `Microsoft-Windows-Kernel-File` | create/write/rename with PID | high volume: filter by path class and extension in the collector, bounded channel, drop-oldest counter |
 | ETW `Microsoft-Windows-Kernel-Network` | per-connection bytes sent/received | feeds NET-003 |
 | ETW `Microsoft-Windows-DNS-Client` | event 3008 `QueryName` + `QueryResults`: name ↔ IP mapping per PID (10 min, bounded) | feeds NET-001/002 with the DNS name, not only the IP; no packet is read, so TLS SNI/JA4 capture is not needed |

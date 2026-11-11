@@ -93,6 +93,8 @@ pub struct Live {
     pub beaconing: bool,
     /// What its outbound connections looked like (BEH-001, BEH-003/004, NET-001/002).
     pub net: vigil_core::observe::NetSeen,
+    /// It started a suspicious child process this run (PRC-001).
+    pub spawned_suspicious_child: bool,
 }
 
 /// Evaluate `path` (child of `parent`) against `pack`, with what was observed live.
@@ -151,6 +153,7 @@ fn evaluate_with(
             risky_port_or_tld: live.net.risky_port_or_tld,
             bad_destination: live.net.bad,
             generated_dest_name: live.net.generated_name,
+            spawned_suspicious_child: live.spawned_suspicious_child,
         },
         signer: signer.clone(),
         vt_detections: None,

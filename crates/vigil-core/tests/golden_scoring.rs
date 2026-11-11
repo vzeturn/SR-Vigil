@@ -110,6 +110,16 @@ fn signed_app_reaching_a_listed_bad_host() {
 }
 
 #[test]
+fn signed_office_app_starting_a_shell() {
+    let f = Facts {
+        company_matches_signer: true,
+        suspicious_child: true,
+        ..signed(PathClass::ProgramFiles)
+    };
+    check(&f, &["PRC-001"], 63, Verdict::Unknown);
+}
+
+#[test]
 fn unsigned_tool_reaching_a_generated_name() {
     let f = Facts {
         has_outbound: true,

@@ -74,6 +74,8 @@ pub struct Behaviour {
     pub bad_destination: bool,
     /// A destination name it resolved looks machine-generated (NET-002).
     pub generated_dest_name: bool,
+    /// It started a script host with an encoded/hidden command line, or (Office/browser) a shell (PRC-001).
+    pub spawned_suspicious_child: bool,
     pub unbacked_exec_memory: bool,
     /// A module loaded from a user-writable path has no valid signature (T14).
     pub unsigned_writable_module: bool,
@@ -255,6 +257,7 @@ pub fn build_facts(ctx: &Context, obs: &Observation) -> Facts {
         risky_port_or_tld: obs.behaviour.risky_port_or_tld,
         bad_destination: obs.behaviour.bad_destination,
         generated_dest_name: obs.behaviour.generated_dest_name,
+        suspicious_child: obs.behaviour.spawned_suspicious_child,
         typosquat: !signer.valid() && is_typosquat(&name, &ctx.canonical_names()),
         unbacked_exec_memory: obs.behaviour.unbacked_exec_memory,
         unsigned_writable_module: obs.behaviour.unsigned_writable_module,

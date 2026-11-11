@@ -10,3 +10,4 @@ pub mod motw;
 pub mod names;
 pub mod path;
 pub mod reputation;
+pub mod spawn;

@@ -145,6 +145,8 @@ pub struct Shared {
     pub(crate) rejudge_paths: Mutex<Vec<String>>,
     pub(crate) threats: Mutex<crate::threat::Threats>,
     pub(crate) destrep: Mutex<crate::destrep::DestRep>,
+    /// Lower-cased image paths that started a suspicious child this run (PRC-001).
+    pub(crate) spawn_seen: Mutex<std::collections::HashSet<String>>,
     pub(crate) reopen: Mutex<crate::reopen::Reopen>,
     pub(crate) launchers: Mutex<crate::launcher::Launchers>,
     pub(crate) ai_slots: tokio::sync::Semaphore,
@@ -274,6 +276,7 @@ impl Shared {
             rejudge_paths: Mutex::new(Vec::new()),
             threats: Mutex::new(crate::threat::Threats::default()),
             destrep: Mutex::new(crate::destrep::DestRep::default()),
+            spawn_seen: Mutex::new(std::collections::HashSet::new()),
             reopen: Mutex::new(crate::reopen::Reopen::default()),
             launchers: Mutex::new(crate::launcher::Launchers::default()),
             ai_slots: tokio::sync::Semaphore::new(2),

@@ -139,6 +139,7 @@ pub struct When {
     pub risky_port_or_tld: Option<bool>,
     pub bad_destination: Option<bool>,
     pub generated_dest_name: Option<bool>,
+    pub suspicious_child: Option<bool>,
     pub typosquat: Option<bool>,
     pub unbacked_exec_memory: Option<bool>,
     pub unsigned_writable_module: Option<bool>,

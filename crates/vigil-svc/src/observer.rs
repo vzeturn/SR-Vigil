@@ -44,6 +44,12 @@ pub fn spawn_connect_feed(shared: Arc<Shared>) {
                     vigil_win::etw::Event::DnsAnswer { pid, name, addrs } => {
                         shared.note_dns(pid, &name, &addrs);
                     }
+                    vigil_win::etw::Event::ProcessStart { pid, ppid, image }
+                        if vigil_core::analysis::spawn::inspects(&image) =>
+                    {
+                        let cmdline = vigil_win::process::command_line(pid);
+                        shared.note_spawn(ppid, &image, cmdline.as_deref());
+                    }
                     _ => {}
                 }
             }
@@ -227,6 +233,7 @@ impl Judge {
             user_allowed: id.is_some_and(|id| sh.user_allows(id)),
             beaconing: sh.is_beaconing(img),
             net: sh.net_seen(img),
+            spawned_suspicious_child: sh.spawned_suspicious_child(img),
         };
         let ev = evaluate_image(&self.ctx, &self.pack, img, parent, Some(pid), live);
         if let Some(id) = id
