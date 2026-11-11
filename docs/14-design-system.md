@@ -35,7 +35,7 @@ Button (`primary`, default, `subtle`, verdict `allow/block/kill`), input/select 
 
 ## 4. Layout (`styles.css`)
 
-Shell = 248 px navigation on the backdrop + one rounded content layer (`.main`) with a 24/32 px gutter. Page header = `h1` + status pill. Selected nav item: filled + 3 px accent indicator.
+Shell = 248 px navigation on the backdrop + one rounded content layer (`.main`) with a 24/32 px gutter. Page header = `h1` + status pill. Navigation is grouped under caption headings (Monitor, Respond, Review) with Settings pinned at the foot above a divider; the brand mark sits in a 32 px accent-subtle tile. Selected nav item: filled, accent icon and a 16 px accent indicator that grows in (`--dur-gentle`, off under reduced motion); idle icons use `--text-dim`.
 
 ## 5. Accessibility
 

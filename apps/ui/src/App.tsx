@@ -43,6 +43,13 @@ const PAGES = {
 
 type PageId = keyof typeof PAGES;
 
+/** Sidebar sections, in task order; Settings sits apart at the foot. */
+const NAV_GROUPS: { id: string; pages: PageId[] }[] = [
+  { id: 'monitor', pages: ['overview', 'pending', 'processes', 'connections'] },
+  { id: 'respond', pages: ['lockdown', 'kills', 'startup'] },
+  { id: 'review', pages: ['audit', 'rules'] },
+];
+
 /** The `popup` Tauri window loads the same bundle at `#popup`. */
 const isPopup = () => globalThis.location?.hash === '#popup';
 
@@ -108,33 +115,44 @@ function Shell() {
     return () => window.removeEventListener('vigil:goto', go);
   }, []);
   const View = PAGES[page].view;
+  const navItem = (id: PageId) => {
+    const Icon = PAGES[id].icon;
+    return (
+      <button
+        key={id}
+        type="button"
+        className="nav-item"
+        aria-current={page === id ? 'page' : undefined}
+        onClick={() => setPage(id)}
+      >
+        <Icon size={18} aria-hidden="true" />
+        <span className="nav-label">{t(`nav.${id}`)}</span>
+        {id === 'pending' && pendingCount > 0 && <span className="badge">{pendingCount}</span>}
+      </button>
+    );
+  };
 
   return (
     <div className="shell">
       <nav className="sidebar" aria-label={t('app.name')}>
         <div className="brand">
-          <ShieldCheck size={20} aria-hidden="true" />
+          <span className="brand-mark" aria-hidden="true">
+            <ShieldCheck size={18} />
+          </span>
           <span>
             {t('app.name')}
             <small>{t('app.tagline')}</small>
           </span>
         </div>
-        {(Object.keys(PAGES) as PageId[]).map((id) => {
-          const Icon = PAGES[id].icon;
-          return (
-            <button
-              key={id}
-              type="button"
-              className="nav-item"
-              aria-current={page === id ? 'page' : undefined}
-              onClick={() => setPage(id)}
-            >
-              <Icon size={18} aria-hidden="true" />
-              {t(`nav.${id}`)}
-              {id === 'pending' && pendingCount > 0 && <span className="badge">{pendingCount}</span>}
-            </button>
-          );
-        })}
+        {NAV_GROUPS.map((g) => (
+          <div key={g.id} className="nav-group" role="group" aria-labelledby={`nav-${g.id}`}>
+            <p className="nav-section" id={`nav-${g.id}`}>
+              {t(`navGroup.${g.id}`)}
+            </p>
+            {g.pages.map((id) => navItem(id))}
+          </div>
+        ))}
+        <div className="nav-foot">{navItem('settings')}</div>
       </nav>
       <main className="main">
         <div className="page-head">

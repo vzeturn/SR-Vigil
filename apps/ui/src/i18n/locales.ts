@@ -13,6 +13,7 @@ export const en = {
     rules: 'Rules & Trust',
     settings: 'Settings',
   },
+  navGroup: { monitor: 'Monitor', respond: 'Respond', review: 'Review' },
   verdict: { safe: 'Safe', unknown: 'Unknown', malicious: 'Malicious', none: 'Not evaluated' },
   mode: { observe: 'Observe', learning: 'Learning', enforce: 'Enforce', label: 'Protection mode' },
   modeTip: {

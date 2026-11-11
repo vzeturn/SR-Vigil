@@ -36,8 +36,9 @@ body {
 .sidebar {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: var(--space-3) var(--space-2);
+  min-height: 0;
+  padding: var(--space-3) var(--space-2) var(--space-2);
+  overflow-y: auto;
 }
 
 .brand {
@@ -47,8 +48,39 @@ body {
   padding: var(--space-3) var(--space-3) var(--space-4);
   font: 600 var(--fs-subtitle) / var(--lh-subtitle) var(--font-display);
 }
-.brand svg {
+.brand .brand-mark {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-card);
+  background: var(--accent-subtle);
   color: var(--accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
+.nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.nav-group + .nav-group {
+  margin-top: var(--space-4);
+}
+.nav-section {
+  margin: 0;
+  padding: 0 var(--space-3) var(--space-1);
+  color: var(--text-dim);
+  font: 600 var(--fs-caption) / var(--lh-caption) var(--font-sans);
+  letter-spacing: 0.02em;
+}
+.nav-foot {
+  display: flex;
+  flex-direction: column;
+  margin-top: auto;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
 }
 
 .nav-item {
@@ -64,24 +96,51 @@ body {
   color: var(--text);
   font: inherit;
   cursor: pointer;
+  text-align: start;
   transition: background var(--motion);
 }
+.nav-item svg {
+  flex: none;
+  color: var(--text-dim);
+  transition: color var(--motion);
+}
+.nav-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .nav-item:hover {
+  background: var(--surface-hover);
+}
+.nav-item:hover svg {
+  color: var(--text);
+}
+.nav-item:active {
   background: var(--surface-strong);
 }
 .nav-item[aria-current='page'] {
   background: var(--surface-selected);
   font-weight: 600;
 }
+.nav-item[aria-current='page'] svg {
+  color: var(--accent);
+}
 .nav-item[aria-current='page']::before {
   content: '';
   position: absolute;
   inset-inline-start: 0;
-  top: 10px;
-  bottom: 10px;
+  top: 50%;
   width: 3px;
+  height: 16px;
+  margin-top: -8px;
   border-radius: var(--radius-chip);
   background: var(--accent);
+  animation: nav-indicator var(--dur-gentle) var(--ease);
+}
+@keyframes nav-indicator {
+  from {
+    transform: scaleY(0);
+  }
 }
 
 .main {
