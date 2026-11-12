@@ -243,3 +243,15 @@ label = "Zalo"
 what = "Vietnamese messaging app"
 names = ["zalo.exe", "zalocall.exe", "zalocap.exe", "zalo-update.exe"]
 vendors = ["vng", "zalo"]
+
+[[software]]
+label = "SRPos"
+what = "Restaurant point of sale (SR Solutions)"
+names = ["srpos.exe"]
+vendors = ["sr solutions"]
+
+[[software]]
+label = "SRPos Kitchen Display"
+what = "Kitchen order display for SRPos (SR Solutions)"
+names = ["displayorder.app.exe"]
+vendors = ["sr solutions"]
