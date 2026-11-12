@@ -1,4 +1,4 @@
-# Well-known desktop software, recognised by executable name (plus optional vendor text in the
+﻿# Well-known desktop software, recognised by executable name (plus optional vendor text in the
 # file's own version resource). Recognition is a label and a modest score bonus (KNOW-001), and it
 # only counts when the file sits in a system or Program Files path, so a copy dropped into a
 # user-writable folder under the same name earns nothing.
@@ -247,7 +247,7 @@ vendors = ["vng", "zalo"]
 [[software]]
 label = "SRPos"
 what = "Restaurant point of sale (SR Solutions)"
-names = ["srpos.exe"]
+names = ["srpos.exe", "srpos.updater.exe"]
 vendors = ["sr solutions"]
 
 [[software]]
