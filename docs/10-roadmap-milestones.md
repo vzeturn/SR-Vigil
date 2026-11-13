@@ -212,7 +212,7 @@ root-cause popup. Build order is in `docs/18 §7`.
 
 ## Backlog (post-v1, tracked)
 
-- Inbound blocking option (FR-017): `ALE_AUTH_RECV_ACCEPT` filters, off by default.
+- [x] Inbound blocking option (FR-017): `ALE_AUTH_RECV_ACCEPT` filters for explicit denies, off by default (`enforcement.block_inbound`, Settings toggle; `docs/04 §1`).
 
 - Bundle the WebView2 Evergreen bootstrapper in the MSI (Windows 11 and current Windows 10 already ship the runtime; older Windows 10 needs it installed once).
 - Process mitigation policies for the service and live WFP change-event alerts (`docs/08` §5).

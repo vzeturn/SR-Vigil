@@ -276,35 +276,36 @@ function JunkCard() {
   );
 }
 
-function CatalogueCard() {
+/** One opt-in policy switch stored under `settings.<section>.<key>` (Settings page cards). */
+function SettingToggle({ section, settingKey, label }: { section: 'catalogue' | 'enforcement'; settingKey: string; label: 'catalogue' | 'inbound' }) {
   const { t } = useTranslation();
   const [on, setOn] = useState(false);
   const [msg, setMsg] = useState('');
 
   useEffect(() => {
     void getBridge()
-      .then((b) => b.rpc<{ catalogue?: { enabled?: boolean } }>('settings.get', {}))
-      .then((s) => setOn(s.catalogue?.enabled === true))
+      .then((b) => b.rpc<Record<string, Record<string, unknown> | undefined>>('settings.get', {}))
+      .then((s) => setOn(s[section]?.[settingKey] === true))
       .catch(() => undefined);
-  }, []);
+  }, [section, settingKey]);
 
   async function toggle(next: boolean) {
     setMsg('');
     try {
-      await (await getBridge()).rpc('settings.set', { settings: { catalogue: { enabled: next } } });
+      await (await getBridge()).rpc('settings.set', { settings: { [section]: { [settingKey]: next } } });
       setOn(next);
     } catch (e) {
-      setMsg(t('catalogue.failed', { code: e instanceof Error ? e.message : String(e) }));
+      setMsg(t(`${label}.failed`, { code: e instanceof Error ? e.message : String(e) }));
     }
   }
 
   return (
     <section className="card">
-      <h2>{t('catalogue.title')}</h2>
-      <p className="muted">{t('catalogue.intro')}</p>
+      <h2>{t(`${label}.title`)}</h2>
+      <p className="muted">{t(`${label}.intro`)}</p>
       <label>
         <input type="checkbox" checked={on} onChange={(e) => void toggle(e.target.checked)} />{' '}
-        {t('catalogue.enable')}
+        {t(`${label}.enable`)}
       </label>
       <p className="muted" role="status">
         {msg}
@@ -339,7 +340,8 @@ export function Settings() {
         </select>
       </section>
       <AiCard />
-      <CatalogueCard />
+      <SettingToggle section="catalogue" settingKey="enabled" label="catalogue" />
+      <SettingToggle section="enforcement" settingKey="block_inbound" label="inbound" />
       <JunkCard />
       <DataCard />
       <section className="card">

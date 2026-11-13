@@ -65,7 +65,7 @@ fn opinion(verdict: &str, conf: f64, action: &str) -> Opinion {
 
 struct NullEngine;
 impl FilterEngine for NullEngine {
-    fn set_denies(&self, _: &[std::path::PathBuf]) -> Result<(), String> {
+    fn set_denies(&self, _: &[std::path::PathBuf], _: bool) -> Result<(), String> {
         Ok(())
     }
     fn arm(&self, _: &[std::path::PathBuf]) -> Result<Vec<std::path::PathBuf>, String> {

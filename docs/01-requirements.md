@@ -22,7 +22,7 @@
 | FR-014 | Tamper-evident audit log (hash chain) for verdicts, decisions, enforcement and configuration changes. | M | M3 |
 | FR-015 | Modes: `observe`, `learning`, `enforce`; switchable at runtime by admin. | M | M2 |
 | FR-016 | Panic switch: remove all dynamic filters and disable enforcement instantly (UI button, `vigilctl panic`, tray). | M | M3 |
-| FR-017 | Inbound listening sockets visible; inbound blocking optional (disabled by default). | C | M6 |
+| FR-017 | Inbound listening sockets visible; inbound blocking optional (disabled by default; `enforcement.block_inbound`, Settings page: a blocked program also refuses incoming connections). | C | M6 |
 | FR-018 | Import/export of user decisions and rule overrides (TOML); export audit as JSON/CSV. | S | M6 |
 | FR-019 | Optional VirusTotal hash lookup (user supplies key), cached, rate-limited. | C | M5 |
 | FR-020 | Re-verify identity on every process start and on file change; revoke permit and re-prompt if hash/signature changed. | M | M3 |

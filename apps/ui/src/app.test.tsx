@@ -85,6 +85,19 @@ describe('M3 screens', () => {
     rpc.mockRestore();
   });
 
+  it('keeps inbound blocking off until the user turns it on', async () => {
+    const bridge = await getBridge();
+    const rpc = vitest.spyOn(bridge, 'rpc');
+    render(<App />);
+    await userEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    const box = await screen.findByRole('checkbox', { name: 'Block incoming connections to blocked programs' });
+    expect(box).not.toBeChecked();
+    await userEvent.click(box);
+    expect(rpc).toHaveBeenCalledWith('settings.set', { settings: { enforcement: { block_inbound: true } } });
+    expect(box).toBeChecked();
+    rpc.mockRestore();
+  });
+
   it('shows the broken audit chain with text, not colour alone', async () => {
     const bridge = await getBridge();
     const rpc = vitest.spyOn(bridge, 'rpc').mockResolvedValue({ items: [], next_cursor: null, chain_ok: false });

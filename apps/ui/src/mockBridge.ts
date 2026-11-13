@@ -104,6 +104,7 @@ export function createMockBridge(rows = 200): Bridge {
     calls_today: 0,
   };
 
+  let enforcement = { block_inbound: false };
   let urlfilter = { enabled: false, malware: true, phishing: true, adult: false, ads: false, allow: [] as string[] };
   const handlers: Record<string, (params: unknown) => unknown> = {
     'ai.activity': () => {
@@ -181,11 +182,13 @@ export function createMockBridge(rows = 200): Bridge {
     },
     'enforcement.panic': status,
     'threat.list': () => ({ threats: [] }),
-    'settings.get': () => ({ urlfilter }),
+    'settings.get': () => ({ urlfilter, enforcement }),
     'settings.set': (params) => {
-      const patch = (params as { settings?: { urlfilter?: Partial<typeof urlfilter> } }).settings?.urlfilter;
-      urlfilter = { ...urlfilter, ...patch };
-      return { urlfilter };
+      const p = (params as { settings?: { urlfilter?: Partial<typeof urlfilter>; enforcement?: Partial<typeof enforcement> } })
+        .settings;
+      urlfilter = { ...urlfilter, ...p?.urlfilter };
+      enforcement = { ...enforcement, ...p?.enforcement };
+      return { urlfilter, enforcement };
     },
     'dns.status': () => ({
       enabled: urlfilter.enabled,

@@ -9,7 +9,7 @@
 | Engine session | `FwpmEngineOpen0` with a **dynamic** session for catch-all and permit filters (removed automatically when the engine handle closes). |
 | Providers | `Vigil.Dynamic` (session-scoped) and `Vigil.Persistent` (explicit deny filters; survive service stop and reboot). Both have fixed GUIDs defined in `vigil-win::wfp::ids`. |
 | Sublayer | One own sublayer per provider, high weight so Vigil is evaluated early. Note: block in any sublayer overrides permits in others, so a Vigil permit never bypasses Windows Defender Firewall. |
-| Layers | `FWPM_LAYER_ALE_AUTH_CONNECT_V4/V6` (outbound). `FWPM_LAYER_ALE_AUTH_RECV_ACCEPT_V4/V6` observe-only in v1 (inbound blocking is FR-017, off by default). |
+| Layers | `FWPM_LAYER_ALE_AUTH_CONNECT_V4/V6` (outbound). `FWPM_LAYER_ALE_AUTH_RECV_ACCEPT_V4/V6` (inbound) only for explicit denies when `enforcement.block_inbound` is on (FR-017, off by default); there is no inbound catch-all, so programs that are not blocked keep accepting connections. |
 | Conditions | `FWPM_CONDITION_ALE_APP_ID` via `FwpmGetAppIdFromFileName0(path)`; optional `IP_REMOTE_ADDRESS`/`IP_REMOTE_PORT`. UWP/AppContainer: `FWPM_CONDITION_ALE_PACKAGE_ID` (package SID) in M4. |
 | Filter weights (within sublayer) | explicit deny = 15, loopback exemption = 12, explicit permit = 10 (includes Vigil's own binaries, which therefore reach Anthropic/VirusTotal when enabled), **catch-all block for non-evaluated apps = 1**. |
 | Loopback | Always permitted: a high-weight permit with the `FWPM_CONDITION_FLAGS` condition set to `FWP_CONDITION_FLAG_IS_LOOPBACK`. The catch-all never applies to loopback. |
@@ -25,6 +25,7 @@
 ### Fail-open vs persistent
 - Catch-all and permits: **dynamic** → if `VigilSvc` crashes/stops, all of them vanish and the machine keeps its network. The service restarts via SCM recovery and rebuilds them from the store within seconds.
 - Explicit `block`/`kill`/malicious denies: **persistent** → survive stop/reboot, so a stopped service does not re-enable known-bad apps.
+- Inbound denies (FR-017): with `enforcement.block_inbound` on, each explicit deny also gets a persistent `InboundDeny` filter (weight 15) on the accept layer. Turning the setting off or revoking the block removes them; stale ones from an earlier run are cleared with the outbound denies on the first sync. Changing the setting re-syncs the filters at once (`settings.set`).
 - Rebuild on start: load identities with active `allow` decisions or Safe verdicts and add permits **before** enabling the catch-all, to avoid a burst of false blocks (`rebuild_then_arm` sequence).
 
 ### First-connect race (accepted limitation, C3)

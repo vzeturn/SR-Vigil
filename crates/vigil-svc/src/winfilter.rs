@@ -16,7 +16,8 @@ pub struct WfpEngine {
     persistent: Engine,
     permitted: Mutex<BTreeSet<PathBuf>>,
     /// `None` until the first sync: persistent denies from an earlier run are still installed.
-    denied: Mutex<Option<BTreeSet<PathBuf>>>,
+    /// The flag says whether the inbound denies (FR-017) are installed too.
+    denied: Mutex<Option<(BTreeSet<PathBuf>, bool)>>,
 }
 
 impl WfpEngine {
@@ -32,7 +33,7 @@ impl WfpEngine {
 }
 
 impl FilterEngine for WfpEngine {
-    fn set_denies(&self, denies: &[PathBuf]) -> Result<(), String> {
+    fn set_denies(&self, denies: &[PathBuf], inbound: bool) -> Result<(), String> {
         let want: BTreeSet<PathBuf> = denies.iter().cloned().collect();
         let mut slot = self.denied.lock().unwrap_or_else(PoisonError::into_inner);
         if slot.is_none() {
@@ -42,17 +43,29 @@ impl FilterEngine for WfpEngine {
                 .persistent
                 .list_filters(Scope::Persistent)
                 .map_err(|e| e.to_string())?;
-            for f in stale.iter().filter(|f| f.name.starts_with("Vigil Deny")) {
+            let ours = |name: &str| {
+                name.starts_with("Vigil Deny") || name.starts_with("Vigil InboundDeny")
+            };
+            for f in stale.iter().filter(|f| ours(&f.name)) {
                 self.persistent
                     .remove_filter(&f.key)
                     .map_err(|e| e.to_string())?;
             }
         }
-        let have = slot.get_or_insert_with(BTreeSet::new);
+        let (have, had_inbound) = slot.get_or_insert_with(|| (BTreeSet::new(), false));
+        // Paths whose inbound filter must appear: new denies, or every deny when just turned on.
+        let add_inbound: Vec<&PathBuf> = match (inbound, *had_inbound) {
+            (false, _) => Vec::new(),
+            (true, true) => want.difference(have).collect(),
+            (true, false) => want.iter().collect(),
+        };
         self.persistent
             .transaction(|tx| {
                 for p in want.difference(have) {
                     tx.put_deny(p)?;
+                }
+                for p in &add_inbound {
+                    tx.put_inbound_deny(p)?;
                 }
                 Ok(())
             })
@@ -62,7 +75,19 @@ impl FilterEngine for WfpEngine {
                 .remove_identity(&ids::path_identity_key(p), FilterKind::Deny)
                 .map_err(|e| e.to_string())?;
         }
+        // Inbound filters to drop: revoked denies, or all of them when just turned off.
+        let drop_inbound: Vec<&PathBuf> = match (inbound, *had_inbound) {
+            (_, false) => Vec::new(),
+            (true, true) => have.difference(&want).collect(),
+            (false, true) => have.iter().collect(),
+        };
+        for p in drop_inbound {
+            self.persistent
+                .remove_identity(&ids::path_identity_key(p), FilterKind::InboundDeny)
+                .map_err(|e| e.to_string())?;
+        }
         *have = want;
+        *had_inbound = inbound;
         Ok(())
     }
 

@@ -95,6 +95,7 @@ Progressive disclosure: the Overview stays simple. Scores explain themselves on 
 
 ### 4.9 Settings
 - Language, theme, notifications/sound, popup behaviour (max rate, position), default decision scope, learning duration, never-kill additions, log level, data retention, service diagnostics (version, uptime, ETW drops, WFP filter counts), "Run first-time setup" wizard.
+- Opt-in switches, each off by default: the daily version list (`catalogue.enabled`, `docs/16`) and "Block incoming connections to blocked programs" (`enforcement.block_inbound`, FR-017, `docs/04 §1`).
 
 ## 5. The approval popup (core interaction)
 

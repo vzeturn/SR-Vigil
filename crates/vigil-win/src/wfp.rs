@@ -37,6 +37,7 @@ use windows::Win32::NetworkManagement::WindowsFilteringPlatform::{
     FWPM_CONDITION_ALE_APP_ID, FWPM_CONDITION_FLAGS, FWPM_ENGINE_COLLECT_NET_EVENTS,
     FWPM_FILTER_CONDITION0, FWPM_FILTER_FLAG_PERSISTENT, FWPM_FILTER_FLAGS, FWPM_FILTER0,
     FWPM_LAYER_ALE_AUTH_CONNECT_V4, FWPM_LAYER_ALE_AUTH_CONNECT_V6,
+    FWPM_LAYER_ALE_AUTH_RECV_ACCEPT_V4, FWPM_LAYER_ALE_AUTH_RECV_ACCEPT_V6,
     FWPM_NET_EVENT_FLAG_REMOTE_ADDR_SET, FWPM_NET_EVENT_FLAG_REMOTE_PORT_SET,
     FWPM_NET_EVENT_SUBSCRIPTION0, FWPM_NET_EVENT_TYPE_CLASSIFY_DROP, FWPM_NET_EVENT1,
     FWPM_PROVIDER_FLAG_PERSISTENT, FWPM_PROVIDER0, FWPM_SESSION_FLAG_DYNAMIC, FWPM_SESSION0,
@@ -98,18 +99,26 @@ pub mod ids {
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub enum FilterKind {
         Deny,
+        /// Explicit deny of incoming connections (`ALE_AUTH_RECV_ACCEPT`), opt-in (FR-017).
+        InboundDeny,
         Loopback,
         Permit,
         CatchAll,
     }
 
     impl FilterKind {
-        pub const ALL: [Self; 4] = [Self::Deny, Self::Loopback, Self::Permit, Self::CatchAll];
+        pub const ALL: [Self; 5] = [
+            Self::Deny,
+            Self::InboundDeny,
+            Self::Loopback,
+            Self::Permit,
+            Self::CatchAll,
+        ];
 
         /// Weight within the sublayer (`FWP_UINT8`, 0-15); higher is evaluated first.
         pub const fn weight(self) -> u8 {
             match self {
-                Self::Deny => 15,
+                Self::Deny | Self::InboundDeny => 15,
                 Self::Loopback => 12,
                 Self::Permit => 10,
                 Self::CatchAll => 1,
@@ -117,17 +126,23 @@ pub mod ids {
         }
 
         pub const fn is_block(self) -> bool {
-            matches!(self, Self::Deny | Self::CatchAll)
+            matches!(self, Self::Deny | Self::InboundDeny | Self::CatchAll)
         }
 
         /// Explicit denies live in the persistent provider, everything else in the dynamic one.
         pub const fn is_persistent(self) -> bool {
-            matches!(self, Self::Deny)
+            matches!(self, Self::Deny | Self::InboundDeny)
         }
 
-        const fn tag(self) -> &'static str {
+        /// Filters on the receive/accept layer instead of the connect layer.
+        pub const fn is_inbound(self) -> bool {
+            matches!(self, Self::InboundDeny)
+        }
+
+        pub const fn tag(self) -> &'static str {
             match self {
                 Self::Deny => "deny",
+                Self::InboundDeny => "inbound-deny",
                 Self::Loopback => "loopback",
                 Self::Permit => "permit",
                 Self::CatchAll => "catch-all",
@@ -673,6 +688,11 @@ impl Tx<'_> {
         self.put_app(FilterKind::Deny, path, Scope::Persistent)
     }
 
+    /// Persistent deny of incoming connections to `path` (FR-017).
+    pub fn put_inbound_deny(&self, path: &Path) -> Result<()> {
+        self.put_app(FilterKind::InboundDeny, path, Scope::Persistent)
+    }
+
     pub fn put_catch_all(&self) -> Result<()> {
         self.put_both(
             FilterKind::CatchAll,
@@ -723,15 +743,7 @@ impl Tx<'_> {
         desc: &str,
     ) -> Result<()> {
         if self.engine.scope != scope {
-            return Err(WfpError::WrongSession(
-                match kind {
-                    FilterKind::Deny => "deny",
-                    FilterKind::Loopback => "loopback",
-                    FilterKind::Permit => "permit",
-                    FilterKind::CatchAll => "catch-all",
-                },
-                scope.label(),
-            ));
+            return Err(WfpError::WrongSession(kind.tag(), scope.label()));
         }
         for family in Family::BOTH {
             self.put_one(kind, identity, family, scope, conds, desc)?;
@@ -762,9 +774,11 @@ impl Tx<'_> {
             FWPM_FILTER_FLAGS(0)
         };
         f.providerKey = &raw mut provider;
-        f.layerKey = match family {
-            Family::V4 => FWPM_LAYER_ALE_AUTH_CONNECT_V4,
-            Family::V6 => FWPM_LAYER_ALE_AUTH_CONNECT_V6,
+        f.layerKey = match (kind.is_inbound(), family) {
+            (false, Family::V4) => FWPM_LAYER_ALE_AUTH_CONNECT_V4,
+            (false, Family::V6) => FWPM_LAYER_ALE_AUTH_CONNECT_V6,
+            (true, Family::V4) => FWPM_LAYER_ALE_AUTH_RECV_ACCEPT_V4,
+            (true, Family::V6) => FWPM_LAYER_ALE_AUTH_RECV_ACCEPT_V6,
         };
         f.subLayerKey = if persistent {
             ids::SUBLAYER_PERSISTENT
@@ -1006,17 +1020,24 @@ mod tests {
     #[test]
     fn weights_follow_docs_04() {
         let w: Vec<u8> = FilterKind::ALL.iter().map(|k| k.weight()).collect();
-        assert_eq!(w, [15, 12, 10, 1]);
+        assert_eq!(w, [15, 15, 12, 10, 1]);
         assert!(FilterKind::ALL.iter().all(|k| k.weight() <= 15));
     }
 
     #[test]
-    fn only_deny_is_persistent_and_only_deny_and_catch_all_block() {
+    fn only_denies_are_persistent_and_only_denies_and_catch_all_block() {
         for k in FilterKind::ALL {
-            assert_eq!(k.is_persistent(), k == FilterKind::Deny);
+            assert_eq!(
+                k.is_persistent(),
+                matches!(k, FilterKind::Deny | FilterKind::InboundDeny)
+            );
+            assert_eq!(k.is_inbound(), k == FilterKind::InboundDeny);
             assert_eq!(
                 k.is_block(),
-                matches!(k, FilterKind::Deny | FilterKind::CatchAll)
+                matches!(
+                    k,
+                    FilterKind::Deny | FilterKind::InboundDeny | FilterKind::CatchAll
+                )
             );
         }
         assert_eq!(action_type(FilterKind::CatchAll), FWP_ACTION_BLOCK);
@@ -1035,7 +1056,7 @@ mod tests {
                 }
             }
         }
-        assert_eq!(all.len(), 16);
+        assert_eq!(all.len(), 2 * FilterKind::ALL.len() * Family::BOTH.len());
         let [v4, v6] = filter_keys("c:\\a.exe", FilterKind::Deny);
         assert_ne!(v4, v6);
         assert_eq!(v4, filter_key("c:\\a.exe", FilterKind::Deny));
@@ -1158,6 +1179,34 @@ mod live {
         for k in filter_keys_of(&id, FilterKind::Deny) {
             assert!(!after.contains(&k), "deny filter still present");
         }
+    }
+
+    #[test]
+    fn inbound_deny_is_added_on_the_accept_layer_and_removed() {
+        let engine = Engine::open_dynamic().expect("open");
+        let file = Throwaway::new("inbound");
+        let id = ids::path_identity_key(&file.0);
+        engine
+            .transaction(|tx| tx.put_app(FilterKind::InboundDeny, &file.0, Scope::Dynamic))
+            .expect("add inbound deny");
+        let present = keys(&engine);
+        for k in filter_keys_of(&id, FilterKind::InboundDeny) {
+            assert!(present.contains(&k), "inbound deny missing");
+        }
+        for k in filter_keys_of(&id, FilterKind::Deny) {
+            assert!(
+                !present.contains(&k),
+                "an inbound deny must not block outbound"
+            );
+        }
+        engine
+            .remove_identity(&id, FilterKind::InboundDeny)
+            .expect("remove");
+        assert!(
+            filter_keys_of(&id, FilterKind::InboundDeny)
+                .iter()
+                .all(|k| !keys(&engine).contains(k))
+        );
     }
 
     fn filter_keys_of(id: &str, kind: FilterKind) -> [[u8; 16]; 2] {

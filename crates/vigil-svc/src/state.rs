@@ -538,6 +538,9 @@ impl Shared {
         merge_settings(&mut next, patch).map_err(|m| RpcError::new(INVALID_PARAMS, m))?;
         lock(&self.inner).settings.clone_from(&next);
         self.persist("policy", &next.to_string());
+        if let Err(e) = self.resync_enforcement() {
+            tracing::error!(error = %e, "filters not updated after a settings change");
+        }
         Ok(next)
     }
 

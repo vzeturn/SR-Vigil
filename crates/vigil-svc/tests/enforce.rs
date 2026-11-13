@@ -12,13 +12,15 @@ use vigil_svc::state::{Options, Shared};
 #[derive(Default)]
 struct Fake {
     denies: Mutex<Vec<PathBuf>>,
+    inbound: Mutex<bool>,
     permits: Mutex<Option<Vec<PathBuf>>>,
     panicked: Mutex<bool>,
 }
 
 impl FilterEngine for Fake {
-    fn set_denies(&self, d: &[PathBuf]) -> Result<(), String> {
+    fn set_denies(&self, d: &[PathBuf], inbound: bool) -> Result<(), String> {
         *self.denies.lock().unwrap() = d.to_vec();
+        *self.inbound.lock().unwrap() = inbound;
         Ok(())
     }
     fn arm(&self, p: &[PathBuf]) -> Result<Vec<PathBuf>, String> {
@@ -111,6 +113,23 @@ fn enforce_needs_an_engine_and_learning_time() {
     s.set_mode("observe", false).unwrap();
     assert_eq!(s.status()["filters_armed"], false);
     assert!(fake.permits.lock().unwrap().is_none());
+}
+
+#[test]
+fn inbound_blocking_is_off_by_default_and_follows_the_setting() {
+    let (s, fake, id) = setup();
+    decide(&s, id, "block", "forever");
+    assert!(
+        !*fake.inbound.lock().unwrap(),
+        "inbound blocking must be opt-in"
+    );
+    s.update_settings(&json!({"enforcement": {"block_inbound": true}}))
+        .unwrap();
+    assert!(*fake.inbound.lock().unwrap());
+    assert_eq!(fake.denies.lock().unwrap().len(), 1);
+    s.update_settings(&json!({"enforcement": {"block_inbound": false}}))
+        .unwrap();
+    assert!(!*fake.inbound.lock().unwrap());
 }
 
 #[test]

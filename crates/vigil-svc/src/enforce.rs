@@ -33,8 +33,9 @@ pub struct DropInfo {
 
 /// Platform filter engine. Implementations must be idempotent: applying the same set twice is a no-op.
 pub trait FilterEngine: Send + Sync {
-    /// Make the persistent explicit denies exactly `denies`.
-    fn set_denies(&self, denies: &[PathBuf]) -> Result<(), String>;
+    /// Make the persistent explicit denies exactly `denies`; with `inbound` each deny also refuses
+    /// incoming connections (FR-017, `enforcement.block_inbound`).
+    fn set_denies(&self, denies: &[PathBuf], inbound: bool) -> Result<(), String>;
     /// Install loopback + `permits`, then the catch-all block; returns permit paths that could not
     /// be resolved (missing files). Permits no longer listed are removed.
     fn arm(&self, permits: &[PathBuf]) -> Result<Vec<PathBuf>, String>;
@@ -51,6 +52,8 @@ pub trait FilterEngine: Send + Sync {
 pub struct Desired {
     pub permits: BTreeSet<PathBuf>,
     pub denies: BTreeSet<PathBuf>,
+    /// Denies also refuse incoming connections.
+    pub inbound: bool,
 }
 
 /// Pure policy: a deny always beats a permit for the same path (case-insensitive).
@@ -68,6 +71,7 @@ pub fn resolve(
             .map(PathBuf::from)
             .collect(),
         denies: denies.into_iter().map(PathBuf::from).collect(),
+        inbound: false,
     }
 }
 
@@ -196,7 +200,10 @@ impl Shared {
             permits.extend(self.bootstrap_permits());
             permits.extend(self.live_once_permits());
         }
-        Ok(resolve(permits, denies))
+        Ok(Desired {
+            inbound: self.settings()["enforcement"]["block_inbound"] == true,
+            ..resolve(permits, denies)
+        })
     }
 
     /// Apply a freshly stored decision to the filter engine.
@@ -249,7 +256,7 @@ impl Shared {
             return Ok(());
         }
         let denies: Vec<PathBuf> = desired.denies.iter().cloned().collect();
-        engine.set_denies(&denies)?;
+        engine.set_denies(&denies, desired.inbound)?;
         if armed_wanted {
             let permits: Vec<PathBuf> = desired.permits.iter().cloned().collect();
             let skipped = engine.arm(&permits)?;

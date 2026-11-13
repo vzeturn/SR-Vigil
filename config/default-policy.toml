@@ -25,6 +25,7 @@ loopback_exempt            = true
 bootstrap_check_required   = true
 respawn_watch              = true
 service_disable_requires_approval = true
+block_inbound              = false       # FR-017: a blocked program also refuses incoming connections
 
 # Risky ports and TLDs (BEH-004) live with the other destination data in rules/reputation.toml.
 [network.beacon_ignore]

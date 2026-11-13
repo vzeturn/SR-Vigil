@@ -566,6 +566,13 @@ export const en = {
     enable: 'Download the version list daily',
     failed: 'Failed: {{code}}',
   },
+  inbound: {
+    title: 'Block incoming connections too',
+    intro:
+      'Off by default. When on, every program you or Vigil blocked also refuses connections other computers start to it. Programs you have not blocked are not affected.',
+    enable: 'Block incoming connections to blocked programs',
+    failed: 'Failed: {{code}}',
+  },
   ai: {
     title: 'AI second opinion',
     intro:
