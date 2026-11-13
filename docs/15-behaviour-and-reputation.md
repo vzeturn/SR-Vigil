@@ -51,7 +51,7 @@ All strings from these events are untrusted data (CLAUDE.md rule 6): never inter
 
 - Behaviour rows reuse the existing `Reason` model (id, name, delta, description), so the score tooltip, details and AI payload need no new plumbing.
 - The Connections page shows each connection with its destination reputation chip and the owning process score; one bad connection lowers the process score through NET-001.
-- The AI payload gains a bounded `behaviour_events` array (≤ 20 items: class, count, redacted target; no raw paths outside `redact`). The prompt stays "evidence, never the sole reason to kill".
+- The AI payload carries `behaviour.events` (≤ 20 items): one fixed class word per finding above (NET-001/002/003, BEH-003/004, PRC-001, FIL-001/002, RES-001 for a foreign store), with no count and no target. The destination already travels in `destination` under its own consent rule, and fixed words cannot carry attacker text. The words sit inside the existing `behaviour` key, so the shared endpoint's allowlist is unchanged; the prompt treats them as evidence, never the sole reason to kill.
 
 ## 6. CLAUDE.md change
 

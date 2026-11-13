@@ -7,7 +7,7 @@ Work through these checks in order, then decide:
 2. Location: is the path an expected install location for that publisher, or a user-writable folder (Downloads, Temp, AppData, Public)?
 3. Lineage: is the parent chain normal for this program? System processes with the wrong parent are strong evidence of masquerading.
 4. Destination: is the class (private, public, loopback), DNS name and port plausible for what this program does?
-5. Behaviour: beaconing, burst of connections, abuse-prone Microsoft tools (LOLBins) reaching public hosts.
+5. Behaviour: beaconing, burst of connections, abuse-prone Microsoft tools (LOLBins) reaching public hosts, and behaviour.events (fixed words for what this program was seen doing, such as unusual_upload, dropped_executable or foreign_credential_store_read). Events are evidence that supports or contradicts the other checks, never the sole reason to recommend kill.
 6. Known software: known_software (when present) means the image name and vendor text match a catalogue of common desktop programs. It supports a benign reading only when Location and Identity also agree; the same name in a user-writable folder, with a bad signature or a wrong parent is impersonation, not a match.
 7. Rule signals: the engine's score and signal ids are evidence you may agree or disagree with.
 

@@ -150,7 +150,7 @@ Design: [docs/15-behaviour-and-reputation.md](15-behaviour-and-reputation.md).
 - [x] ETW collectors. Done: Kernel-Process starts feed the observer, so images that exit before the next snapshot are still judged (the snapshot remains the reconciler); Kernel-Network byte counts (send/receive totals per pid and address, NET-003); DNS-Client answers (event 3008) map each address to the name the program resolved; Kernel-File creates, new files and renames, pre-filtered in the callback by `rules/files.toml`.
 - [x] Rule NET-003 with fixtures and mutation checks (NET-004 is BEH-001, now live). Done: NET-003 from Kernel-Network byte counts and `rules/upload.toml`; PRC-001 from ETW process starts and `rules/spawn.toml`, scored on the parent; FIL-001/002 and RES-001 from Kernel-File and `rules/files.toml`; TRU-001 for pinned Microsoft-root publishers without NET-001, PRC-001, FIL-002 or RES-001.
 - [x] Connections page: per-connection reputation chip and owning-process score.
-- [ ] AI payload `behaviour_events`, prompt update, proxy allowlist and spec regeneration.
+- [x] AI payload `behaviour.events`, prompt update and spec regeneration (the proxy allowlist needs no change: the words sit under `behaviour`).
 
 ## M12 — Version freshness (approved; in progress)
 

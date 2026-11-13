@@ -14,6 +14,8 @@ use crate::analysis::path::basename;
 pub const MAX_STR: usize = 200;
 /// Command lines are cut to this many characters before scrubbing.
 pub const MAX_CMDLINE: usize = 200;
+/// Behaviour classes sent at most (`docs/15 §2`).
+pub const MAX_EVENTS: usize = 20;
 /// Delimiter tags of the prompt; they are never allowed inside values.
 const DELIMS: [&str; 2] = ["<untrusted_telemetry>", "</untrusted_telemetry>"];
 
@@ -56,6 +58,8 @@ pub struct Input {
     pub parents: Vec<Parent>,
     pub dest: Option<Dest>,
     pub beaconing: bool,
+    /// Fixed class words from [`crate::observe::behaviour_events`].
+    pub events: Vec<&'static str>,
     pub connection_count: u32,
     /// Live child processes started from this image.
     pub children: u32,
@@ -288,6 +292,7 @@ pub fn build(input: &Input, send_cmdline: bool) -> Value {
             "live_children": input.children,
             "autostart_entries": input.persistence.iter().take(5).map(|k| scrub(k)).collect::<Vec<_>>(),
             "first_seen": opt(input.first_seen.as_ref(), user, hosts), "lolbin": input.lolbin,
+            "events": input.events.iter().take(MAX_EVENTS).copied().collect::<Vec<_>>(),
         }),
     );
     let signals: Vec<Value> = input
@@ -375,6 +380,33 @@ mod tests {
             assert!(!v.contains(secret), "{secret} leaked: {v}");
         }
         assert!(v.contains("%username%"));
+    }
+
+    #[test]
+    fn behaviour_events_are_the_observed_classes_only() {
+        use crate::observe::{FileSeen, NetSeen, behaviour_events};
+        let mut i = base("zqcarol");
+        let net = NetSeen {
+            unusual_upload: true,
+            ..NetSeen::default()
+        };
+        let files = FileSeen {
+            foreign_credential_store: true,
+            credential_store_as_owner: true,
+            ..FileSeen::default()
+        };
+        i.events = behaviour_events(net, files, true);
+        let v = build(&i, false);
+        assert_eq!(
+            v["behaviour"]["events"],
+            json!([
+                "unusual_upload",
+                "suspicious_child_process",
+                "foreign_credential_store_read"
+            ])
+        );
+        i.events = Vec::new();
+        assert_eq!(build(&i, false)["behaviour"]["events"], json!([]));
     }
 
     #[test]

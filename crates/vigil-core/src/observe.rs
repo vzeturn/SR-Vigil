@@ -132,6 +132,33 @@ impl NetSeen {
     }
 }
 
+/// Behaviour classes seen for a program this run, as fixed words for the AI payload
+/// (`behaviour.events`, `docs/06 §3`). Never carries a host string.
+#[must_use]
+pub fn behaviour_events(
+    net: NetSeen,
+    files: FileSeen,
+    suspicious_child: bool,
+) -> Vec<&'static str> {
+    [
+        (net.bad, "listed_bad_destination"),
+        (net.generated_name, "generated_domain_name"),
+        (net.no_dns, "public_address_without_dns"),
+        (net.risky_port_or_tld, "risky_port_or_tld"),
+        (net.unusual_upload, "unusual_upload"),
+        (suspicious_child, "suspicious_child_process"),
+        (files.dropped_executable, "dropped_executable"),
+        (files.mass_renamed, "mass_file_rename"),
+        (
+            files.foreign_credential_store,
+            "foreign_credential_store_read",
+        ),
+    ]
+    .into_iter()
+    .filter_map(|(on, class)| on.then_some(class))
+    .collect()
+}
+
 /// Everything known about one running or candidate image.
 #[derive(Debug, Clone)]
 pub struct Observation {

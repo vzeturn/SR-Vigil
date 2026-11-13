@@ -652,6 +652,15 @@ impl Shared {
             .collect()
     }
 
+    /// What this program was seen doing this run, as fixed class words (`docs/06 §3`).
+    fn behaviour_events(&self, path: &str) -> Vec<&'static str> {
+        vigil_core::observe::behaviour_events(
+            self.net_seen(path),
+            self.files_seen(path),
+            self.spawned_suspicious_child(path),
+        )
+    }
+
     fn ai_payload(&self, exe_id: i64, s: &AiSettings) -> Result<Payload, AiFail> {
         let (exe, ev, pending) = self
             .with_store(|c| {
@@ -701,6 +710,7 @@ impl Shared {
                 })
                 .or_else(|| shared_dest.clone()),
             beaconing: shared_dest.is_some(),
+            events: self.behaviour_events(&exe.path),
             score: i32::from(ev.score),
             signals,
             hard_rules: ev.hard_rule.iter().cloned().collect(),
