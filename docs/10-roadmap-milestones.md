@@ -89,7 +89,7 @@ Standing rule for every milestone: `cargo fmt --check`, `cargo clippy -D warning
 **Deliver**
 - Kill/tree kill with never-kill/PPL handling, respawn watch (path + hash), service stop/disable flow, persistent deny by path.
 - Persistence scanners (all kinds in `docs/04 §5`), reversible disable, restore, delete-after-disable.
-- `svchost` service attribution and `svchost_service_suspicious` alert; UWP package-id filters.
+- `svchost` service attribution and suspicious-`ServiceDll` alert (done: `event.service_alert`, Services page); UWP package-id filters.
 
 **Acceptance**
 - [ ] Malicious test binary is killed within 500 ms of start and re-killed on every respawn attempt; `respawn_kills` increments.
@@ -100,7 +100,7 @@ Standing rule for every milestone: `cargo fmt --check`, `cargo clippy -D warning
 **M4 status (branch `ms/m4-kill`)**
 - Verified by automated tests: kill/respawn/renamed copy (`t_kill_01_every_respawn_and_renamed_copy_is_killed_and_counted`, fake process table, 20 respawns + same-hash copy), `protected_target` (`t_kill_02_protected_target_is_refused_and_not_terminated`), Run-key and scheduled-task disable/restore round trip against the real registry/`schtasks` (`vigil-win` persist tests), service state machine and audit (`t_pers_01_*`).
 - Not verified (needs an elevated VM): the 500 ms kill latency with a real binary through the service, killing other users' processes, service-kind disable/restore against a real service.
-- Deferred (tracked): `wmi_subscription`, `winlogon` and `shell_ext` scanners (not scanned yet); `svchost` service attribution and `svchost_service_suspicious`; UWP package-id filters; the enforce-mode positive path of `auto_kill_malicious` (needs an engine in the test harness).
+- Deferred (tracked): `wmi_subscription`, `winlogon` and `shell_ext` scanners (not scanned yet); UWP package-id filters; the enforce-mode positive path of `auto_kill_malicious` (needs an engine in the test harness).
 
 ## M5 — AI advisor and auto
 
@@ -217,7 +217,7 @@ root-cause popup. Build order is in `docs/18 §7`.
 - Bundle the WebView2 Evergreen bootstrapper in the MSI (Windows 11 and current Windows 10 already ship the runtime; older Windows 10 needs it installed once).
 - Process mitigation policies for the service and live WFP change-event alerts (`docs/08` §5).
 
-- Per-service WFP filtering via service SID for `svchost`.
+- Per-service WFP filtering via service SID for `svchost` (done: `service.block_network`, `docs/04 §3`).
 - ARM64 build.
 - Signed remote rule-pack updates (Ed25519).
 - Fleet management console and SIEM export (syslog/Windows Event Forwarding).

@@ -273,6 +273,17 @@ export interface ActionResult {
   detail?: string | null;
 }
 
+export interface ServiceItem {
+  pid: number | null;
+  name: string;
+  display_name: string;
+  dll: string | null;
+  suspicious: 'unsigned' | 'writable_location' | null;
+  refusal: 'protected_target' | 'no_service_sid' | null;
+  network_blocked: boolean;
+  shared_with: string[];
+}
+
 export type PersistenceStatus = 'found' | 'disabled' | 'deleted' | 'restored';
 
 export interface PersistenceItem {

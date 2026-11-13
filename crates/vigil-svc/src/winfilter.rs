@@ -18,6 +18,14 @@ pub struct WfpEngine {
     /// `None` until the first sync: persistent denies from an earlier run are still installed.
     /// The flag says whether the inbound denies (FR-017) are installed too.
     denied: Mutex<Option<(BTreeSet<PathBuf>, bool)>>,
+    /// Per-service denies `(name, SID)`; `None` until the first sync, like `denied`.
+    services: Mutex<Option<BTreeSet<(String, String)>>>,
+}
+
+/// `%SystemRoot%\System32\svchost.exe`, the host every shared service runs in.
+fn svchost() -> PathBuf {
+    let root = std::env::var_os("SystemRoot").unwrap_or_else(|| r"C:\Windows".into());
+    PathBuf::from(root).join("System32").join("svchost.exe")
 }
 
 impl WfpEngine {
@@ -28,6 +36,7 @@ impl WfpEngine {
             persistent: Engine::open_persistent().map_err(|e| e.to_string())?,
             permitted: Mutex::new(BTreeSet::new()),
             denied: Mutex::new(None),
+            services: Mutex::new(None),
         })
     }
 }
@@ -88,6 +97,42 @@ impl FilterEngine for WfpEngine {
         }
         *have = want;
         *had_inbound = inbound;
+        Ok(())
+    }
+
+    fn set_service_denies(&self, services: &[(String, String)]) -> Result<(), String> {
+        let want: BTreeSet<(String, String)> = services.iter().cloned().collect();
+        let mut slot = self.services.lock().unwrap_or_else(PoisonError::into_inner);
+        if slot.is_none() {
+            let stale = self
+                .persistent
+                .list_filters(Scope::Persistent)
+                .map_err(|e| e.to_string())?;
+            for f in stale
+                .iter()
+                .filter(|f| f.name.starts_with("Vigil ServiceDeny"))
+            {
+                self.persistent
+                    .remove_filter(&f.key)
+                    .map_err(|e| e.to_string())?;
+            }
+        }
+        let have = slot.get_or_insert_with(BTreeSet::new);
+        let host = svchost();
+        self.persistent
+            .transaction(|tx| {
+                for (name, sid) in want.difference(have) {
+                    tx.put_service_deny(&host, name, sid)?;
+                }
+                Ok(())
+            })
+            .map_err(|e| e.to_string())?;
+        for (name, _) in have.difference(&want) {
+            self.persistent
+                .remove_identity(&ids::service_identity_key(name), FilterKind::ServiceDeny)
+                .map_err(|e| e.to_string())?;
+        }
+        *have = want;
         Ok(())
     }
 

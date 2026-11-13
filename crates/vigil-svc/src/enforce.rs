@@ -36,6 +36,11 @@ pub trait FilterEngine: Send + Sync {
     /// Make the persistent explicit denies exactly `denies`; with `inbound` each deny also refuses
     /// incoming connections (FR-017, `enforcement.block_inbound`).
     fn set_denies(&self, denies: &[PathBuf], inbound: bool) -> Result<(), String>;
+    /// Make the persistent per-service outbound denies exactly `services` (`(name, service SID)`,
+    /// FR-021). Engines without service filtering ignore it.
+    fn set_service_denies(&self, _services: &[(String, String)]) -> Result<(), String> {
+        Ok(())
+    }
     /// Install loopback + `permits`, then the catch-all block; returns permit paths that could not
     /// be resolved (missing files). Permits no longer listed are removed.
     fn arm(&self, permits: &[PathBuf]) -> Result<Vec<PathBuf>, String>;
@@ -54,6 +59,8 @@ pub struct Desired {
     pub denies: BTreeSet<PathBuf>,
     /// Denies also refuse incoming connections.
     pub inbound: bool,
+    /// Services whose outbound network is blocked: `(name, service SID)` (FR-021).
+    pub services: BTreeSet<(String, String)>,
 }
 
 /// Pure policy: a deny always beats a permit for the same path (case-insensitive).
@@ -72,6 +79,7 @@ pub fn resolve(
             .collect(),
         denies: denies.into_iter().map(PathBuf::from).collect(),
         inbound: false,
+        services: BTreeSet::new(),
     }
 }
 
@@ -202,6 +210,14 @@ impl Shared {
         }
         Ok(Desired {
             inbound: self.settings()["enforcement"]["block_inbound"] == true,
+            services: self
+                .service_blocks()
+                .into_iter()
+                .map(|n| {
+                    let sid = vigil_core::service::service_sid(&n);
+                    (n, sid)
+                })
+                .collect(),
             ..resolve(permits, denies)
         })
     }
@@ -257,6 +273,8 @@ impl Shared {
         }
         let denies: Vec<PathBuf> = desired.denies.iter().cloned().collect();
         engine.set_denies(&denies, desired.inbound)?;
+        let services: Vec<(String, String)> = desired.services.iter().cloned().collect();
+        engine.set_service_denies(&services)?;
         if armed_wanted {
             let permits: Vec<PathBuf> = desired.permits.iter().cloned().collect();
             let skipped = engine.arm(&permits)?;

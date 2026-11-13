@@ -8,6 +8,7 @@ import {
   OctagonX,
   ShieldAlert,
   ScrollText,
+  Server,
   Settings as Cog,
   ShieldCheck,
   type LucideIcon,
@@ -25,6 +26,7 @@ import { Pending } from './pages/Pending';
 import { Popup } from './pages/Popup';
 import { Processes } from './pages/Processes';
 import { RulesTrust } from './pages/RulesTrust';
+import { Services } from './pages/Services';
 import { Startup } from './pages/Startup';
 import { WebFilter } from './pages/WebFilter';
 import { Settings } from './pages/Settings';
@@ -38,6 +40,7 @@ const PAGES = {
   lockdown: { icon: ShieldAlert, view: Lockdown },
   kills: { icon: OctagonX, view: Kills },
   startup: { icon: Power, view: Startup },
+  services: { icon: Server, view: Services },
   webfilter: { icon: Globe, view: WebFilter },
   audit: { icon: ScrollText, view: Audit },
   rules: { icon: ShieldCheck, view: RulesTrust },
@@ -49,7 +52,7 @@ type PageId = keyof typeof PAGES;
 /** Sidebar sections, in task order; Settings sits apart at the foot. */
 const NAV_GROUPS: { id: string; pages: PageId[] }[] = [
   { id: 'monitor', pages: ['overview', 'pending', 'processes', 'connections'] },
-  { id: 'respond', pages: ['lockdown', 'kills', 'startup', 'webfilter'] },
+  { id: 'respond', pages: ['lockdown', 'kills', 'startup', 'services', 'webfilter'] },
   { id: 'review', pages: ['audit', 'rules'] },
 ];
 

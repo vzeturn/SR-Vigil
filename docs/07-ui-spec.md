@@ -62,7 +62,7 @@ Progressive disclosure: the Overview stays simple. Scores explain themselves on 
 ### 4.2 Processes
 - Virtualized tree-table (parent → child), columns: Name · PID · Verdict chip · Score · Publisher · Path · Connections · Started. Filters: verdict, signed/unsigned, path class, has-connections, text search.
 - Row expands inline to show signals. Context menu: Kill, Kill tree, Block, Allow…, Open file location, Copy hash, Look up hash (VirusTotal link).
-- `svchost.exe` rows show hosted service names as child nodes.
+- Hosted services of `svchost.exe` are listed on the **Services** page (Respond group): display and key name, host PID, `ServiceDll`, the services sharing the process, a text badge for a suspicious DLL ("Unsigned DLL", "DLL in a writable folder"), and **Block network / Allow network**. The button is disabled, with the reason as its tooltip, for viewers and for services that cannot be blocked (`protected_target`, `no_service_sid`).
 - Data: `process.list`, `process.get`, events.
 - **Live scan board** (default view): one row per running process with a score shown as `x.x/10`; hovering the score lists each issue on its own line. No icon strip on the row. The expanded details hold the identity grid (publisher, signature, path, parent), spoof evidence, impact and advice, the recognised-software label (`KNOW-001`) and **End** (terminate, never-kill set excluded) and **Dismiss** (hide this finding; reversible, audited). Nothing is deleted or disabled without approval.
 

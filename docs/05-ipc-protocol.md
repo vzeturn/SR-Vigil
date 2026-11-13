@@ -71,6 +71,8 @@ JSON-RPC 2.0 subset: `{"jsonrpc":"2.0","id":<int|string>,"method":"...","params"
 | `trust.revoke` | A | `{publisher_id}` → `{}` |
 | `persistence.scan` | A | `{target_image_path?}` → `{findings: PersistenceItem[]}` |
 | `persistence.apply` | A | `{item_id, action: "disable"|"restore"|"delete"}` → `ActionResult` |
+| `service.list` | V | `{}` → `{items: [{pid, name, display_name, dll, suspicious, refusal, network_blocked, shared_with}]}`; running Win32 services plus blocked services that are not running (`pid: null`) |
+| `service.block_network` | A | `{name, block}` → `ActionResult`; `error_code`: `not_found` (not running), `protected_target` (network-essential), `no_service_sid`, `internal`. Audited (docs/04 §3) |
 | `ai.activity` | R | `{}` → `{today, week, month}`, each an `AiUsage` counter set (tokens are as reported by the API; the dollar figure is an estimate; the shared endpoint reports calls only) |
 | `ai.config.get` | R | `{}` → `{enabled, mode, model, escalation_model, thresholds, has_key, source, shared_available, budget}` (never the key or the install token) |
 | `ai.config.set` | A | `{enabled?, mode?, model?, escalation_model?, api_key?, thresholds?, budget?}` → `AiConfig` |
@@ -106,6 +108,7 @@ JSON-RPC 2.0 subset: `{"jsonrpc":"2.0","id":<int|string>,"method":"...","params"
 | `enforcement` | `event.threat_detected` | `Threat` `{threat_id, kind: "beaconing", path, identity_id, dest_ip, dest_port, interval_secs, detected_at, ai_available}`; once per program per run, never for a `safe` verdict (`docs/24`) |
 | `enforcement` | `event.launcher_prompt` | `{launcher, child, count, window_secs, autostart_entries, decision?}`; sent once per launcher per 24 h when it keeps starting a killed program (docs/18 §5) |
 | `enforcement` | `event.tab_alert` | `{reason: started_program\|high_cpu, action: warned\|stopped, browser, program?, minutes?}`; a browser tab was stopped for starting a program, or has run hot on a full core (docs/19 §3) |
+| `enforcement` | `event.service_alert` | `{service, display_name, dll, reason: unsigned\|writable_location}`; a running service loads a suspicious `ServiceDll`, once per service per run (docs/04 §3) |
 | `alerts` | `event.alert` | `{severity, kind, message_key, identity_id?, data}` |
 | `health` | `event.health` | `{state, details, ts}` |
 

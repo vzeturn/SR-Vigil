@@ -61,6 +61,10 @@ pub trait ProcessControl: Send + Sync {
     fn cpu_ticks(&self, _pid: u32) -> Option<u64> {
         None
     }
+    /// Running Win32 services with their host PID, `ServiceDll` and SID type (FR-021).
+    fn services(&self) -> Vec<vigil_core::service::HostedService> {
+        Vec::new()
+    }
     /// Persistence entries currently present on the machine.
     fn persist_scan(&self) -> Vec<vigil_store::persistence::Found>;
     /// Disable an entry; returns the backup that [`Self::persist_restore`] needs.

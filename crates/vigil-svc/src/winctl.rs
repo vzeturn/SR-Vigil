@@ -29,6 +29,8 @@ pub struct WinControl {
     hashes: HashCache,
     /// Image path and start time are resolved once per process, so a listing is cheap.
     watcher: std::sync::Mutex<process::Watcher>,
+    /// Signature validity of each `ServiceDll`, checked once per path.
+    dll_signed: std::sync::Mutex<std::collections::HashMap<String, bool>>,
 }
 
 impl ProcessControl for WinControl {
@@ -76,6 +78,21 @@ impl ProcessControl for WinControl {
 
     fn sha256(&self, path: &str) -> Option<String> {
         self.hashes.sha256(Path::new(path)).ok()
+    }
+
+    fn services(&self) -> Vec<vigil_core::service::HostedService> {
+        let Ok(ctx) = vigil_win::observe::env_context() else {
+            return Vec::new();
+        };
+        let mut cache = self
+            .dll_signed
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        vigil_win::services::hosted(&ctx.path_env, &mut |dll| {
+            *cache
+                .entry(dll.to_lowercase())
+                .or_insert_with(|| vigil_win::services::is_signed(dll))
+        })
     }
 
     fn persist_scan(&self) -> Vec<Found> {

@@ -45,6 +45,8 @@ const ALLOWED: &[&str] = &[
     "process.kill",
     "persistence.scan",
     "persistence.apply",
+    "service.list",
+    "service.block_network",
     "ai.activity",
     "ai.config.get",
     "ai.config.set",
@@ -165,6 +167,20 @@ fn forward_pending(app: &AppHandle, client: &mut Client<NamedPipeClient>) {
                     ),
                 };
                 crate::popup::toast(app, "Vigil browser tab", &body);
+            }
+            "event.service_alert" => {
+                let s = |k: &str| params[k].as_str().unwrap_or("").to_owned();
+                let why = if s("reason") == "unsigned" {
+                    "is not signed"
+                } else {
+                    "is in a folder other programs can change"
+                };
+                let body = format!(
+                    "The Windows service {} runs code that {why}: {}. Review it on the Services page.",
+                    s("display_name"),
+                    s("dll")
+                );
+                crate::popup::toast(app, "Vigil service warning", &body);
             }
             "event.ai_digest" => {
                 let g = |k: &str| params[k].as_u64().unwrap_or(0);

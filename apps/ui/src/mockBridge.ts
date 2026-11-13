@@ -1,5 +1,5 @@
 import type { Bridge } from './bridge';
-import type { AiConfig, AuditEntry, DecisionParams, PendingItem, PersistenceItem, ProcessInfo, Snapshot, Verdict } from './types';
+import type { AiConfig, AuditEntry, DecisionParams, PendingItem, PersistenceItem, ProcessInfo, ServiceItem, Snapshot, Verdict } from './types';
 
 const HASH = 'a'.repeat(64);
 
@@ -88,6 +88,39 @@ export function createMockBridge(rows = 200): Bridge {
     },
   ];
 
+  const services: ServiceItem[] = [
+    {
+      pid: 900,
+      name: 'WSearch',
+      display_name: 'Windows Search',
+      dll: String.raw`C:\Windows\System32\mssrch.dll`,
+      suspicious: null,
+      refusal: null,
+      network_blocked: false,
+      shared_with: ['MockHelper'],
+    },
+    {
+      pid: 900,
+      name: 'MockHelper',
+      display_name: 'Mock Helper',
+      dll: String.raw`C:\Users\Mock\AppData\Local\helper.dll`,
+      suspicious: 'writable_location',
+      refusal: 'no_service_sid',
+      network_blocked: false,
+      shared_with: ['WSearch'],
+    },
+    {
+      pid: 800,
+      name: 'Dnscache',
+      display_name: 'DNS Client',
+      dll: String.raw`C:\Windows\System32\dnsrslvr.dll`,
+      suspicious: null,
+      refusal: 'protected_target',
+      network_blocked: false,
+      shared_with: [],
+    },
+  ];
+
   let ai: AiConfig = {
     enabled: false,
     mode: 'off',
@@ -155,6 +188,15 @@ export function createMockBridge(rows = 200): Bridge {
       if (!it) throw new Error('not_found');
       it.status = action === 'disable' ? 'disabled' : action === 'restore' ? 'restored' : 'deleted';
       return { ok: true, detail: it.status };
+    },
+    'service.list': () => ({ items: services.map((s) => ({ ...s })) }),
+    'service.block_network': (params) => {
+      const { name, block } = params as { name: string; block: boolean };
+      const s = services.find((x) => x.name.toLowerCase() === name.toLowerCase());
+      if (!s) return { ok: false, error_code: 'not_found', detail: 'the service is not running' };
+      if (block && s.refusal) return { ok: false, error_code: s.refusal, detail: 'this service cannot be blocked' };
+      s.network_blocked = block;
+      return { ok: true, error_code: null, detail: block ? 'blocked' : 'unblocked' };
     },
     'rule.list': () => ({ rule_pack_version: '1.0.0', rules: [] }),
     'trust.list': () => ({ publishers: [] }),

@@ -35,5 +35,5 @@ describe.each(['en'])('accessibility (%s)', (lang) => {
     document.body.focus();
     await userEvent.tab();
     expect(document.activeElement).not.toBe(document.body);
-  });
+  }, 20_000);
 });

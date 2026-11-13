@@ -97,7 +97,7 @@ async fn implemented_method_results_match_the_schema() {
     let (a, b) = tokio::io::duplex(1 << 16);
     tokio::spawn(handle_connection(b, Role::Admin, shared()));
     let mut c = Client::new(a);
-    let calls: [(&str, Value); 16] = [
+    let calls: [(&str, Value); 18] = [
         (
             "hello",
             json!({"client": "t", "client_version": "1", "protocol": 1}),
@@ -118,6 +118,11 @@ async fn implemented_method_results_match_the_schema() {
         ("pending.list", json!({})),
         ("decision.list", json!({})),
         ("threat.list", json!({})),
+        ("service.list", json!({})),
+        (
+            "service.block_network",
+            json!({"name": "WSearch", "block": true}),
+        ),
         ("audit.query", json!({})),
         ("settings.get", json!({})),
         ("mode.set", json!({"mode": "learning"})),
@@ -174,6 +179,11 @@ async fn emitted_events_match_the_schema() {
     ] {
         validate(&s["x-events"]["event.tab_alert"], "event.tab_alert", &tab);
     }
+    validate(
+        &s["x-events"]["event.service_alert"],
+        "event.service_alert",
+        &json!({"service": "Evil", "display_name": "Evil Helper", "dll": "C:/Users/a/x.dll", "reason": "writable_location"}),
+    );
     sh.remove_process(1, "2026-01-01T00:00:00Z");
     sh.sync_connections(vec![]);
     sh.set_mode("learning", false).unwrap();

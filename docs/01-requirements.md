@@ -26,7 +26,7 @@
 | FR-018 | Import/export of user decisions and rule overrides (TOML); export audit as JSON/CSV. | S | M6 |
 | FR-019 | Optional VirusTotal hash lookup (user supplies key), cached, rate-limited. | C | M5 |
 | FR-020 | Re-verify identity on every process start and on file change; revoke permit and re-prompt if hash/signature changed. | M | M3 |
-| FR-021 | Service attribution for `svchost.exe`: map PID/connection to hosted service(s) and ServiceDll; score the DLLs. | S | M4 |
+| FR-021 | Service attribution for `svchost.exe`: map PID to hosted service(s) and ServiceDll; alert on an unsigned or user-writable ServiceDll; let the user block one service's outbound network by its service SID (`docs/04 §3`). | S | M4 |
 | FR-022 | UI strings live in an i18n table; the shipped UI is English only (user decision), exports are language-neutral. | M | M2 |
 | FR-024 | Process storms (self-replication, nested copies, script-host floods) are killed in every mode, with rate-adaptive thresholds and an advisor review below them; a hijacked Safe program is reclassified Malicious. See `docs/04 §8`. | M | M6 |
 | FR-023 | Installer (MSI) that registers the service, ACLs the data dir, creates the Start Menu shortcut and tray autostart. | S | M6 |

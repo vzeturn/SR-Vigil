@@ -98,6 +98,20 @@ describe('M3 screens', () => {
     rpc.mockRestore();
   });
 
+  it('blocks one service and never offers it for a service without its own identity', async () => {
+    const bridge = await getBridge();
+    const rpc = vitest.spyOn(bridge, 'rpc');
+    render(<App />);
+    await userEvent.click(screen.getByRole('button', { name: 'Services' }));
+    expect(await screen.findByText('DLL in a writable folder')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Block network for Mock Helper' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Block network for DNS Client' })).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: 'Block network for Windows Search' }));
+    expect(rpc).toHaveBeenCalledWith('service.block_network', { name: 'WSearch', block: true });
+    expect(await screen.findByRole('button', { name: 'Allow network for Windows Search' })).toBeEnabled();
+    rpc.mockRestore();
+  });
+
   it('shows the broken audit chain with text, not colour alone', async () => {
     const bridge = await getBridge();
     const rpc = vitest.spyOn(bridge, 'rpc').mockResolvedValue({ items: [], next_cursor: null, chain_ok: false });

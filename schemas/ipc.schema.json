@@ -2327,6 +2327,120 @@
         "$ref": "#/$defs/ActionResult"
       }
     },
+    "service.list": {
+      "role": "viewer",
+      "params": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "pid": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 1
+                },
+                "name": {
+                  "type": "string",
+                  "maxLength": 256
+                },
+                "display_name": {
+                  "type": "string",
+                  "maxLength": 512
+                },
+                "dll": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "maxLength": 32767
+                },
+                "suspicious": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "enum": [
+                    "unsigned",
+                    "writable_location",
+                    null
+                  ]
+                },
+                "refusal": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "enum": [
+                    "protected_target",
+                    "no_service_sid",
+                    null
+                  ]
+                },
+                "network_blocked": {
+                  "type": "boolean"
+                },
+                "shared_with": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 256
+                  }
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "pid",
+                "name",
+                "display_name",
+                "dll",
+                "suspicious",
+                "refusal",
+                "network_blocked",
+                "shared_with"
+              ]
+            }
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ]
+      }
+    },
+    "service.block_network": {
+      "role": "admin",
+      "params": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "block": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "block"
+        ]
+      },
+      "result": {
+        "$ref": "#/$defs/ActionResult"
+      }
+    },
     "ai.activity": {
       "role": "viewer",
       "params": {
@@ -3269,6 +3383,37 @@
         "reason",
         "action",
         "browser"
+      ]
+    },
+    "event.service_alert": {
+      "type": "object",
+      "properties": {
+        "service": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "display_name": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "dll": {
+          "type": "string",
+          "maxLength": 32767
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "unsigned",
+            "writable_location"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "service",
+        "display_name",
+        "dll",
+        "reason"
       ]
     }
   },

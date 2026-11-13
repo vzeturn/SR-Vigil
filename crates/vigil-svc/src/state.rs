@@ -155,6 +155,8 @@ pub struct Shared {
     pub(crate) reopen: Mutex<crate::reopen::Reopen>,
     pub(crate) launchers: Mutex<crate::launcher::Launchers>,
     pub(crate) hot_tabs: Mutex<crate::hottab::HotTabs>,
+    /// Services already reported by `service_alert_scan` this run (FR-021).
+    pub(crate) service_alerted: Mutex<std::collections::HashSet<String>>,
     pub(crate) ai_slots: tokio::sync::Semaphore,
 }
 
@@ -289,6 +291,7 @@ impl Shared {
             reopen: Mutex::new(crate::reopen::Reopen::default()),
             launchers: Mutex::new(crate::launcher::Launchers::default()),
             hot_tabs: Mutex::new(crate::hottab::HotTabs::default()),
+            service_alerted: Mutex::new(std::collections::HashSet::new()),
             ai_slots: tokio::sync::Semaphore::new(2),
         }
     }

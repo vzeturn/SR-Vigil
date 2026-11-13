@@ -52,4 +52,5 @@ features = [
   "Win32_Networking_WinSock",
   "Win32_NetworkManagement_WindowsFilteringPlatform",
   "Win32_System_Rpc",
+  "Win32_System_Services",
 ]

@@ -18,5 +18,6 @@ pub mod posture;
 pub mod profile;
 pub mod redact;
 pub mod rules;
+pub mod service;
 pub mod storm;
 pub mod urlfilter;

@@ -80,6 +80,8 @@ pub fn spawn_connect_feed(shared: Arc<Shared>) {
 const BURST: usize = 8;
 const BURST_PAUSE: Duration = Duration::from_millis(40);
 const HEARTBEAT: Duration = Duration::from_secs(15);
+/// How often hosted services are re-checked for a suspicious `ServiceDll` (FR-021).
+const SERVICE_SCAN: Duration = Duration::from_secs(600);
 /// Running images are re-judged this often; the state only moves when the evidence did.
 const RECHECK: Duration = Duration::from_secs(3600);
 
@@ -314,6 +316,7 @@ pub async fn run(shared: Arc<Shared>, pack: Arc<RulePack>) -> anyhow::Result<()>
     let mut tick = tokio::time::interval(POLL);
     tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
     let mut last_beat = tokio::time::Instant::now();
+    let mut last_services: Option<tokio::time::Instant> = None;
     let watcher = Arc::new(std::sync::Mutex::new(process::Watcher::default()));
 
     loop {
@@ -377,6 +380,10 @@ pub async fn run(shared: Arc<Shared>, pack: Arc<RulePack>) -> anyhow::Result<()>
         for (row, n) in shared.storm_suspects() {
             tokio::spawn(Arc::clone(&shared).storm_review(row, n));
         }
+        let scan_services = last_services.is_none_or(|t| t.elapsed() >= SERVICE_SCAN);
+        if scan_services {
+            last_services = Some(tokio::time::Instant::now());
+        }
         let sh = Arc::clone(&shared);
         let persistent = tokio::task::spawn_blocking(move || {
             sh.storm_scan();
@@ -385,6 +392,9 @@ pub async fn run(shared: Arc<Shared>, pack: Arc<RulePack>) -> anyhow::Result<()>
             sh.respawn_scan();
             sh.reopen_sweep();
             sh.auto_kill_malicious();
+            if scan_services {
+                sh.service_alert_scan();
+            }
             sh.purge_scan()
         })
         .await?;

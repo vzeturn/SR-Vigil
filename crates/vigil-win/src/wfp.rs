@@ -28,26 +28,27 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
 use windows::Win32::Foundation::{
     FILETIME, FWP_E_ALREADY_EXISTS, FWP_E_FILTER_NOT_FOUND, FWP_E_PROVIDER_NOT_FOUND,
-    FWP_E_SUBLAYER_NOT_FOUND, HANDLE,
+    FWP_E_SUBLAYER_NOT_FOUND, HANDLE, HLOCAL, LocalFree,
 };
 use windows::Win32::NetworkManagement::WindowsFilteringPlatform::{
     FWP_ACTION_BLOCK, FWP_ACTION_PERMIT, FWP_ACTION_TYPE, FWP_BYTE_BLOB, FWP_BYTE_BLOB_TYPE,
     FWP_CONDITION_FLAG_IS_LOOPBACK, FWP_CONDITION_VALUE0, FWP_CONDITION_VALUE0_0,
-    FWP_IP_VERSION_V6, FWP_MATCH_EQUAL, FWP_MATCH_FLAGS_ALL_SET, FWP_UINT8, FWP_UINT32, FWP_VALUE0,
-    FWPM_CONDITION_ALE_APP_ID, FWPM_CONDITION_FLAGS, FWPM_ENGINE_COLLECT_NET_EVENTS,
-    FWPM_FILTER_CONDITION0, FWPM_FILTER_FLAG_PERSISTENT, FWPM_FILTER_FLAGS, FWPM_FILTER0,
-    FWPM_LAYER_ALE_AUTH_CONNECT_V4, FWPM_LAYER_ALE_AUTH_CONNECT_V6,
-    FWPM_LAYER_ALE_AUTH_RECV_ACCEPT_V4, FWPM_LAYER_ALE_AUTH_RECV_ACCEPT_V6,
-    FWPM_NET_EVENT_FLAG_REMOTE_ADDR_SET, FWPM_NET_EVENT_FLAG_REMOTE_PORT_SET,
-    FWPM_NET_EVENT_SUBSCRIPTION0, FWPM_NET_EVENT_TYPE_CLASSIFY_DROP, FWPM_NET_EVENT1,
-    FWPM_PROVIDER_FLAG_PERSISTENT, FWPM_PROVIDER0, FWPM_SESSION_FLAG_DYNAMIC, FWPM_SESSION0,
-    FWPM_SUBLAYER_FLAG_PERSISTENT, FWPM_SUBLAYER0, FwpmEngineClose0, FwpmEngineOpen0,
-    FwpmEngineSetOption0, FwpmFilterAdd0, FwpmFilterCreateEnumHandle0, FwpmFilterDeleteByKey0,
-    FwpmFilterDestroyEnumHandle0, FwpmFilterEnum0, FwpmFreeMemory0, FwpmGetAppIdFromFileName0,
-    FwpmNetEventSubscribe0, FwpmNetEventUnsubscribe0, FwpmProviderAdd0, FwpmProviderDeleteByKey0,
-    FwpmSubLayerAdd0, FwpmSubLayerDeleteByKey0, FwpmTransactionAbort0, FwpmTransactionBegin0,
-    FwpmTransactionCommit0,
+    FWP_IP_VERSION_V6, FWP_MATCH_EQUAL, FWP_MATCH_FLAGS_ALL_SET, FWP_SECURITY_DESCRIPTOR_TYPE,
+    FWP_UINT8, FWP_UINT32, FWP_VALUE0, FWPM_CONDITION_ALE_APP_ID, FWPM_CONDITION_ALE_USER_ID,
+    FWPM_CONDITION_FLAGS, FWPM_ENGINE_COLLECT_NET_EVENTS, FWPM_FILTER_CONDITION0,
+    FWPM_FILTER_FLAG_PERSISTENT, FWPM_FILTER_FLAGS, FWPM_FILTER0, FWPM_LAYER_ALE_AUTH_CONNECT_V4,
+    FWPM_LAYER_ALE_AUTH_CONNECT_V6, FWPM_LAYER_ALE_AUTH_RECV_ACCEPT_V4,
+    FWPM_LAYER_ALE_AUTH_RECV_ACCEPT_V6, FWPM_NET_EVENT_FLAG_REMOTE_ADDR_SET,
+    FWPM_NET_EVENT_FLAG_REMOTE_PORT_SET, FWPM_NET_EVENT_SUBSCRIPTION0,
+    FWPM_NET_EVENT_TYPE_CLASSIFY_DROP, FWPM_NET_EVENT1, FWPM_PROVIDER_FLAG_PERSISTENT,
+    FWPM_PROVIDER0, FWPM_SESSION_FLAG_DYNAMIC, FWPM_SESSION0, FWPM_SUBLAYER_FLAG_PERSISTENT,
+    FWPM_SUBLAYER0, FwpmEngineClose0, FwpmEngineOpen0, FwpmEngineSetOption0, FwpmFilterAdd0,
+    FwpmFilterCreateEnumHandle0, FwpmFilterDeleteByKey0, FwpmFilterDestroyEnumHandle0,
+    FwpmFilterEnum0, FwpmFreeMemory0, FwpmGetAppIdFromFileName0, FwpmNetEventSubscribe0,
+    FwpmNetEventUnsubscribe0, FwpmProviderAdd0, FwpmProviderDeleteByKey0, FwpmSubLayerAdd0,
+    FwpmSubLayerDeleteByKey0, FwpmTransactionAbort0, FwpmTransactionBegin0, FwpmTransactionCommit0,
 };
+use windows::Win32::Security::Authorization::ConvertStringSecurityDescriptorToSecurityDescriptorW;
 use windows::Win32::Security::PSECURITY_DESCRIPTOR;
 use windows::Win32::Storage::FileSystem::QueryDosDeviceW;
 use windows::Win32::System::Rpc::RPC_C_AUTHN_WINNT;
@@ -60,6 +61,8 @@ pub enum WfpError {
     Api(#[from] windows::core::Error),
     #[error("{0} filters require a {1} session")]
     WrongSession(&'static str, &'static str),
+    #[error("not a service SID")]
+    InvalidSid,
 }
 
 type Result<T> = std::result::Result<T, WfpError>;
@@ -101,15 +104,18 @@ pub mod ids {
         Deny,
         /// Explicit deny of incoming connections (`ALE_AUTH_RECV_ACCEPT`), opt-in (FR-017).
         InboundDeny,
+        /// Outbound deny for one service inside a shared host, matched by its service SID (FR-021).
+        ServiceDeny,
         Loopback,
         Permit,
         CatchAll,
     }
 
     impl FilterKind {
-        pub const ALL: [Self; 5] = [
+        pub const ALL: [Self; 6] = [
             Self::Deny,
             Self::InboundDeny,
+            Self::ServiceDeny,
             Self::Loopback,
             Self::Permit,
             Self::CatchAll,
@@ -118,7 +124,7 @@ pub mod ids {
         /// Weight within the sublayer (`FWP_UINT8`, 0-15); higher is evaluated first.
         pub const fn weight(self) -> u8 {
             match self {
-                Self::Deny | Self::InboundDeny => 15,
+                Self::Deny | Self::InboundDeny | Self::ServiceDeny => 15,
                 Self::Loopback => 12,
                 Self::Permit => 10,
                 Self::CatchAll => 1,
@@ -126,12 +132,15 @@ pub mod ids {
         }
 
         pub const fn is_block(self) -> bool {
-            matches!(self, Self::Deny | Self::InboundDeny | Self::CatchAll)
+            matches!(
+                self,
+                Self::Deny | Self::InboundDeny | Self::ServiceDeny | Self::CatchAll
+            )
         }
 
         /// Explicit denies live in the persistent provider, everything else in the dynamic one.
         pub const fn is_persistent(self) -> bool {
-            matches!(self, Self::Deny | Self::InboundDeny)
+            matches!(self, Self::Deny | Self::InboundDeny | Self::ServiceDeny)
         }
 
         /// Filters on the receive/accept layer instead of the connect layer.
@@ -143,6 +152,7 @@ pub mod ids {
             match self {
                 Self::Deny => "deny",
                 Self::InboundDeny => "inbound-deny",
+                Self::ServiceDeny => "service-deny",
                 Self::Loopback => "loopback",
                 Self::Permit => "permit",
                 Self::CatchAll => "catch-all",
@@ -171,6 +181,11 @@ pub mod ids {
     /// Identity key reserved for the machine-wide filters.
     pub const CATCH_ALL_IDENTITY: &str = "*catch-all*";
     pub const LOOPBACK_IDENTITY: &str = "*loopback*";
+
+    /// Identity key of a per-service deny (service names are case-insensitive).
+    pub fn service_identity_key(service: &str) -> String {
+        format!("service:{}", service.to_lowercase())
+    }
 
     /// Canonical identity key for an executable path (case-insensitive on Windows).
     pub fn path_identity_key(path: &std::path::Path) -> String {
@@ -693,6 +708,47 @@ impl Tx<'_> {
         self.put_app(FilterKind::InboundDeny, path, Scope::Persistent)
     }
 
+    /// Persistent outbound deny for the service whose SID is `sid`, hosted by `host` (FR-021).
+    /// Matches the host image *and* the service SID in the connecting token, so other services
+    /// in the same host keep their network unless they share the process token.
+    pub fn put_service_deny(&self, host: &Path, service: &str, sid: &str) -> Result<()> {
+        self.put_service(host, service, sid, Scope::Persistent)
+    }
+
+    fn put_service(&self, host: &Path, service: &str, sid: &str, scope: Scope) -> Result<()> {
+        let well_formed = sid.strip_prefix("S-1-5-80-").is_some_and(|rest| {
+            !rest.is_empty() && rest.bytes().all(|b| b.is_ascii_digit() || b == b'-')
+        });
+        if !well_formed {
+            return Err(WfpError::InvalidSid);
+        }
+        let app = AppId::from_path(host)?;
+        let sd = GrantSd::new(sid)?;
+        let mut blob = sd.blob();
+        let mut app_cond = FWPM_FILTER_CONDITION0::default();
+        app_cond.fieldKey = FWPM_CONDITION_ALE_APP_ID;
+        app_cond.matchType = FWP_MATCH_EQUAL;
+        app_cond.conditionValue = FWP_CONDITION_VALUE0 {
+            r#type: FWP_BYTE_BLOB_TYPE,
+            Anonymous: FWP_CONDITION_VALUE0_0 { byteBlob: app.0 },
+        };
+        let mut user_cond = FWPM_FILTER_CONDITION0::default();
+        user_cond.fieldKey = FWPM_CONDITION_ALE_USER_ID;
+        user_cond.matchType = FWP_MATCH_EQUAL;
+        user_cond.conditionValue = FWP_CONDITION_VALUE0 {
+            r#type: FWP_SECURITY_DESCRIPTOR_TYPE,
+            Anonymous: FWP_CONDITION_VALUE0_0 { sd: &raw mut blob },
+        };
+        let identity = ids::service_identity_key(service);
+        self.put_both(
+            FilterKind::ServiceDeny,
+            &identity,
+            scope,
+            &mut [app_cond, user_cond],
+            service,
+        )
+    }
+
     pub fn put_catch_all(&self) -> Result<()> {
         self.put_both(
             FilterKind::CatchAll,
@@ -816,6 +872,46 @@ const fn action_type(kind: FilterKind) -> FWP_ACTION_TYPE {
         FWP_ACTION_BLOCK
     } else {
         FWP_ACTION_PERMIT
+    }
+}
+
+/// Self-relative security descriptor granting one SID, freed with `LocalFree`.
+struct GrantSd {
+    sd: PSECURITY_DESCRIPTOR,
+    len: u32,
+}
+
+impl GrantSd {
+    /// `D:(A;;CC;;;<sid>)`: the form `FWPM_CONDITION_ALE_USER_ID` checks a token against.
+    fn new(sid: &str) -> Result<Self> {
+        let sddl = crate::to_wide(&format!("D:(A;;CC;;;{sid})"));
+        let (mut sd, mut len) = (PSECURITY_DESCRIPTOR::default(), 0u32);
+        // SAFETY: `sddl` is NUL-terminated and outlives the call; the out pointers are valid
+        // locals; the descriptor is released in `Drop`.
+        unsafe {
+            ConvertStringSecurityDescriptorToSecurityDescriptorW(
+                PCWSTR(sddl.as_ptr()),
+                1,
+                &raw mut sd,
+                Some(&raw mut len),
+            )
+        }
+        .map_err(|_| WfpError::InvalidSid)?;
+        Ok(Self { sd, len })
+    }
+
+    fn blob(&self) -> FWP_BYTE_BLOB {
+        FWP_BYTE_BLOB {
+            size: self.len,
+            data: self.sd.0.cast(),
+        }
+    }
+}
+
+impl Drop for GrantSd {
+    fn drop(&mut self) {
+        // SAFETY: allocated by `ConvertStringSecurityDescriptorToSecurityDescriptorW`, freed once.
+        let _ = unsafe { LocalFree(HLOCAL(self.sd.0)) };
     }
 }
 
@@ -1020,7 +1116,7 @@ mod tests {
     #[test]
     fn weights_follow_docs_04() {
         let w: Vec<u8> = FilterKind::ALL.iter().map(|k| k.weight()).collect();
-        assert_eq!(w, [15, 15, 12, 10, 1]);
+        assert_eq!(w, [15, 15, 15, 12, 10, 1]);
         assert!(FilterKind::ALL.iter().all(|k| k.weight() <= 15));
     }
 
@@ -1029,14 +1125,20 @@ mod tests {
         for k in FilterKind::ALL {
             assert_eq!(
                 k.is_persistent(),
-                matches!(k, FilterKind::Deny | FilterKind::InboundDeny)
+                matches!(
+                    k,
+                    FilterKind::Deny | FilterKind::InboundDeny | FilterKind::ServiceDeny
+                )
             );
             assert_eq!(k.is_inbound(), k == FilterKind::InboundDeny);
             assert_eq!(
                 k.is_block(),
                 matches!(
                     k,
-                    FilterKind::Deny | FilterKind::InboundDeny | FilterKind::CatchAll
+                    FilterKind::Deny
+                        | FilterKind::InboundDeny
+                        | FilterKind::ServiceDeny
+                        | FilterKind::CatchAll
                 )
             );
         }
@@ -1207,6 +1309,31 @@ mod live {
                 .iter()
                 .all(|k| !keys(&engine).contains(k))
         );
+    }
+
+    #[test]
+    fn service_deny_is_added_for_the_service_sid_and_removed() {
+        let engine = Engine::open_dynamic().expect("open");
+        let host = Path::new(r"C:\Windows\System32\svchost.exe");
+        let sid = vigil_core::service::service_sid("VigilTestSvc");
+        engine
+            .transaction(|tx| tx.put_service(host, "VigilTestSvc", &sid, Scope::Dynamic))
+            .expect("add service deny");
+        let id = ids::service_identity_key("VigilTestSvc");
+        for k in filter_keys_of(&id, FilterKind::ServiceDeny) {
+            assert!(keys(&engine).contains(&k), "service deny missing");
+        }
+        engine
+            .remove_identity(&id, FilterKind::ServiceDeny)
+            .expect("remove");
+        assert!(
+            filter_keys_of(&id, FilterKind::ServiceDeny)
+                .iter()
+                .all(|k| !keys(&engine).contains(k))
+        );
+        let injected = engine
+            .transaction(|tx| tx.put_service(host, "x", "S-1-5-80-1)(A;;CC;;;WD", Scope::Dynamic));
+        assert!(matches!(injected, Err(WfpError::InvalidSid)));
     }
 
     fn filter_keys_of(id: &str, kind: FilterKind) -> [[u8; 16]; 2] {

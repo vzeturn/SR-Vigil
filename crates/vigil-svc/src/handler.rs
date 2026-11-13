@@ -37,23 +37,23 @@ fn topic_list(params: &Value) -> Result<Vec<String>, RpcError> {
         .collect()
 }
 
+fn hello(s: &Shared, role: Role, params: &Value) -> Result<Value, RpcError> {
+    if params.get("protocol").and_then(Value::as_u64) != Some(u64::from(vigil_ipc::PROTOCOL)) {
+        return Err(invalid("unsupported protocol version"));
+    }
+    let (mode, health) = s.mode_and_health();
+    Ok(json!({
+        "protocol": vigil_ipc::PROTOCOL, "service_version": SERVICE_VERSION,
+        "role": if role == Role::Admin { "admin" } else { "viewer" },
+        "mode": mode, "health": health,
+    }))
+}
+
 impl ConnHandler {
     fn dispatch(&self, role: Role, method: &str, params: &Value) -> Result<Value, RpcError> {
         let s = &self.shared;
         match method {
-            "hello" => {
-                if params.get("protocol").and_then(Value::as_u64)
-                    != Some(u64::from(vigil_ipc::PROTOCOL))
-                {
-                    return Err(invalid("unsupported protocol version"));
-                }
-                let (mode, health) = s.mode_and_health();
-                Ok(json!({
-                    "protocol": vigil_ipc::PROTOCOL, "service_version": SERVICE_VERSION,
-                    "role": if role == Role::Admin { "admin" } else { "viewer" },
-                    "mode": mode, "health": health,
-                }))
-            }
+            "hello" => hello(s, role, params),
             "status.get" => Ok(s.status()),
             "mode.set" => s.set_mode(
                 params
@@ -94,6 +94,8 @@ impl ConnHandler {
                 s.persistence_scan(params.get("target_image_path").and_then(Value::as_str))
             }
             "persistence.apply" => s.persistence_apply(params, "user"),
+            "service.list" => Ok(s.service_list()),
+            "service.block_network" => s.service_block_network(params, "user"),
             "connection.list" => s.list_connections(params),
             "rule.list" => Ok(s.rules()),
             "trust.list" => Ok(s.trust()),
