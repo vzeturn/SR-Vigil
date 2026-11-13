@@ -219,7 +219,7 @@ root-cause popup. Build order is in `docs/18 §7`.
 
 - Per-service WFP filtering via service SID for `svchost` (done: `service.block_network`, `docs/04 §3`).
 - ARM64 build (done: CI cross-build, separate `Vigil-<version>-arm64.msi`; native run is a manual VM check, `docs/11`).
-- Signed remote rule-pack updates (Ed25519).
+- Signed remote rule-pack updates (done: opt-in `rulepack.enabled`, Ed25519 + `kid`, signals-only, `docs/03 §8.1`).
 - Fleet management console and SIEM export (syslog/Windows Event Forwarding).
 - Local small-model verdict option (no cloud).
 

@@ -590,6 +590,13 @@ export const en = {
     enable: 'Download the version list daily',
     failed: 'Failed: {{code}}',
   },
+  rulepack: {
+    title: 'Download new detection rules',
+    intro:
+      'Optional. Once a day Vigil downloads a small signed set of extra warning signs from the project. Nothing is uploaded. These rules can only lower the trust score of a program; they can never mark a program safe or malicious, and your own rule files always take precedence.',
+    enable: 'Download new detection rules daily',
+    failed: 'Failed: {{code}}',
+  },
   inbound: {
     title: 'Block incoming connections too',
     intro:

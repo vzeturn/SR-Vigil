@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 
 use vigil_core::analysis::path::normalize;
 use vigil_core::observe::Context;
-use vigil_core::rules::{RulePack, SignatureState, Verdict};
+use vigil_core::rules::{RuleStore, SignatureState, Verdict};
 use vigil_store::repo::{Executable, NewEvaluation, insert_evaluation, upsert_executable};
 use vigil_win::hash::HashCache;
 use vigil_win::observe::{Live, env_context, evaluate_image};
@@ -264,7 +264,7 @@ fn forget_rejudged(shared: &Shared, cache: &mut HashMap<Key, Verdicted>) {
 
 struct Judge {
     ctx: Context,
-    pack: Arc<RulePack>,
+    rules: Arc<RuleStore>,
     hashes: HashCache,
     shared: Arc<Shared>,
 }
@@ -287,7 +287,8 @@ impl Judge {
             spawned_suspicious_child: sh.spawned_suspicious_child(img),
             files: sh.files_seen(img),
         };
-        let ev = evaluate_image(&self.ctx, &self.pack, img, parent, Some(pid), live);
+        let pack = self.rules.active();
+        let ev = evaluate_image(&self.ctx, &pack, img, parent, Some(pid), live);
         if let Some(id) = id
             && before != Some((verdict_name(ev.verdict), ev.score))
         {
@@ -305,10 +306,10 @@ impl Judge {
 }
 
 /// Run until the task is dropped.
-pub async fn run(shared: Arc<Shared>, pack: Arc<RulePack>) -> anyhow::Result<()> {
+pub async fn run(shared: Arc<Shared>, rules: Arc<RuleStore>) -> anyhow::Result<()> {
     let judge = Arc::new(Judge {
         ctx: env_context()?,
-        pack,
+        rules,
         hashes: HashCache::new(),
         shared: Arc::clone(&shared),
     });

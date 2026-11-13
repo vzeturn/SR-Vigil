@@ -124,11 +124,16 @@ fn never_kill_names() -> anyhow::Result<Vec<String>> {
 }
 
 /// Build the shared state from the on-disk store and embedded rules.
-pub fn build_state() -> anyhow::Result<(Arc<Shared>, Arc<vigil_core::rules::RulePack>)> {
+/// Local `rules.d` overrides are applied here; a remote pack is layered later by `rulepack::run`.
+pub fn build_state() -> anyhow::Result<(Arc<Shared>, Arc<RuleStore>)> {
     let dir = data_dir()?;
     let mut conn = vigil_store::open(&dir.join("vigil.db")).context("open database")?;
     vigil_store::migrate(&mut conn).context("migrate database")?;
-    let pack = RuleStore::from_embedded()?.active();
+    let store = Arc::new(RuleStore::from_embedded()?);
+    if let Err(e) = store.reload(&crate::rulepack::overrides(&dir)) {
+        tracing::warn!(error = %e, "rules.d overrides refused; embedded rules in use");
+    }
+    let pack = store.active();
     let shared = Shared::new(Options {
         store: Some(conn),
         rules: builtin_rules()?,
@@ -138,7 +143,7 @@ pub fn build_state() -> anyhow::Result<(Arc<Shared>, Arc<vigil_core::rules::Rule
         never_kill: never_kill_names()?,
     });
     tracing::info!(dir = %dir.display(), "data directory ready");
-    Ok((Arc::new(shared), pack))
+    Ok((Arc::new(shared), store))
 }
 
 /// Accept clients forever. The first instance claims the pipe name (squat protection).

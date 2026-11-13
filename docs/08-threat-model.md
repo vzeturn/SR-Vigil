@@ -43,6 +43,7 @@
 | T14 | Sideloaded DLL in signed host | M6 module signature checks; persistence audit | Until M6 residual |
 | T15 | DNS tunnelling / data exfil through allowed host | Out of scope v1; beaconing signal and destination visibility only | Residual |
 | T16 | Allow-all by user fatigue (A4) | Rate-limited prompts, bulk review wizard, AI advisor, `once`/`1h` defaults, publisher-level allow only for valid signers | User choice remains final for Unknown |
+| T17 | Tampering: forged or stolen-key remote rule pack | Opt-in, Ed25519 + `kid`, rollback refused, client accepts only new signals with score ≤ 0 (`docs/03 §8.1`), local `rules.d` applied last, audit row per change | A stolen key can lower trust for chosen programs to Unknown (blocked in `enforce`); it can never mark anything Safe or Malicious. Rotate by `kid` |
 
 ## 4. Out of scope and honest limits
 

@@ -4,6 +4,7 @@ import { webcrypto, generateKeyPairSync, verify as nodeVerify } from 'node:crypt
 import { compareVersions, newest, parseVersion } from '../src/version.js';
 import { buildSnapshot, manifestPath, releaseDetails } from '../src/build.js';
 import { sign } from '../src/sign.js';
+import { MAX_PACK, rulepackPayload, servedKey } from '../src/rulepack.js';
 
 globalThis.crypto ??= webcrypto;
 
@@ -75,4 +76,20 @@ test('signature verifies over the exact payload bytes and breaks on tampering', 
   const ok = (payload) => nodeVerify(null, Buffer.from(payload), publicKey, Buffer.from(env.sig, 'base64'));
   assert.equal(ok(env.payload), true);
   assert.equal(ok(env.payload.replace('"v":1', '"v":2')), false);
+});
+
+test('rule pack payload is tagged, timestamped and size-capped', () => {
+  const pack = '[[rule]]\nid = "RMT-001"\n';
+  const p = rulepackPayload(pack, Date.UTC(2026, 10, 13));
+  assert.deepEqual(p, { v: 1, type: 'rulepack', issued: '2026-11-13T00:00:00.000Z', pack });
+  assert.throws(() => rulepackPayload('', 0));
+  assert.throws(() => rulepackPayload('x'.repeat(MAX_PACK + 1), 0));
+});
+
+test('only GET of the catalogue and the rule pack is served', () => {
+  assert.equal(servedKey('GET', '/v1/catalogue'), 'snapshot');
+  assert.equal(servedKey('GET', '/v1/rulepack'), 'rulepack');
+  assert.equal(servedKey('POST', '/v1/rulepack'), null);
+  assert.equal(servedKey('GET', '/v1/other'), null);
+  assert.equal(servedKey('GET', '/v1/constructor'), null);
 });

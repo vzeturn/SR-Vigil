@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::sync::{Arc, RwLock};
 
-use super::{RuleError, RulePack};
+use super::{RemotePack, RuleError, RulePack};
 
 /// The default pack compiled into the binary.
 pub const EMBEDDED_DEFAULT: &str = include_str!("../../../../rules/default.toml");
@@ -36,7 +36,20 @@ impl RuleStore {
     /// A missing directory means "no overrides". On any error the active pack is unchanged and the
     /// error is returned so the caller can write the audit entry.
     pub fn reload(&self, overrides_dir: &Path) -> Result<Arc<RulePack>, RuleError> {
+        self.reload_with(overrides_dir, None)
+    }
+
+    /// [`Self::reload`] with a verified remote pack layered between the embedded defaults and the
+    /// local overrides, so a local administrator always has the last word (`docs/03 §8.1`).
+    pub fn reload_with(
+        &self,
+        overrides_dir: &Path,
+        remote: Option<&RemotePack>,
+    ) -> Result<Arc<RulePack>, RuleError> {
         let mut pack = RulePack::parse("embedded:default.toml", EMBEDDED_DEFAULT)?;
+        if let Some(r) = remote {
+            pack = pack.with_remote("remote", &r.issued, &r.text)?;
+        }
         for (name, text) in read_overrides(overrides_dir)? {
             pack = pack.with_override(&name, &text)?;
         }

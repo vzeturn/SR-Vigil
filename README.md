@@ -20,7 +20,7 @@ Get `Vigil-1.0.0.msi` and its `.sha256` from the [latest release](https://github
 - **Hard rules win.** Tampered signature, system-name masquerade, wrong parent process, publisher impersonation and revoked certificates override any score and any AI output.
 - **User-mode only.** No kernel driver. Enforcement uses Windows Filtering Platform *filters*, `TerminateProcess` and the Service Control Manager.
 - **Fails safe for usability.** The catch-all block filter is session-scoped, so a crashed service never leaves the machine offline. Unknown apps stay blocked while it runs.
-- **Local-first and private.** No telemetry, no auto-update. The only network calls are the optional AI advisor (your own Anthropic key, or the project's rate-limited proxy, opt-out), optional VirusTotal and MalwareBazaar (your own key, only a file's SHA-256 is sent), the CIRCL known-good hash lookup (SHA-256 only, opt-out), opt-in downloads of the signed version catalogue and the domain blocklists (GET only). Nothing else leaves the machine.
+- **Local-first and private.** No telemetry, no auto-update. The only network calls are the optional AI advisor (your own Anthropic key, or the project's rate-limited proxy, opt-out), optional VirusTotal and MalwareBazaar (your own key, only a file's SHA-256 is sent), the CIRCL known-good hash lookup (SHA-256 only, opt-out), opt-in downloads of the signed version catalogue, the signed rule pack (it can only add warning signs) and the domain blocklists (GET only). Nothing else leaves the machine.
 - **Self-defending.** Programs that clone themselves or flood the machine with script hosts are killed in every mode; a hijacked Safe program is reclassified Malicious ([docs/04 §8](docs/04-enforcement-wfp.md)).
 - **URL filter.** An optional local DNS sinkhole blocks malware, phishing, adult and ad domains from public lists, with protected names and your own exceptions; DNS is restored automatically ([docs/23](docs/23-url-filter.md)).
 - **Suspicious network behaviour.** Programs that call one Internet address at a regular rhythm (beaconing) are flagged from connection timing alone; traffic is never decrypted or read, and nothing about it goes to the AI until you press Analyze ([docs/24](docs/24-suspicious-network-behaviour.md)).
@@ -62,7 +62,7 @@ Modes: `observe` (log only), `learning` (build a baseline), `enforce`. Authority
 | `vigil-svc` / `vigilctl` | Windows service host and admin CLI. |
 | `apps/ui` | Tauri v2 desktop app (English). |
 
-| `proxy/`, `catalogue/` | Optional Cloudflare Workers: shared AI endpoint and signed version catalogue. Deployed separately; secrets via `wrangler secret`, account id via `CLOUDFLARE_ACCOUNT_ID`. |
+| `proxy/`, `catalogue/` | Optional Cloudflare Workers: shared AI endpoint, signed version catalogue and signed rule pack. Deployed separately; secrets via `wrangler secret`, account id via `CLOUDFLARE_ACCOUNT_ID`. |
 
 Full design: [docs/](docs/) (requirements, architecture, enforcement, IPC, AI advisor, threat model, data model, testing, release).
 

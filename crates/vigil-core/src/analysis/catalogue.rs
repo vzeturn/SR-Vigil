@@ -111,10 +111,11 @@ fn verifying_key(kid: &str) -> Option<VerifyingKey> {
     VerifyingKey::from_bytes(&raw).ok()
 }
 
-fn verify_with(
+/// The payload text of a `{kid, payload, sig}` envelope whose signature verifies under `key_for`.
+pub(crate) fn open_with(
     bytes: &[u8],
     key_for: impl Fn(&str) -> Option<VerifyingKey>,
-) -> Result<Snapshot, Error> {
+) -> Result<String, Error> {
     let env: Envelope = serde_json::from_slice(bytes).map_err(|_| Error::Malformed)?;
     let key = key_for(&env.kid).ok_or(Error::UnknownKey)?;
     let sig_bytes: [u8; 64] = STANDARD
@@ -124,7 +125,20 @@ fn verify_with(
         .ok_or(Error::BadSignature)?;
     key.verify(env.payload.as_bytes(), &Signature::from_bytes(&sig_bytes))
         .map_err(|_| Error::BadSignature)?;
-    let payload: Payload = serde_json::from_str(&env.payload).map_err(|_| Error::Malformed)?;
+    Ok(env.payload)
+}
+
+/// [`open_with`] against the embedded project keys (also used for signed rule packs).
+pub(crate) fn open(bytes: &[u8]) -> Result<String, Error> {
+    open_with(bytes, verifying_key)
+}
+
+fn verify_with(
+    bytes: &[u8],
+    key_for: impl Fn(&str) -> Option<VerifyingKey>,
+) -> Result<Snapshot, Error> {
+    let text = open_with(bytes, key_for)?;
+    let payload: Payload = serde_json::from_str(&text).map_err(|_| Error::Malformed)?;
     if payload.v != FORMAT {
         return Err(Error::UnsupportedFormat);
     }

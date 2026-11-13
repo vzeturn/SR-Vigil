@@ -77,6 +77,9 @@ enabled            = false   # opt-in, needs the user's Auth-Key: POST of one SH
 [catalogue]
 enabled            = false   # opt-in: once a day GET of the signed version catalogue (docs/16)
 
+[rulepack]
+enabled            = false   # opt-in: once a day GET of the signed rule pack; it can only add score-lowering signals (docs/03 s8.1)
+
 [hash_reputation]
 enabled            = true    # GET of one SHA-256 per unknown unsigned file to hashlookup.circl.lu (docs/20 s5)
 

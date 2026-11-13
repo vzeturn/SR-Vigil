@@ -38,7 +38,7 @@ mod win {
     /// Run observer and pipe server until either ends or `stop` resolves.
     async fn run(stop: impl Future<Output = ()>) -> anyhow::Result<()> {
         let drifted = harden();
-        let (shared, pack) = host::build_state()?;
+        let (shared, rules) = host::build_state()?;
         shared.attach_control(Arc::new(vigil_svc::winctl::WinControl::default()));
         shared.attach_ai(Arc::new(vigil_svc::ai::LiveBackend::new(Arc::new(
             vigil_svc::winctl::DpapiVault,
@@ -65,6 +65,11 @@ mod win {
         tokio::spawn(vigil_svc::ai_usage::digest_loop(Arc::clone(&shared)));
         if let Ok(dir) = host::data_dir() {
             tokio::spawn(vigil_svc::catalogue::run(Arc::clone(&shared), dir.clone()));
+            tokio::spawn(vigil_svc::rulepack::run(
+                Arc::clone(&shared),
+                Arc::clone(&rules),
+                dir.clone(),
+            ));
             tokio::spawn(vigil_svc::hashrep::run(Arc::clone(&shared), dir.clone()));
             tokio::spawn(vigil_svc::dnsfilter::run(Arc::clone(&shared), dir));
         }
@@ -75,7 +80,7 @@ mod win {
             &serde_json::json!({}),
         );
         observer::spawn_connect_feed(Arc::clone(&shared));
-        let obs = tokio::spawn(observer::run(Arc::clone(&shared), pack));
+        let obs = tokio::spawn(observer::run(Arc::clone(&shared), rules));
         let pipe = tokio::spawn(host::serve_pipe(shared));
         let result = tokio::select! {
             () = stop => Ok(()),

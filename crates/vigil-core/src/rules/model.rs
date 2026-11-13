@@ -283,6 +283,44 @@ impl RulePack {
         Ok(merged)
     }
 
+    /// Add the rules of a signed remote pack (`docs/03 §8.1`). A remote pack may only *add* new
+    /// signals that lower the score: no other kind, no existing id, no positive score, no exclusive
+    /// group. A leaked signing key therefore can never make a program Safe or Malicious.
+    pub fn with_remote(
+        &self,
+        source_name: &str,
+        issued: &str,
+        text: &str,
+    ) -> Result<Self, RuleError> {
+        let raw: RawOverride = toml::from_str(text).map_err(|e| RuleError::Parse {
+            source_name: source_name.into(),
+            message: e.to_string(),
+        })?;
+        for rule in &raw.rules {
+            let reason = if rule.kind != Kind::Signal {
+                Some("a remote pack may only add signals")
+            } else if self.rule(&rule.id).is_some() {
+                Some("a remote pack may not replace an existing rule")
+            } else if rule.score.is_none_or(|s| s > 0) {
+                Some("a remote signal needs a score of 0 or less")
+            } else if rule.exclusive_group.is_some() || rule.priority.is_some() {
+                Some("a remote signal may not join an exclusive group")
+            } else {
+                None
+            };
+            if let Some(reason) = reason {
+                return Err(RuleError::Invalid {
+                    source_name: source_name.into(),
+                    id: rule.id.clone(),
+                    reason: reason.into(),
+                });
+            }
+        }
+        let mut merged = self.with_override(source_name, text)?;
+        merged.meta.rule_pack_version = format!("{}+remote.{issued}", self.meta.rule_pack_version);
+        Ok(merged)
+    }
+
     /// Look up a rule by id.
     #[must_use]
     pub fn rule(&self, id: &str) -> Option<&Rule> {

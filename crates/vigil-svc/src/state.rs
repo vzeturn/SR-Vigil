@@ -125,7 +125,7 @@ pub struct Shared {
     bus: broadcast::Sender<Event>,
     rules: Value,
     trust: Vec<Value>,
-    rule_pack_version: String,
+    rule_pack_version: Mutex<String>,
     network_critical: Vec<String>,
     pub(crate) never_kill: vigil_core::kill::NeverKill,
     pub(crate) control: Mutex<Option<Arc<dyn crate::kill::ProcessControl>>>,
@@ -267,7 +267,7 @@ impl Shared {
             bus,
             rules: opts.rules,
             trust: opts.trust,
-            rule_pack_version: opts.rule_pack_version,
+            rule_pack_version: Mutex::new(opts.rule_pack_version),
             network_critical: opts.network_critical,
             never_kill: vigil_core::kill::NeverKill::new(opts.never_kill),
             control: Mutex::new(None),
@@ -416,7 +416,7 @@ impl Shared {
             "filters_armed": self.armed.load(Ordering::SeqCst),
             "counts": { "safe": count("safe"), "unknown": count("unknown"),
                         "malicious": count("malicious"), "pending": pending },
-            "rule_pack_version": self.rule_pack_version,
+            "rule_pack_version": self.rule_pack_version(),
             "ai": self.ai_status(),
             "learning_started_at": g.learning_started_at,
         })
@@ -547,9 +547,19 @@ impl Shared {
         Ok(next)
     }
 
+    /// Version of the rule pack in use (`<base>+remote.<issued>` while a remote pack is applied).
+    #[must_use]
+    pub fn rule_pack_version(&self) -> String {
+        lock(&self.rule_pack_version).clone()
+    }
+
+    pub fn set_rule_pack_version(&self, version: String) {
+        *lock(&self.rule_pack_version) = version;
+    }
+
     #[must_use]
     pub fn rules(&self) -> Value {
-        json!({ "rule_pack_version": self.rule_pack_version, "rules": self.rules })
+        json!({ "rule_pack_version": self.rule_pack_version(), "rules": self.rules })
     }
 
     #[must_use]

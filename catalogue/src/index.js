@@ -2,6 +2,7 @@ import products from '../products.json';
 import overrides from '../overrides.json';
 import { buildSnapshot } from './build.js';
 import { sign } from './sign.js';
+import { servedKey } from './rulepack.js';
 
 const KEY = 'snapshot';
 
@@ -46,8 +47,10 @@ export default {
       const n = await refresh(env);
       return new Response(JSON.stringify({ products: n }), { headers: { 'content-type': 'application/json' } });
     }
-    if (req.method !== 'GET' || pathname !== '/v1/catalogue') return new Response('not found', { status: 404 });
-    const body = await env.CATALOGUE.get(KEY);
+    // The rule pack is signed offline with sign-rulepack.js and stored by the operator.
+    const kvKey = servedKey(req.method, pathname);
+    if (!kvKey) return new Response('not found', { status: 404 });
+    const body = await env.CATALOGUE.get(kvKey);
     if (!body) return new Response('{"error":"not_ready"}', { status: 503, headers: { 'content-type': 'application/json' } });
     return new Response(body, {
       headers: { 'content-type': 'application/json', 'cache-control': 'public, max-age=3600' },

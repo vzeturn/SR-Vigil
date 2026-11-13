@@ -188,6 +188,23 @@ guard           = "never_kill"   # guard rules only
 
 Unknown keys, unknown `kind` values, a `terminal` rule without `verdict`, or an `exclusive_group` without `priority` make the rule pack invalid (load fails closed to the previous pack, with audit).
 
+Load order: embedded `rules/default.toml`, then the signed remote pack (§8.1, when enabled), then every `*.toml` in `%ProgramData%\Vigil\rules.d\` sorted by file name, so a local administrator always has the last word. An invalid `rules.d` leaves the embedded rules in use and logs a warning.
+
+### 8.1 Signed remote rule pack
+
+Opt-in (`rulepack.enabled`, default off). Once a day the service does one HTTPS GET of `/v1/rulepack` from the project Worker (`VIGIL_RULEPACK_URL` at build time); nothing is uploaded. The response is the same envelope as the version catalogue (`docs/16`): `{kid, payload, sig}`, Ed25519 over the UTF-8 bytes of `payload`, keys from `rules/catalogue_keys.toml` (rotation by `kid`). The payload is `{"v":1,"type":"rulepack","issued":"<ISO-8601 UTC>","pack":"<override TOML>"}`; the `type` tag keeps a catalogue snapshot and a rule pack from being mistaken for each other.
+
+A remote pack is accepted only when every rule in it:
+
+| Constraint | Why |
+|---|---|
+| is `kind = "signal"` | no hard rule, cap or guard: it can never make a verdict Malicious or bypass SG-001 |
+| has a new id | it can never replace or weaken a shipped rule |
+| has `score` ≤ 0 | it can only lower trust, never push a program to Safe |
+| has no `exclusive_group` / `priority` | it can never displace a shipped signal in a group |
+
+An older `issued` than the pack in use is refused (rollback). Envelopes over 256 KiB are dropped before parsing. The verified bytes are cached as `rulepack.json` and re-verified on every start; turning the setting off drops the pack at once. While a pack is applied, `rule_pack_version` reads `<base>+remote.<issued>` and every change writes a `config_change` audit row `{"rule_pack": <version>}`. Operators sign packs offline with `catalogue/sign-rulepack.js` and store the envelope under the Worker KV key `rulepack`.
+
 ## 9. Caching and invalidation
 
 - Hash cache key `(path, size, mtime_ns)`; evaluation cache key identity + `rule_pack_version`.

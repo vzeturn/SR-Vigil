@@ -116,6 +116,11 @@ Disposable Windows 10 and Windows 11 VM snapshots, standard user plus an admin a
 5. **Uninstall**: remove via Apps; then `netsh wfp show filters file=f.xml` has no `Vigil` provider, sublayer or filter, and `sc query VigilSvc` reports it missing. `%ProgramData%\Vigil` is kept by design.
 6. **Manual cleanup**: `vigil-svc.exe --cleanup` (elevated) prints `removed N persistent filter(s)` and is safe to repeat.
 
+## Remote rule pack checks (docs/03 §8.1)
+
+- Automated: `cargo test -p vigil-core remote` (only new score-lowering signals pass, type tag, rollback, bad signature; mutation-checked on the score limit), `cargo test -p vigil-svc rulepack` (unverified bytes never cached or applied), `node --test` in `catalogue/` (payload tag and size cap, only GET of the two documents is served).
+- Manual: enable "Download new detection rules" in Settings, confirm `%ProgramData%\Vigil\rulepack.json` appears and `vigilctl status` shows `rule_pack_version` ending in `+remote.<issued>`. Turn it off: within a minute the suffix is gone and an audit row records the change. Corrupt one byte of the cache, turn it on again and restart: the file is ignored.
+
 ## Version catalogue checks (M12)
 
 - Automated: `cargo test -p vigil-core catalogue` (signature, tamper, rollback), `cargo test -p vigil-svc catalogue` (unverified bytes never cached), `node --test` in `catalogue/`.
