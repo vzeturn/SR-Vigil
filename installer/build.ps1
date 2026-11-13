@@ -43,10 +43,23 @@ if ($SignCert) {
 $wixVersion = (wix --version) -replace '\+.*$', ''
 wix extension add -g "WixToolset.Util.wixext/$wixVersion" | Out-Null
 if ($LASTEXITCODE) { throw "WiX Util extension $wixVersion unavailable" }
+# WebView2 Evergreen bootstrapper (one file for every architecture), embedded and run by the MSI only
+# when the runtime is missing. Refuse anything not validly signed by Microsoft.
+$webview2 = Join-Path $root 'dist\cache\MicrosoftEdgeWebview2Setup.exe'
+if (-not (Test-Path $webview2)) {
+    New-Item -ItemType Directory -Force (Split-Path $webview2) | Out-Null
+    Invoke-WebRequest 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile $webview2 -UseBasicParsing
+}
+$sig = Get-AuthenticodeSignature $webview2
+if ($sig.Status -ne 'Valid' -or $sig.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation') {
+    Remove-Item $webview2 -Force
+    throw "WebView2 bootstrapper signature not valid: $($sig.Status) $($sig.SignerCertificate.Subject)"
+}
+
 # x64 keeps the plain name so existing download links stay valid.
 $suffix = if ($Arch -eq 'x64') { '' } else { "-$Arch" }
 $msi = Join-Path $root "dist\Vigil-$Version$suffix.msi"
-wix build installer\Vigil.wxs -ext "WixToolset.Util.wixext/$wixVersion" -d Version=$Version -d BinDir=$bin -arch $Arch -o $msi
+wix build installer\Vigil.wxs -ext "WixToolset.Util.wixext/$wixVersion" -d Version=$Version -d BinDir=$bin -d WebView2Setup=$webview2 -arch $Arch -o $msi
 if ($LASTEXITCODE) { throw 'wix build failed' }
 if ($SignCert) { signtool sign /sha1 $SignCert /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 $msi }
 Get-FileHash $msi -Algorithm SHA256 | ForEach-Object { "$($_.Hash)  $(Split-Path -Leaf $msi)" } | Set-Content "$msi.sha256"

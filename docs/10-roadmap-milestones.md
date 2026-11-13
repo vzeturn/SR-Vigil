@@ -214,7 +214,7 @@ root-cause popup. Build order is in `docs/18 §7`.
 
 - [x] Inbound blocking option (FR-017): `ALE_AUTH_RECV_ACCEPT` filters for explicit denies, off by default (`enforcement.block_inbound`, Settings toggle; `docs/04 §1`).
 
-- Bundle the WebView2 Evergreen bootstrapper in the MSI (Windows 11 and current Windows 10 already ship the runtime; older Windows 10 needs it installed once).
+- [x] Bundle the WebView2 Evergreen bootstrapper in the MSI, run only when the runtime is missing (`docs/13 §1`).
 
 - Per-service WFP filtering via service SID for `svchost` (done: `service.block_network`, `docs/04 §3`).
 - ARM64 build (done: CI cross-build, separate `Vigil-<version>-arm64.msi`; native run is a manual VM check, `docs/11`).

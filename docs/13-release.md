@@ -12,7 +12,7 @@ Prerequisites on the **build** machine only (end users need nothing): Rust (stab
 .\installer\build.ps1 -Version 1.0.0 -Arch arm64   # Windows on ARM (cross-compiled)
 ```
 
-Output: `dist\Vigil-<version>.msi` and `dist\Vigil-<version>.msi.sha256` (x64), or `dist\Vigil-<version>-arm64.msi` and its `.sha256` for `-Arch arm64`; binaries are staged in `dist\bin\<arch>`. The ARM64 build cross-compiles on an x64 host and needs the MSVC ARM64 build tools and clang (for `ring`); the GitHub `windows-latest` image has both. The binaries link the C runtime statically (`.cargo/config.toml`), so no Visual C++ redistributable is needed. The UI uses the system WebView2 runtime, which ships with Windows 11 and current Windows 10; on an older Windows 10 without it, install the Evergreen runtime once (tracked in `docs/10`).
+Output: `dist\Vigil-<version>.msi` and `dist\Vigil-<version>.msi.sha256` (x64), or `dist\Vigil-<version>-arm64.msi` and its `.sha256` for `-Arch arm64`; binaries are staged in `dist\bin\<arch>`. The ARM64 build cross-compiles on an x64 host and needs the MSVC ARM64 build tools and clang (for `ring`); the GitHub `windows-latest` image has both. The binaries link the C runtime statically (`.cargo/config.toml`), so no Visual C++ redistributable is needed. The UI uses the system WebView2 runtime, which ships with Windows 11 and current Windows 10. For older systems the script downloads Microsoft's Evergreen bootstrapper once into `dist\cache` and refuses it unless its Authenticode signature is valid and from Microsoft Corporation; the MSI embeds it.
 
 What the MSI does (`installer/Vigil.wxs`):
 
@@ -20,6 +20,7 @@ What the MSI does (`installer/Vigil.wxs`):
 - Registers service `VigilSvc` (auto start, LocalSystem, restart on failure) with a DACL that lets only SYSTEM and Administrators control it; every authenticated user may query its status.
 - Creates `%ProgramData%\Vigil` with an ACL for SYSTEM and Administrators only (the service re-applies it at start and audits any drift).
 - Adds a Start Menu shortcut and a per-machine autostart entry for the UI, which runs as the standard user.
+- Runs the embedded WebView2 bootstrapper (`/silent /install`) only when neither the machine nor the installing user has the runtime registered (`EdgeUpdate\Clients\{F3017226-…}` value `pv` missing or `0.0.0.0`). The bootstrapper downloads the runtime from Microsoft; this happens at install time, inside Microsoft's installer, not in Vigil. If it fails (for example offline) the install still succeeds: the service protects without the UI, and running the MSI again (repair) retries.
 - On uninstall (not on upgrade) runs `vigil-svc.exe --cleanup`, which deletes the persistent WFP filters, sublayer and provider.
 - Major upgrades replace the previous version in place; user data in `%ProgramData%\Vigil` is kept.
 

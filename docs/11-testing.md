@@ -196,3 +196,7 @@ Disposable Windows 10 and Windows 11 VM snapshots, standard user plus an admin a
 
 - Automated: the `windows-arm64-build` CI job cross-compiles the whole workspace for `aarch64-pc-windows-msvc`; the release builds `Vigil-<version>-arm64.msi`. No hosted runner executes the ARM64 binaries, so the run is checked by hand.
 - Manual (Windows 11 ARM64 VM, e.g. Hyper-V on an ARM64 host or a cloud ARM64 VM, snapshot first): install `Vigil-<version>-arm64.msi`. Task Manager, Details, column "Architecture" shows `ARM64` for `vigil-svc.exe` and `vigil-ui.exe` (not emulated x64), and `vigilctl status` is healthy. Repeat section 10 steps 1 to 5. In `enforce`, block a test program and confirm it cannot connect (`netsh wfp show filters` lists the deny). New programs appear on the Processes page within a second (ETW feed), and the AI test call works when a key is set. Uninstall leaves no Vigil filter.
+
+## WebView2 runtime checks (installer)
+
+- Manual (VM snapshot without the WebView2 runtime, e.g. Windows 10 LTSC 2019 or Windows Server 2019 with Desktop Experience; confirm `HKLM\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}` is absent): install the MSI online. The key now has a `pv` version and the Vigil UI opens at sign-in. Restore the snapshot, disconnect the network, install again: the install succeeds and `VigilSvc` runs; reconnect and repair the MSI, and the runtime is installed. On Windows 11 (runtime present), `msiexec /i Vigil-<version>.msi /l*v log.txt` shows `InstallWebView2` skipped.

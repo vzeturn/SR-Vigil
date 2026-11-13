@@ -59,11 +59,29 @@
       </Component>
     </DirectoryRef>
 
+    <!-- The UI needs the WebView2 Evergreen runtime (shipped with Windows 11 and current Windows 10).
+         Installed copies register a version under EdgeUpdate; "0.0.0.0" means it was removed. -->
+    <Property Id="WVRT_MACHINE">
+      <RegistrySearch Id="WvrtMachine" Root="HKLM" Bitness="always32" Type="raw" Name="pv"
+                      Key="SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" />
+    </Property>
+    <Property Id="WVRT_USER">
+      <RegistrySearch Id="WvrtUser" Root="HKCU" Type="raw" Name="pv"
+                      Key="SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" />
+    </Property>
+    <!-- Microsoft's bootstrapper (signature checked by build.ps1) downloads and installs the runtime.
+         A failure (e.g. offline) does not fail the install: the service protects without the UI. -->
+    <Binary Id="WebView2Setup" SourceFile="$(var.WebView2Setup)" />
+    <CustomAction Id="InstallWebView2" BinaryRef="WebView2Setup" ExeCommand="/silent /install"
+                  Execute="deferred" Impersonate="no" Return="ignore" />
+
     <!-- Uninstall: remove the persistent WFP provider, sublayer and filters. Not on upgrade. -->
     <CustomAction Id="WfpCleanup" Directory="INSTALLFOLDER" Execute="deferred" Impersonate="no"
                   Return="ignore" ExeCommand="&quot;[INSTALLFOLDER]vigil-svc.exe&quot; --cleanup" />
     <InstallExecuteSequence>
       <Custom Action="WfpCleanup" After="StopServices" Condition="REMOVE=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+      <Custom Action="InstallWebView2" Before="InstallFinalize"
+              Condition="NOT REMOVE AND (NOT WVRT_MACHINE OR WVRT_MACHINE=&quot;0.0.0.0&quot;) AND (NOT WVRT_USER OR WVRT_USER=&quot;0.0.0.0&quot;)" />
     </InstallExecuteSequence>
 
     <Feature Id="Main" Title="Vigil" Level="1">
