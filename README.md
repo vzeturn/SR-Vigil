@@ -80,6 +80,26 @@ pnpm -C apps/ui install; pnpm -C apps/ui tauri dev
 
 Build the installer with `installer/build.ps1` ([docs/13-release.md](docs/13-release.md)); it is self-contained and needs no prerequisites on the target machine.
 
+### Developing on macOS or Linux
+
+Everything except the Windows layer builds and tests on macOS and Linux (CI lints the workspace on Ubuntu). This covers scoring, rules, store, IPC, AI, the service logic, the UI front end and both Workers. Requirements: Rust stable, Node 22+, pnpm.
+
+```sh
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace                       # vigil-win is empty off Windows
+pnpm -C apps/ui install && pnpm -C apps/ui lint && pnpm -C apps/ui test
+(cd proxy && npm test) && (cd catalogue && npm test)
+```
+
+These need Windows and are checked by the `windows-latest` CI jobs or on a Windows VM:
+- `vigil-win`, including its `--features integration` tests (elevated);
+- the running service;
+- the Tauri app's named-pipe side;
+- the MSI.
+
+The Workers deploy from any OS with `wrangler`, using `CLOUDFLARE_ACCOUNT_ID` set to the maintainer's own account (see `proxy/README.md`, `catalogue/README.md`).
+
 ## Security
 
 Vigil handles privileged operations and an API key, so it is built defensively:
