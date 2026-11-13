@@ -399,6 +399,11 @@
                 "latest": {
                   "type": "string"
                 },
+                "download_page": {
+                  "type": "string",
+                  "pattern": "^https://",
+                  "maxLength": 300
+                },
                 "status": {
                   "enum": [
                     "outdated",

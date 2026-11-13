@@ -150,14 +150,18 @@ fn freshness_note(path: &str) -> Option<serde_json::Value> {
         &[&ver.company, &ver.product, &ver.original_filename],
         &ver.file_version,
     )?;
-    Some(serde_json::json!({
+    let mut note = serde_json::json!({
         "product": f.label, "installed": f.installed, "latest": f.latest,
         "status": match f.status {
             vigil_core::rules::VersionStatus::Outdated => "outdated",
             vigil_core::rules::VersionStatus::FarBehind => "far_behind",
             _ => "vulnerable",
         },
-    }))
+    });
+    if let Some(page) = f.download_page {
+        note["download_page"] = page.into();
+    }
+    Some(note)
 }
 
 /// Upsert the executable row for `path`; `None` when it cannot be hashed or stored.

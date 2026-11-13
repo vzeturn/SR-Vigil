@@ -26,6 +26,9 @@ pub struct Known {
     /// Releases below this carry a serious known vulnerability: `vulnerable`.
     #[serde(default)]
     vulnerable_below: Option<String>,
+    /// Vendor download page, used when the signed snapshot has none.
+    #[serde(default)]
+    download_page: Option<String>,
 }
 
 impl Known {
@@ -44,6 +47,8 @@ impl Known {
             latest: pick(&self.latest, live.latest),
             min_supported: pick(&self.min_supported, live.min_supported),
             vulnerable_below: pick(&self.vulnerable_below, live.vulnerable_below),
+            download_page: pick(&self.download_page, live.download_page),
+            ..live
         }
     }
 
@@ -117,6 +122,8 @@ pub struct Freshness {
     pub installed: String,
     pub latest: String,
     pub status: VersionStatus,
+    /// Vendor download page, only when [`catalogue::safe_link`] accepts it.
+    pub download_page: Option<String>,
 }
 
 /// "Installed X, latest Y" for a recognised program that is behind. `None` when the program is
@@ -125,12 +132,19 @@ pub struct Freshness {
 pub fn freshness(file_name: &str, version_text: &[&str], installed: &str) -> Option<Freshness> {
     let known = lookup(file_name, version_text)?;
     let status = known.version_status(installed);
-    let latest = known.release().latest?;
+    let rel = known.release();
+    let latest = rel.latest?;
+    let download_page = rel
+        .download_page
+        .as_deref()
+        .and_then(catalogue::safe_link)
+        .map(str::to_owned);
     (status != VersionStatus::Unknown).then(|| Freshness {
         label: known.label.clone(),
         installed: installed.to_string(),
         latest,
         status,
+        download_page,
     })
 }
 
@@ -174,6 +188,7 @@ mod tests {
             latest: Some("10.2.0".into()),
             min_supported: Some("8.0".into()),
             vulnerable_below: Some("7.5.1".into()),
+            download_page: None,
         }
     }
 

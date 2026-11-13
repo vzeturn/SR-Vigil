@@ -508,6 +508,14 @@ ul.plain .wf-cat label > span {
   display: flex;
   gap: var(--space-1);
 }
+.version-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.version-cell .btn {
+  min-height: 28px;
+}
 .row-actions .btn {
   min-height: 28px;
   padding: 0 var(--space-3);

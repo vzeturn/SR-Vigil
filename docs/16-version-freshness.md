@@ -55,7 +55,7 @@ Vigil client (opt-in, once a day, user setting "check for newer versions")
 | Version matches a CISA KEV or high/critical CVE range | VER-003 `known_vulnerable` | −30 |
 
 3. Penalties never fire for a file whose version cannot be read or whose product is unknown. Identity signals (signature, path) are unchanged, so an old but correctly signed program stays Unknown at worst.
-4. The detail view shows "installed X, latest Y" and an *Open vendor download page* button (never auto-install, never delete).
+4. The Processes page shows "installed X → latest Y" and an *Open vendor download page* button (never auto-install, never delete). The link comes from the signed snapshot (`download_page`, taken from the winget manifest's `PackageUrl`, else `PublisherUrl`) or from `rules/known_software.toml`. It is shown and opened only when `catalogue::safe_link` accepts it (`https://`, plain host name, at most 300 characters, no spaces, quotes, backslashes or credentials); the desktop shell checks it again before `ShellExecuteW` opens it in the default browser.
 
 ## 6. Later: clean updates (user direction, 2026-11-04)
 
@@ -70,7 +70,9 @@ Planned flow (not in M12): Vigil shows the advice, the user approves, then the u
 
 Done: `FileVersion` read on Windows; VER-001/002/003 and tests; the `vigil-catalogue` Worker (daily cron, winget-pkgs source, Ed25519-signed envelope in KV, `GET /v1/catalogue`); client verification with embedded keys by `kid` (`rules/catalogue_keys.toml`), rollback protection, on-disk cache re-verified at start; opt-in `catalogue.enabled` setting and Settings toggle. Without the setting, or on any verification failure, the embedded catalogue is used.
 
-Open (tracked in docs/10 M12): detail view "installed X, latest Y" with a vendor link (needs the version fields on the IPC process payload and the schema); OSV/KEV automation for `vulnerable_below`.
+Done (M12): `freshness.download_page` on the IPC process row and the vendor-page button; the snapshot carries per product `winget_id`, `download_page`, `installer_sha256` (up to 8, lower-case, from the installer manifest) and `end_of_support` (ISO date, curated in `catalogue/overrides.json`). All are optional, so format `v` stays 1 and older clients ignore them.
+
+Open (tracked in docs/10): OSV/KEV automation for `vulnerable_below`; `end_of_support` is carried as data but does not yet raise VER-002 (the clean-update design of §6 decides how a past date is judged).
 
 ## 7. Decisions (delegated to engineering best practice, 2026-11-04)
 

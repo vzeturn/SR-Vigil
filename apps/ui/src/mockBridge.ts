@@ -41,6 +41,16 @@ export function createMockBridge(rows = 200): Bridge {
     path: `C:\\Mock\\process-${i}.exe`,
     verdict: verdicts[i % verdicts.length],
     score: 20 + ((i * 7) % 80),
+    freshness:
+      i === 0
+        ? {
+            product: 'Mock App',
+            installed: '1.0',
+            latest: '2.0',
+            status: 'outdated',
+            download_page: 'https://example.com/download',
+          }
+        : null,
   }));
   const count = (v: Verdict) => processes.filter((p) => p.verdict === v).length;
   let pending: PendingItem[] = [0, 1, 2].map(pendingItem);

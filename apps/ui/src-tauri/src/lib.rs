@@ -334,6 +334,16 @@ async fn local_scan(app: AppHandle) -> Result<Value, String> {
 
 /// Terminate one non-safe process the user picked in the watching-only view. The target is
 /// re-classified first: it must still be the same instance, not in the never-kill set and not safe.
+/// Open a vendor download page; `vigil_win::shell` refuses anything but a plain `https://` link.
+#[tauri::command]
+async fn open_download_page(url: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || vigil_win::shell::open_vendor_page(&url))
+        .await
+        .map_err(|e| e.to_string())?
+        .then_some(())
+        .ok_or_else(|| "refused".to_owned())
+}
+
 #[tauri::command]
 async fn local_kill(pid: u32, start: String, image: String) -> Result<String, String> {
     let start: u64 = start.parse().map_err(|_| "bad_start".to_owned())?;
@@ -441,6 +451,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             rpc,
             local_kill,
+            open_download_page,
             set_tray_labels,
             set_tray_pending,
             enable_protection,

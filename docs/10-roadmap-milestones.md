@@ -159,8 +159,8 @@ Design: [docs/16-version-freshness.md](16-version-freshness.md).
 - [x] Version fields in `rules/known_software.toml`; signals VER-001/002/003 with fixtures and mutation checks.
 - [x] Cloudflare cron Worker (`catalogue/`) that builds and signs the snapshot from winget-pkgs. Tracked: OSV/CISA KEV automation for `vulnerable_below` (today curated in `catalogue/overrides.json`); optional `GITHUB_TOKEN` to lift the unauthenticated rate limit.
 - [x] Client fetch, Ed25519 verification with `kid` rotation, rollback protection, cache in the data directory, opt-in setting `catalogue.enabled` (Settings page, vi/en).
-- [ ] Detail view "installed X, latest Y" with a vendor download link.
-- [ ] Catalogue schema carries winget id, installer hash and end-of-support so a later user-approved clean-update flow (M13, needs its own design) can build on it.
+- [x] Processes page "installed X → latest Y" with a vendor download link (checked by `catalogue::safe_link`, opened through `vigil_win::shell`).
+- [x] Catalogue schema carries winget id, installer hash and end-of-support so a later user-approved clean-update flow (needs its own design) can build on it. Tracked: `end_of_support` raising VER-002.
 
 ## M13 — Kill review, launch origin, root cause (design in `docs/18`)
 

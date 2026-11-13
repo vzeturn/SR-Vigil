@@ -47,6 +47,20 @@ export async function syncTrayPending(tooltip: string): Promise<void> {
   await invoke('set_tray_pending', { tooltip });
 }
 
+/**
+ * Open a vendor download page in the default browser. In the desktop shell the Rust side checks
+ * the link again before handing it to Windows; in a plain browser it opens a new tab.
+ */
+export async function openDownloadPage(url: string): Promise<void> {
+  if (!url.startsWith('https://')) return;
+  if (!inTauri) {
+    window.open(url, '_blank', 'noopener,noreferrer');
+    return;
+  }
+  const { invoke } = await import('@tauri-apps/api/core');
+  await invoke('open_download_page', { url });
+}
+
 /** Installs the service via one UAC prompt (desktop shell only; resolves false when declined). */
 export async function enableProtection(): Promise<boolean> {
   if (!('__TAURI_INTERNALS__' in window)) return false;

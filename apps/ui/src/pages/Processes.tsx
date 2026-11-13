@@ -1,5 +1,7 @@
 import { useDeferredValue, useMemo, useState } from 'react';
+import { ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { openDownloadPage } from '../bridge';
 import { ProcessActions } from '../components/ProcessActions';
 import { ScoreBar } from '../components/ScoreBar';
 import { ScoreTip } from '../components/ScoreTip';
@@ -39,11 +41,21 @@ export function Processes() {
       width: '170px',
       cell: (p) =>
         p.freshness ? (
-          <span
-            className="muted"
-            title={t(`version.${p.freshness.status}`)}
-          >
-            {t('version.line', { installed: p.freshness.installed, latest: p.freshness.latest })}
+          <span className="version-cell">
+            <span className="muted" title={t(`version.${p.freshness.status}`)}>
+              {t('version.line', { installed: p.freshness.installed, latest: p.freshness.latest })}
+            </span>
+            {p.freshness.download_page && (
+              <button
+                type="button"
+                className="btn icon"
+                aria-label={t('version.vendorPage', { product: p.freshness.product })}
+                title={t('version.vendorPage', { product: p.freshness.product })}
+                onClick={() => void openDownloadPage(p.freshness?.download_page ?? '')}
+              >
+                <ExternalLink size={14} aria-hidden="true" />
+              </button>
+            )}
           </span>
         ) : (
           ''

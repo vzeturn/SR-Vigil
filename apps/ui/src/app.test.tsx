@@ -19,6 +19,21 @@ describe('App', () => {
     await userEvent.selectOptions(screen.getByLabelText('All verdicts'), 'malicious');
     expect(screen.getByText('40 rows')).toBeInTheDocument();
   });
+
+  it('opens the vendor download page of an out-of-date program', async () => {
+    await act(async () => {
+      await i18n.changeLanguage('en');
+      start();
+    });
+    const open = vitest.spyOn(window, 'open').mockReturnValue(null);
+    render(<App />);
+    await userEvent.click(screen.getByRole('button', { name: 'Processes' }));
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Open the vendor download page for Mock App' }),
+    );
+    expect(open).toHaveBeenCalledWith('https://example.com/download', '_blank', 'noopener,noreferrer');
+    open.mockRestore();
+  });
 });
 
 describe('M3 screens', () => {

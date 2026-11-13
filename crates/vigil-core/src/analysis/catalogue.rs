@@ -21,6 +21,39 @@ pub struct Release {
     pub latest: Option<String>,
     pub min_supported: Option<String>,
     pub vulnerable_below: Option<String>,
+    /// Vendor download page; shown only when [`safe_link`] accepts it.
+    pub download_page: Option<String>,
+    /// `winget` package id, for the later user-approved update flow (`docs/16 §6`).
+    pub winget_id: Option<String>,
+    /// Installer SHA-256 values the vendor published for `latest` (one per architecture).
+    #[serde(default)]
+    pub installer_sha256: Vec<String>,
+    /// ISO date the vendor ends support for this product line, when announced.
+    pub end_of_support: Option<String>,
+}
+
+/// `url` when it is fit to hand to the shell as a vendor page: `https://`, a plain host name
+/// (letters, digits, dots, hyphens, optional port), at most 300 characters, and no spaces,
+/// control characters, quotes, backslashes or credentials.
+#[must_use]
+pub fn safe_link(url: &str) -> Option<&str> {
+    let rest = url.strip_prefix("https://")?;
+    let host_end = rest.find(['/', '?', '#']).unwrap_or(rest.len());
+    let (host, name) = (&rest[..host_end], rest[..host_end].split(':').next()?);
+    let host_ok = !name.is_empty()
+        && name.contains('.')
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-')
+        && host[name.len()..]
+            .strip_prefix(':')
+            .is_none_or(|p| !p.is_empty() && p.chars().all(|c| c.is_ascii_digit()));
+    let text_ok = url.len() <= 300
+        && url.chars().all(|c| {
+            c.is_ascii_graphic()
+                && !matches!(c, '"' | '\\' | '<' | '>' | '`' | '^' | '{' | '}' | '|')
+        });
+    (host_ok && text_ok).then_some(url)
 }
 
 /// Why a snapshot was refused.
@@ -202,6 +235,49 @@ mod tests {
         assert_eq!(verify_with(b"nope", lookup), Err(Error::Malformed));
         let v2 = envelope(&PAYLOAD.replace("\"v\":1", "\"v\":2"), &signing_key());
         assert_eq!(verify_with(&v2, lookup), Err(Error::UnsupportedFormat));
+    }
+
+    #[test]
+    fn only_plain_https_vendor_links_are_accepted() {
+        for ok in [
+            "https://www.videolan.org/vlc/",
+            "https://git-scm.com/download/win?x=1#top",
+            "https://example.com:8443/a",
+        ] {
+            assert_eq!(safe_link(ok), Some(ok), "{ok}");
+        }
+        for bad in [
+            "http://www.videolan.org/",
+            "file:///C:/Windows/System32/calc.exe",
+            "https://user:pw@example.com/",
+            "https://example.com/a b",
+            "https://example.com/\"x",
+            "https://example.com/a\\b",
+            "https://localhost/",
+            "https://exa_mple.com/",
+            "https://example.com:/",
+            "https:///path",
+            "javascript:alert(1)",
+        ] {
+            assert_eq!(safe_link(bad), None, "{bad}");
+        }
+        assert_eq!(
+            safe_link(&format!("https://a.com/{}", "x".repeat(300))),
+            None
+        );
+    }
+
+    #[test]
+    fn extra_release_fields_are_read_and_optional() {
+        let payload = r#"{"v":1,"issued":"2026-11-04T00:00:00.000Z","products":{"VLC":{"latest":"3.0.21","winget_id":"VideoLAN.VLC","download_page":"https://www.videolan.org/vlc/","installer_sha256":["ab"],"end_of_support":"2030-01-01"},"Git":{}}}"#;
+        let s = verify_with(&envelope(payload, &signing_key()), lookup).unwrap();
+        assert_eq!(s.products["VLC"].winget_id.as_deref(), Some("VideoLAN.VLC"));
+        assert_eq!(s.products["VLC"].installer_sha256, vec!["ab".to_string()]);
+        assert_eq!(
+            s.products["VLC"].end_of_support.as_deref(),
+            Some("2030-01-01")
+        );
+        assert_eq!(s.products["Git"], Release::default());
     }
 
     #[test]

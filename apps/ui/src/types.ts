@@ -38,6 +38,8 @@ export interface ProcessInfo {
     installed: string;
     latest: string;
     status: 'outdated' | 'far_behind' | 'vulnerable';
+    /** Vendor download page (plain `https://` link checked by the service). */
+    download_page?: string;
   } | null;
 }
 

@@ -286,3 +286,22 @@ async fn decision_flow_matches_the_schema_and_is_audited() {
         ]
     );
 }
+
+#[test]
+fn freshness_vendor_link_matches_the_schema() {
+    let s = schema();
+    let row = |page: Value| {
+        json!({"pid": 1, "start_time": "t", "ppid": 0, "name": "a.exe",
+               "freshness": {"product": "VLC", "installed": "3.0.1", "latest": "3.0.21",
+                             "status": "outdated", "download_page": page}})
+    };
+    let proc_def = &s["$defs"]["ProcessInfo"];
+    validate(
+        proc_def,
+        "ProcessInfo",
+        &row(json!("https://www.videolan.org/vlc/")),
+    );
+    let wrapped = json!({ "allOf": [proc_def], "$defs": s["$defs"] });
+    let v = jsonschema::validator_for(&wrapped).unwrap();
+    assert!(!v.is_valid(&row(json!("file:///C:/x.exe"))));
+}

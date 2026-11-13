@@ -519,6 +519,7 @@ export const en = {
   },
   version: {
     line: '{{installed}} → {{latest}}',
+    vendorPage: 'Open the vendor download page for {{product}}',
     outdated: 'A newer version exists. Update through the vendor installer.',
     far_behind: 'Many versions behind or no longer supported. Update through the vendor installer.',
     vulnerable: 'This version has a serious known vulnerability. Update through the vendor installer.',
