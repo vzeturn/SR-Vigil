@@ -144,9 +144,132 @@ pub fn trusted_source(metadata: &str) -> Option<&'static str> {
     })
 }
 
+/// Share of one core above which a tab counts as runaway (`docs/19 §4`).
+pub const HOT_SHARE_PERCENT: u64 = 90;
+/// A tab hot this long is reported to the user.
+pub const HOT_ALERT_SECS: u64 = 300;
+/// A tab still hot this long is stopped in `enforce` mode.
+pub const HOT_STOP_SECS: u64 = 900;
+
+/// What a CPU sample of one tab asks the service to do.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HotStep {
+    Quiet,
+    Alert,
+    Stop,
+}
+
+/// CPU history of one tab process: the last sample and since when it has been running hot.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct HotTab {
+    ticks: u64,
+    at_ms: u64,
+    hot_since_ms: Option<u64>,
+    alerted: bool,
+}
+
+impl HotTab {
+    /// First sample: `ticks` is kernel + user time in 100 ns units.
+    #[must_use]
+    pub fn start(ticks: u64, at_ms: u64) -> Self {
+        Self {
+            ticks,
+            at_ms,
+            hot_since_ms: None,
+            alerted: false,
+        }
+    }
+
+    /// Next sample. One quiet interval resets the clock; the alert fires once per hot spell and
+    /// the stop only when `enforce` is true.
+    #[must_use]
+    pub fn step(self, ticks: u64, at_ms: u64, enforce: bool) -> (Self, HotStep) {
+        let elapsed = at_ms.saturating_sub(self.at_ms);
+        if ticks < self.ticks || elapsed == 0 {
+            return (Self::start(ticks, at_ms), HotStep::Quiet);
+        }
+        let busy_ms = (ticks - self.ticks) / 10_000;
+        if busy_ms * 100 < elapsed * HOT_SHARE_PERCENT {
+            return (Self::start(ticks, at_ms), HotStep::Quiet);
+        }
+        let since = self.hot_since_ms.unwrap_or(self.at_ms);
+        let hot_secs = (at_ms - since) / 1000;
+        let next = Self {
+            ticks,
+            at_ms,
+            hot_since_ms: Some(since),
+            alerted: self.alerted || hot_secs >= HOT_ALERT_SECS,
+        };
+        let step = if enforce && hot_secs >= HOT_STOP_SECS {
+            HotStep::Stop
+        } else if !self.alerted && hot_secs >= HOT_ALERT_SECS {
+            HotStep::Alert
+        } else {
+            HotStep::Quiet
+        };
+        (next, step)
+    }
+
+    /// Whole minutes this tab has been running hot.
+    #[must_use]
+    pub fn hot_minutes(&self) -> u64 {
+        self.hot_since_ms
+            .map_or(0, |s| self.at_ms.saturating_sub(s) / 60_000)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Samples every 10 s at `share` percent of one core, starting from `tab`.
+    fn run(mut tab: HotTab, secs: u64, share: u64, enforce: bool) -> (HotTab, Vec<HotStep>) {
+        let mut steps = vec![];
+        for _ in 0..secs / 10 {
+            let (t, s) = tab.step(
+                tab.ticks + share * 10_000 * 100,
+                tab.at_ms + 10_000,
+                enforce,
+            );
+            tab = t;
+            steps.push(s);
+        }
+        (tab, steps)
+    }
+
+    #[test]
+    fn a_hot_tab_is_reported_once_at_five_minutes_and_stopped_at_fifteen_in_enforce() {
+        let (tab, steps) = run(HotTab::start(0, 0), 290, 95, true);
+        assert!(steps.iter().all(|s| *s == HotStep::Quiet));
+        let (tab, steps) = run(tab, 600, 95, true);
+        assert_eq!(steps[0], HotStep::Alert);
+        assert_eq!(steps.iter().filter(|s| **s == HotStep::Alert).count(), 1);
+        assert!(!steps.contains(&HotStep::Stop));
+        assert_eq!(tab.hot_minutes(), 14);
+        let (_, steps) = run(tab, 10, 95, true);
+        assert_eq!(steps, vec![HotStep::Stop]);
+    }
+
+    #[test]
+    fn observe_and_learning_only_alert_and_a_quiet_spell_resets_the_clock() {
+        let (_, steps) = run(HotTab::start(0, 0), 1800, 100, false);
+        assert_eq!(steps.iter().filter(|s| **s == HotStep::Alert).count(), 1);
+        assert!(!steps.contains(&HotStep::Stop));
+        let (tab, _) = run(HotTab::start(0, 0), 280, 100, true);
+        let (tab, _) = run(tab, 10, 50, true);
+        let (_, steps) = run(tab, 280, 100, true);
+        assert!(steps.iter().all(|s| *s == HotStep::Quiet), "{steps:?}");
+    }
+
+    #[test]
+    fn a_reused_pid_or_clock_skew_restarts_the_history() {
+        let (tab, _) = run(HotTab::start(0, 0), 600, 100, true);
+        assert_eq!(
+            tab.step(5, tab.at_ms + 10_000, true).0,
+            HotTab::start(5, tab.at_ms + 10_000)
+        );
+        assert_eq!(tab.step(tab.ticks, tab.at_ms, true).1, HotStep::Quiet);
+    }
 
     #[test]
     fn chromium_tabs_are_renderers_and_nothing_else_is() {

@@ -36,7 +36,20 @@ service (`tab_scan`, each tick after `storm_scan`) kills that renderer **and wha
 - no block, no decision, no deny of the browser identity: the user's browser is never refused;
 - the browser, its GPU/network/utility helpers and all other tabs keep running;
 - it works in every mode, like `storm_scan`, because it is a behaviour kill of an attack in progress;
-- every kill writes an audit row through `kill_process` as usual.
+- every kill writes an audit row through `kill_process` as usual;
+- the service emits `event.tab_alert` (`reason: started_program`, `action: stopped`, the browser
+  and the program's file name) and the tray shows a notification, so a tab that vanished is
+  explained.
+
+### 3.1 Runaway tabs
+
+`tab_cpu_scan` samples each tab's kernel + user CPU time every 10 s (`vigil_core::profile::HotTab`).
+A tab using at least 90 % of one core (`HOT_SHARE_PERCENT`) for 5 minutes (`HOT_ALERT_SECS`) is
+reported once with `event.tab_alert` (`reason: high_cpu`, `action: warned`, `minutes`). In
+`enforce` mode a tab still that hot after 15 minutes (`HOT_STOP_SECS`) is stopped alone
+(`tree: false`, no block) with an audit row and a second alert (`action: stopped`); `observe` and
+`learning` only alert. One quiet sample resets the clock, and history is keyed by pid and start
+time, so a reused pid starts afresh. The user's choice: alert at 5 minutes, stop at 15 in enforce.
 
 ## 4. What the operating system cannot tell us
 
@@ -44,7 +57,7 @@ Chromium routes all tab networking through one Network Service process. A connec
 OS belongs to that process, not to a tab, so "this tab connected to a dangerous host" cannot be
 attributed to one tab, and killing the network process would break every tab. Containment is
 therefore **behavioural** (§3). Destination-based per-tab blocking (needs the browser's own
-devtools/extension channel) and runaway-CPU renderer handling are deferred (M14).
+devtools/extension channel) stays deferred (M14); runaway CPU is handled by behaviour (§3.1).
 
 ## 5. Package origin (PKG-001)
 

@@ -13,6 +13,7 @@ pub mod events;
 pub mod filewatch;
 pub mod handler;
 pub mod hashrep;
+pub mod hottab;
 pub mod kill;
 pub mod launcher;
 pub mod persist;

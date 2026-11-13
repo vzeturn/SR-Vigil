@@ -3210,6 +3210,43 @@
     },
     "event.threat_detected": {
       "$ref": "#/$defs/Threat"
+    },
+    "event.tab_alert": {
+      "type": "object",
+      "properties": {
+        "reason": {
+          "type": "string",
+          "enum": [
+            "started_program",
+            "high_cpu"
+          ]
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "warned",
+            "stopped"
+          ]
+        },
+        "browser": {
+          "type": "string",
+          "maxLength": 260
+        },
+        "program": {
+          "type": "string",
+          "maxLength": 260
+        },
+        "minutes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "reason",
+        "action",
+        "browser"
+      ]
     }
   },
   "oneOf": [

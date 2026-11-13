@@ -376,6 +376,7 @@ pub async fn run(shared: Arc<Shared>, pack: Arc<RulePack>) -> anyhow::Result<()>
         let persistent = tokio::task::spawn_blocking(move || {
             sh.storm_scan();
             sh.tab_scan();
+            sh.tab_cpu_scan(crate::threat::now_ms());
             sh.respawn_scan();
             sh.reopen_sweep();
             sh.auto_kill_malicious();

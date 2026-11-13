@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 use serde_json::json;
 use vigil_store::persistence::Found;
 use vigil_store::repo::{Executable, NewEvaluation, insert_evaluation, upsert_executable};
+use vigil_svc::enforce::{DropInfo, FilterEngine};
 use vigil_svc::kill::{KillOutcome, ProcessControl, Snap};
 use vigil_svc::state::{Options, ProcRow, Shared};
 
@@ -18,6 +19,8 @@ struct Fake {
     frozen: Mutex<Vec<u32>>,
     thawed: Mutex<Vec<u32>>,
     items: Mutex<Vec<Found>>,
+    /// CPU time every process reports, in 100 ns units.
+    cpu: Mutex<Option<u64>>,
 }
 
 fn found(kind: &str, loc: &str) -> Found {
@@ -58,6 +61,9 @@ impl ProcessControl for Fake {
     fn resume(&self, pid: u32, _: u64) -> bool {
         self.thawed.lock().unwrap().push(pid);
         true
+    }
+    fn cpu_ticks(&self, _: u32) -> Option<u64> {
+        *self.cpu.lock().unwrap()
     }
     fn persist_scan(&self) -> Vec<Found> {
         self.items.lock().unwrap().clone()
@@ -562,6 +568,84 @@ fn a_tab_that_starts_a_program_is_stopped_alone() {
         .with_store(vigil_store::blocks::active)
         .map_or(0, |r| r.map_or(0, |v| v.len()));
     assert_eq!(blocks, 0, "no block against the browser's identity");
+}
+
+fn tab_alerts(
+    bus: &mut tokio::sync::broadcast::Receiver<vigil_svc::events::Event>,
+) -> Vec<serde_json::Value> {
+    std::iter::from_fn(|| bus.try_recv().ok())
+        .filter(|e| e.method == "event.tab_alert")
+        .map(|e| e.params)
+        .collect()
+}
+
+struct NullEngine;
+impl FilterEngine for NullEngine {
+    fn set_denies(&self, _: &[std::path::PathBuf]) -> Result<(), String> {
+        Ok(())
+    }
+    fn arm(&self, _: &[std::path::PathBuf]) -> Result<Vec<std::path::PathBuf>, String> {
+        Ok(Vec::new())
+    }
+    fn disarm(&self) -> Result<(), String> {
+        Ok(())
+    }
+    fn panic(&self) -> usize {
+        0
+    }
+    fn watch_drops(&self, _: tokio::sync::mpsc::UnboundedSender<DropInfo>) -> Result<(), String> {
+        Ok(())
+    }
+}
+
+/// Run the tab CPU scan every 10 s for `secs` with every process busy on one full core.
+fn burn(s: &Shared, fake: &Fake, from_ms: u64, secs: u64) -> usize {
+    (1..=secs / 10)
+        .map(|i| {
+            let now = from_ms + i * 10_000;
+            *fake.cpu.lock().unwrap() = Some(now * 10_000);
+            s.tab_cpu_scan(now)
+        })
+        .sum()
+}
+
+#[test]
+fn a_tab_that_starts_a_program_raises_a_tab_alert() {
+    let (s, fake, id) = setup();
+    let mut bus = s.subscribe_bus();
+    browser_with_tab(&s, &fake, &id, true);
+    assert_eq!(s.tab_scan(), 1);
+    let alerts = tab_alerts(&mut bus);
+    assert_eq!(alerts.len(), 1, "{alerts:?}");
+    assert_eq!(alerts[0]["reason"], "started_program");
+    assert_eq!(alerts[0]["program"], "cmd.exe");
+}
+
+#[test]
+fn a_runaway_tab_is_reported_at_five_minutes_and_stopped_at_fifteen_only_in_enforce() {
+    let (s, fake, id) = setup();
+    let mut bus = s.subscribe_bus();
+    browser_with_tab(&s, &fake, &id, false);
+    *fake.cpu.lock().unwrap() = Some(0);
+    s.tab_cpu_scan(0);
+    s.set_mode("learning", true).unwrap();
+    assert_eq!(burn(&s, &fake, 0, 1800), 0, "learning never stops a tab");
+    let alerts = tab_alerts(&mut bus);
+    assert_eq!(alerts.len(), 1, "{alerts:?}");
+    assert_eq!(alerts[0]["action"], "warned");
+    assert_eq!(alerts[0]["minutes"], 5);
+    assert!(fake.killed.lock().unwrap().is_empty());
+
+    s.attach_engine(Some(Arc::new(NullEngine)));
+    s.set_mode("enforce", true).unwrap();
+    assert_eq!(burn(&s, &fake, 1_800_000, 10), 1);
+    assert_eq!(
+        fake.killed.lock().unwrap().clone(),
+        vec![701],
+        "only the tab, not the browser"
+    );
+    let alerts = tab_alerts(&mut bus);
+    assert_eq!(alerts.last().unwrap()["action"], "stopped");
 }
 
 #[test]

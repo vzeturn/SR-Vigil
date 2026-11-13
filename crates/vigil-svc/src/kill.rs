@@ -57,6 +57,10 @@ pub trait ProcessControl: Send + Sync {
     fn modules(&self, _pid: u32) -> Option<Vec<String>> {
         None
     }
+    /// Kernel + user CPU time of `pid` in 100 ns units; `None` when it cannot be read.
+    fn cpu_ticks(&self, _pid: u32) -> Option<u64> {
+        None
+    }
     /// Persistence entries currently present on the machine.
     fn persist_scan(&self) -> Vec<vigil_store::persistence::Found>;
     /// Disable an entry; returns the backup that [`Self::persist_restore`] needs.
@@ -548,6 +552,12 @@ impl Shared {
                 .unwrap_or(false);
             if ok {
                 tracing::warn!(pid = tab.pid, child = %child.name, "stopped a browser tab that started a program");
+                self.emit(
+                    "enforcement",
+                    "event.tab_alert",
+                    json!({ "reason": "started_program", "action": "stopped",
+                            "browser": tab.name, "program": child.name }),
+                );
             }
             n += usize::from(ok);
         }

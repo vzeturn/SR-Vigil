@@ -146,6 +146,26 @@ fn forward_pending(app: &AppHandle, client: &mut Client<NamedPipeClient>) {
                 let _ = app.emit("vigil://threat", params);
                 crate::popup::show(app);
             }
+            "event.tab_alert" => {
+                let s = |k: &str| params[k].as_str().unwrap_or("").to_owned();
+                let browser = s("browser");
+                let stopped = params["action"] == "stopped";
+                let body = match (s("reason").as_str(), stopped) {
+                    ("started_program", _) => format!(
+                        "A tab in {browser} tried to start {}. Vigil stopped that tab; the browser and its other tabs keep running.",
+                        s("program")
+                    ),
+                    (_, true) => format!(
+                        "A tab in {browser} used a full CPU core for {} minutes. Vigil stopped that tab; reload it if you still need it.",
+                        params["minutes"].as_u64().unwrap_or(0)
+                    ),
+                    _ => format!(
+                        "A tab in {browser} has used a full CPU core for {} minutes. Close it if you do not expect this.",
+                        params["minutes"].as_u64().unwrap_or(0)
+                    ),
+                };
+                crate::popup::toast(app, "Vigil browser tab", &body);
+            }
             "event.ai_digest" => {
                 let g = |k: &str| params[k].as_u64().unwrap_or(0);
                 let body = format!(

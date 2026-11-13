@@ -154,6 +154,7 @@ pub struct Shared {
     pub(crate) started: Mutex<std::collections::VecDeque<(u32, u32, String)>>,
     pub(crate) reopen: Mutex<crate::reopen::Reopen>,
     pub(crate) launchers: Mutex<crate::launcher::Launchers>,
+    pub(crate) hot_tabs: Mutex<crate::hottab::HotTabs>,
     pub(crate) ai_slots: tokio::sync::Semaphore,
 }
 
@@ -287,6 +288,7 @@ impl Shared {
             started: Mutex::new(std::collections::VecDeque::new()),
             reopen: Mutex::new(crate::reopen::Reopen::default()),
             launchers: Mutex::new(crate::launcher::Launchers::default()),
+            hot_tabs: Mutex::new(crate::hottab::HotTabs::default()),
             ai_slots: tokio::sync::Semaphore::new(2),
         }
     }

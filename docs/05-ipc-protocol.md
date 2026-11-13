@@ -105,6 +105,7 @@ JSON-RPC 2.0 subset: `{"jsonrpc":"2.0","id":<int|string>,"method":"...","params"
 | `enforcement` | `event.reopen_prompt` | `{pid, start_time, path, answer_within_secs, decision?}`; a killed program the user reopened is frozen until `reopen.answer` (`decision` carries the kill reasons) |
 | `enforcement` | `event.threat_detected` | `Threat` `{threat_id, kind: "beaconing", path, identity_id, dest_ip, dest_port, interval_secs, detected_at, ai_available}`; once per program per run, never for a `safe` verdict (`docs/24`) |
 | `enforcement` | `event.launcher_prompt` | `{launcher, child, count, window_secs, autostart_entries, decision?}`; sent once per launcher per 24 h when it keeps starting a killed program (docs/18 §5) |
+| `enforcement` | `event.tab_alert` | `{reason: started_program\|high_cpu, action: warned\|stopped, browser, program?, minutes?}`; a browser tab was stopped for starting a program, or has run hot on a full core (docs/19 §3) |
 | `alerts` | `event.alert` | `{severity, kind, message_key, identity_id?, data}` |
 | `health` | `event.health` | `{state, details, ts}` |
 

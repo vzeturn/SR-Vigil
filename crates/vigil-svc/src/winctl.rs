@@ -70,6 +70,10 @@ impl ProcessControl for WinControl {
         vigil_win::modules::module_paths(pid)
     }
 
+    fn cpu_ticks(&self, pid: u32) -> Option<u64> {
+        Some(vigil_win::process::usage(pid).1).filter(|t| *t > 0)
+    }
+
     fn sha256(&self, path: &str) -> Option<String> {
         self.hashes.sha256(Path::new(path)).ok()
     }

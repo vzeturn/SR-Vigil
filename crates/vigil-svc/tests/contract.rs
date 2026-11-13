@@ -168,6 +168,12 @@ async fn emitted_events_match_the_schema() {
         "event.threat_detected",
         &json!({"threat_id": "0b6c", "kind": "beaconing", "path": "C:/a.exe", "identity_id": "3", "dest_ip": "203.0.113.9", "dest_port": 443, "interval_secs": 60, "detected_at": "2026-01-01T00:00:00Z", "ai_available": false}),
     );
+    for tab in [
+        json!({"reason": "started_program", "action": "stopped", "browser": "msedge.exe", "program": "cmd.exe"}),
+        json!({"reason": "high_cpu", "action": "warned", "browser": "chrome.exe", "minutes": 5}),
+    ] {
+        validate(&s["x-events"]["event.tab_alert"], "event.tab_alert", &tab);
+    }
     sh.remove_process(1, "2026-01-01T00:00:00Z");
     sh.sync_connections(vec![]);
     sh.set_mode("learning", false).unwrap();
