@@ -280,6 +280,7 @@ export const en = {
     applyTo: 'Apply to',
     applyFile: 'This file',
     applyPublisher: 'Whole publisher',
+    applyPackage: 'Same package source and tools folder',
     scopes: { once: 'Once', '1h': '1 hour', '24h': '24 hours', forever: 'Forever' },
     actions: 'Decision',
     allow: 'Allow',

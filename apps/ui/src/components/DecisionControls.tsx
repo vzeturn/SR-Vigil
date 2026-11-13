@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { getBridge } from '../bridge';
 import { refreshPending, useVigil } from '../store';
 import type { Action, ApplyTo, PendingItem, Scope } from '../types';
-import { hasPublisher } from './pendingView';
+import { hasPackageFamily, hasPublisher } from './pendingView';
 
 const SCOPES: readonly Scope[] = ['once', '1h', '24h', 'forever'];
 const ICONS = { allow: Check, block: Ban, kill: Skull } as const;
@@ -30,6 +30,9 @@ export function DecisionControls({ item, onDone, shortcutsArmed = false }: Props
   const [error, setError] = useState<string | null>(null);
   const isAdmin = link.role === 'admin';
   const publisherOk = hasPublisher(item);
+  const packageOk = hasPackageFamily(item);
+  const available: Record<ApplyTo, boolean> = { file: true, publisher: publisherOk, package_source: packageOk };
+  const target: ApplyTo = available[applyTo] ? applyTo : 'file';
 
   const submit = useCallback(async (action: Action) => {
     if (action === 'kill' && !confirmKill) {
@@ -44,7 +47,7 @@ export function DecisionControls({ item, onDone, shortcutsArmed = false }: Props
         pending_id: item.id,
         action,
         scope,
-        apply_to: publisherOk ? applyTo : 'file',
+        apply_to: target,
       });
       await refreshPending();
       onDone?.();
@@ -52,7 +55,7 @@ export function DecisionControls({ item, onDone, shortcutsArmed = false }: Props
       setError(e instanceof Error ? e.message : String(e));
       setBusy(false);
     }
-  }, [confirmKill, scope, applyTo, publisherOk, item.id, onDone]);
+  }, [confirmKill, scope, target, item.id, onDone]);
 
   const enabled = isAdmin && !busy;
 
@@ -90,13 +93,16 @@ export function DecisionControls({ item, onDone, shortcutsArmed = false }: Props
         <label className="field">
           <span className="muted">{t('decision.applyTo')}</span>
           <select
-            value={publisherOk ? applyTo : 'file'}
+            value={target}
             disabled={!enabled}
             onChange={(e) => setApplyTo(e.target.value as ApplyTo)}
           >
             <option value="file">{t('decision.applyFile')}</option>
             <option value="publisher" disabled={!publisherOk}>
               {t('decision.applyPublisher')}
+            </option>
+            <option value="package_source" disabled={!packageOk}>
+              {t('decision.applyPackage')}
             </option>
           </select>
         </label>

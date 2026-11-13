@@ -47,7 +47,30 @@ struct Entry {
     action: String,
     scope: String,
     apply_to: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    package_family: Option<String>,
     note: Option<String>,
+}
+
+impl Entry {
+    /// Shape checks on an imported entry; the file itself is untrusted input.
+    fn is_valid(&self, apply_to: ApplyTo) -> bool {
+        let thumb_ok = self
+            .signer_thumbprint
+            .as_deref()
+            .is_none_or(|t| !t.is_empty() && t.len() <= 128);
+        let family_ok = match (apply_to, self.package_family.as_deref()) {
+            (ApplyTo::PackageSource, Some(f)) => !f.is_empty() && f.len() <= 600,
+            (ApplyTo::PackageSource, None) => false,
+            _ => true,
+        };
+        family_ok
+            && thumb_ok
+            && valid_sha256(&self.sha256)
+            && !self.path.is_empty()
+            && self.path.len() <= 520
+            && SIGNATURE_STATUSES.contains(&self.signature_status.as_str())
+    }
 }
 
 fn bad(msg: impl Into<String>) -> RpcError {
@@ -86,6 +109,7 @@ impl Shared {
                         action: d.action.as_str().into(),
                         scope: d.scope.as_str().into(),
                         apply_to: d.apply_to.as_str().into(),
+                        package_family: d.package_family,
                         note: d.note,
                     });
                 }
@@ -131,17 +155,7 @@ impl Shared {
                 skipped += 1;
                 continue;
             };
-            let thumb_ok = e
-                .signer_thumbprint
-                .as_deref()
-                .is_none_or(|t| !t.is_empty() && t.len() <= 128);
-            if scope == Scope::Once
-                || !valid_sha256(&e.sha256)
-                || e.path.is_empty()
-                || e.path.len() > 520
-                || !thumb_ok
-                || !SIGNATURE_STATUSES.contains(&e.signature_status.as_str())
-            {
+            if scope == Scope::Once || !e.is_valid(apply_to) {
                 skipped += 1;
                 continue;
             }
@@ -160,6 +174,12 @@ impl Shared {
                 .with_store(|c| -> Result<bool, vigil_store::StoreError> {
                     let ts = decisions::format_ts(now)?;
                     let id = repo::upsert_executable(c, &exe, &ts)?;
+                    let family = (apply_to == ApplyTo::PackageSource)
+                        .then(|| e.package_family.clone())
+                        .flatten();
+                    if let Some(f) = &family {
+                        repo::set_package_family(c, id, Some(f))?;
+                    }
                     let dup = decisions::list_active(c, now)?.iter().any(|d| {
                         d.executable_id == id && d.action == action && d.apply_to == apply_to
                     });
@@ -175,6 +195,7 @@ impl Shared {
                             apply_to,
                             publisher_thumbprint: e.signer_thumbprint.clone(),
                             publisher_product: e.product.clone(),
+                            package_family: family,
                             by: DecidedBy::User,
                             actor: actor.to_string(),
                             note,

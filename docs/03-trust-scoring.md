@@ -90,7 +90,7 @@ SIG-001, SIG-002 and SIG-003 are mutually exclusive (`exclusive_group = "signer_
 | ID | Name | Condition | Result |
 |---|---|---|---|
 | HA-001 | `vigil_self` | `vigil-svc.exe`, `vigil-ui.exe` or `vigilctl.exe` in the running Vigil binary's own (admin-only) directory whose SHA-256 still equals the self-pin taken when that process first evaluated one | safe |
-| HA-002 | `user_allow_identity` | Unexpired user `allow` decision matching the identity (`file`: sha256+path, or `publisher`: signer thumbprint + product) and no HR-* | safe |
+| HA-002 | `user_allow_identity` | Unexpired user `allow` decision matching the identity (`file`: sha256+path, `publisher`: signer thumbprint + product, or `package_source`: same package family, `docs/19 §5.1`) and no HR-* | safe |
 | SG-001 | `never_kill_set` | Identity flagged `never_kill` in `system_processes.toml` and not under HR-001/002/003 | blocks kill/deny actions; never lowers a verdict |
 
 ## 3. Worked examples (these are golden tests)

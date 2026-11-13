@@ -145,7 +145,7 @@ fn evaluate_with(
                 .is_some_and(|p| crate::modules::has_unsigned_writable_module(ctx, p, path)),
             unbacked_exec_memory: scan_memory
                 && pid.is_some_and(crate::memory::has_unbacked_exec_memory),
-            package_source_trusted: package_source_trusted(path),
+            package_source_trusted: package_family(path).is_some(),
             from_internet: from_internet(path),
             hash_known_good: hash_known_good(path, signer.valid()),
             beaconing: live.beaconing,
@@ -169,26 +169,27 @@ fn evaluate_with(
     (evaluate(pack, &build_facts(ctx, &obs)), signer, version)
 }
 
-/// Whether `image` is a uv/pip console script whose package metadata names a trusted source
-/// (`docs/19 §5`). The metadata is author-written: this is evidence of origin, never proof.
-fn package_source_trusted(image: &str) -> bool {
+/// The package family of a uv/pip console script whose package metadata names a trusted source
+/// (`docs/19 §5`); `None` for anything else. The metadata is author-written: this is evidence of
+/// origin, never proof.
+#[must_use]
+pub fn package_family(image: &str) -> Option<String> {
     const MAX_METADATA: u64 = 64 * 1024;
-    let Some(pkg) = vigil_core::profile::dev_package(image) else {
-        return false;
-    };
+    let pkg = vigil_core::profile::dev_package(image)?;
     let site = std::path::Path::new(&pkg.env)
         .join("Lib")
         .join("site-packages");
-    let Ok(dir) = std::fs::read_dir(site) else {
-        return false;
-    };
-    dir.flatten()
+    std::fs::read_dir(site)
+        .ok()?
+        .flatten()
         .filter(|e| pkg.owns_dist_info(&e.file_name().to_string_lossy()))
-        .any(|e| {
+        .find_map(|e| {
             let file = e.path().join("METADATA");
-            std::fs::metadata(&file).is_ok_and(|m| m.len() <= MAX_METADATA)
-                && std::fs::read_to_string(file)
-                    .is_ok_and(|t| vigil_core::profile::trusted_source(&t).is_some())
+            if !std::fs::metadata(&file).is_ok_and(|m| m.len() <= MAX_METADATA) {
+                return None;
+            }
+            let text = std::fs::read_to_string(file).ok()?;
+            pkg.family(vigil_core::profile::trusted_source(&text)?)
         })
 }
 

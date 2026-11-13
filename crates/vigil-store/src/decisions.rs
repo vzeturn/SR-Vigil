@@ -27,7 +27,7 @@ text_enum!(/// How long a decision lasts. `once` is applied by the caller at sub
     /// returned as active afterwards (its `expires_at` equals its creation time).
     Scope { Once => "once", OneHour => "1h", Day => "24h", Forever => "forever" });
 text_enum!(/// What a decision covers.
-    ApplyTo { File => "file", Publisher => "publisher" });
+    ApplyTo { File => "file", Publisher => "publisher", PackageSource => "package_source" });
 text_enum!(/// Who made the decision.
     DecidedBy { User => "user", Ai => "ai", Rule => "rule" });
 text_enum!(/// Destination class of a pending connection.
@@ -179,7 +179,8 @@ pub fn resolve_pending_for_executable(
 
 // -------------------------------------------------------------- decisions
 
-/// A decision to persist. `publisher_thumbprint` is required when `apply_to` is `Publisher`.
+/// A decision to persist. `publisher_thumbprint` is required when `apply_to` is `Publisher`,
+/// `package_family` when it is `PackageSource`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NewDecision {
     pub executable_id: i64,
@@ -188,6 +189,7 @@ pub struct NewDecision {
     pub apply_to: ApplyTo,
     pub publisher_thumbprint: Option<String>,
     pub publisher_product: Option<String>,
+    pub package_family: Option<String>,
     pub by: DecidedBy,
     pub actor: String,
     pub note: Option<String>,
@@ -203,6 +205,7 @@ pub struct Decision {
     pub apply_to: ApplyTo,
     pub publisher_thumbprint: Option<String>,
     pub publisher_product: Option<String>,
+    pub package_family: Option<String>,
     pub expires_at: Option<String>,
     pub by: DecidedBy,
     pub actor: String,
@@ -211,7 +214,7 @@ pub struct Decision {
     pub revoked_at: Option<String>,
 }
 
-const DECISION_COLS: &str = "d.id, d.executable_id, d.action, d.scope, d.apply_to, d.publisher_thumbprint, d.publisher_product, d.expires_at, d.by, d.actor, d.note, d.created_at, d.revoked_at";
+const DECISION_COLS: &str = "d.id, d.executable_id, d.action, d.scope, d.apply_to, d.publisher_thumbprint, d.publisher_product, d.expires_at, d.by, d.actor, d.note, d.created_at, d.revoked_at, d.package_family";
 
 fn decision_row(r: &Row<'_>) -> Result<Decision, StoreError> {
     let bad = |c: &str| StoreError::Corrupt(format!("decisions.{c}"));
@@ -230,6 +233,7 @@ fn decision_row(r: &Row<'_>) -> Result<Decision, StoreError> {
         note: r.get(10)?,
         created_at: r.get(11)?,
         revoked_at: r.get(12)?,
+        package_family: r.get(13)?,
     })
 }
 
@@ -242,8 +246,9 @@ pub fn insert_decision(
     let expires = expiry(d.scope, now).map(format_ts).transpose()?;
     conn.execute(
         "INSERT INTO decisions (executable_id, action, scope, apply_to, publisher_thumbprint,
-                                publisher_product, expires_at, by, actor, note, created_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+                                publisher_product, expires_at, by, actor, note, created_at,
+                                package_family)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
         params![
             d.executable_id,
             d.action.as_str(),
@@ -255,7 +260,8 @@ pub fn insert_decision(
             d.by.as_str(),
             d.actor,
             d.note,
-            format_ts(now)?
+            format_ts(now)?,
+            d.package_family
         ],
     )?;
     Ok(conn.last_insert_rowid())
@@ -311,7 +317,7 @@ pub fn list_active(conn: &Connection, now: OffsetDateTime) -> Result<Vec<Decisio
 }
 
 /// Active decisions that apply to an executable: its own file decisions plus publisher decisions
-/// matching its signer thumbprint. Newest first; resolving conflicts is the caller's policy.
+/// matching its signer thumbprint and package-family decisions matching its recorded family. Newest first; resolving conflicts is the caller's policy.
 pub fn active_for(
     conn: &Connection,
     executable_id: i64,
@@ -324,7 +330,9 @@ pub fn active_for(
              WHERE d.revoked_at IS NULL AND (d.expires_at IS NULL OR d.expires_at > ?2)
                AND ((d.apply_to = 'file' AND d.executable_id = ?1)
                  OR (d.apply_to = 'publisher' AND d.publisher_thumbprint =
-                     (SELECT signer_thumbprint FROM executables WHERE id = ?1)))
+                     (SELECT signer_thumbprint FROM executables WHERE id = ?1))
+                 OR (d.apply_to = 'package_source' AND d.package_family =
+                     (SELECT package_family FROM executables WHERE id = ?1)))
              ORDER BY d.id DESC"
         ),
         params![executable_id, format_ts(now)?],
@@ -369,6 +377,7 @@ mod tests {
             apply_to: ApplyTo::File,
             publisher_thumbprint: None,
             publisher_product: None,
+            package_family: None,
             by: DecidedBy::User,
             actor: "alice".into(),
             note: None,
@@ -481,6 +490,43 @@ mod tests {
         assert_eq!(active_for(&conn, pub_b, T0).unwrap()[0].id, d);
         assert_eq!(active_for(&conn, pub_c, T0).unwrap().len(), 0);
         assert_eq!(active_for(&conn, unsigned, T0).unwrap().len(), 0);
+    }
+
+    #[test]
+    fn package_decision_covers_the_same_family_only() {
+        let conn = crate::open_in_memory().unwrap();
+        let fam = "https://github.com/awslabs/|c:\\uv\\tools";
+        let a = exe(&conn, 'a', None);
+        let b = exe(&conn, 'b', None);
+        let other_folder = exe(&conn, 'c', None);
+        let plain = exe(&conn, 'd', None);
+        crate::repo::set_package_family(&conn, a, Some(fam)).unwrap();
+        crate::repo::set_package_family(&conn, b, Some(fam)).unwrap();
+        crate::repo::set_package_family(
+            &conn,
+            other_folder,
+            Some("https://github.com/awslabs/|d:\\venv"),
+        )
+        .unwrap();
+        let mut nd = file_decision(a, Scope::Forever);
+        nd.apply_to = ApplyTo::PackageSource;
+        nd.package_family = Some(fam.into());
+        let d = insert_decision(&conn, &nd, T0).unwrap();
+        assert_eq!(active_for(&conn, a, T0).unwrap()[0].id, d);
+        assert_eq!(active_for(&conn, b, T0).unwrap()[0].id, d);
+        assert_eq!(active_for(&conn, other_folder, T0).unwrap().len(), 0);
+        assert_eq!(active_for(&conn, plain, T0).unwrap().len(), 0);
+        assert_eq!(
+            crate::repo::paths_by_package_family(&conn, fam)
+                .unwrap()
+                .len(),
+            2
+        );
+        // Leaving the family (metadata no longer trusted) drops the cover at once.
+        crate::repo::set_package_family(&conn, b, None).unwrap();
+        assert_eq!(active_for(&conn, b, T0).unwrap().len(), 0);
+        nd.package_family = None;
+        assert!(insert_decision(&conn, &nd, T0).is_err());
     }
 
     #[test]

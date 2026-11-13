@@ -183,6 +183,41 @@ fn paths(
     Ok(rows.collect::<Result<_, _>>()?)
 }
 
+/// Record the package family of an executable (`docs/19 §5.1`); `None` clears it, so a launcher
+/// whose metadata no longer names a trusted source leaves the family.
+pub fn set_package_family(
+    conn: &Connection,
+    id: i64,
+    family: Option<&str>,
+) -> Result<(), StoreError> {
+    conn.execute(
+        "UPDATE executables SET package_family = ?2 WHERE id = ?1",
+        params![id, family],
+    )?;
+    Ok(())
+}
+
+/// The package family recorded for an executable, if any.
+pub fn package_family(conn: &Connection, id: i64) -> Result<Option<String>, StoreError> {
+    Ok(conn
+        .query_row(
+            "SELECT package_family FROM executables WHERE id = ?1",
+            params![id],
+            |r| r.get(0),
+        )
+        .optional()?
+        .flatten())
+}
+
+/// Paths of every known executable of a package family.
+pub fn paths_by_package_family(conn: &Connection, family: &str) -> Result<Vec<String>, StoreError> {
+    paths(
+        conn,
+        "SELECT DISTINCT path FROM executables WHERE package_family = ?1",
+        params![family],
+    )
+}
+
 /// Paths of every known executable signed by `thumbprint`.
 pub fn paths_by_thumbprint(conn: &Connection, thumbprint: &str) -> Result<Vec<String>, StoreError> {
     paths(

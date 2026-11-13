@@ -73,6 +73,24 @@ Protocol, Astral, PyPA), PKG-001 adds +30.
 - The file is size-capped (64 KiB) and read once per new image, in `vigil-win`.
 - The AI advisor still decides the rest; hard rules and HA-001/SG-001 are unchanged.
 
+### 5.1 Trusting a package family once
+
+A developer who installs several tools from one source would otherwise answer once per launcher.
+When `vigil-win` finds a trusted source in a launcher's metadata it records the executable's
+**package family**: `<source prefix>|<tools folder>`, where the tools folder is the folder holding
+the environment (for uv, `%AppData%\uv\tools`), case-folded. The Pending card then offers
+`apply_to = package_source` ("Same package source and tools folder").
+
+- The decision covers only executables with the **same family**: same source prefix and same tools
+  folder. A launcher from the same source in another venv, or from another source in the same
+  folder, is not covered.
+- The family is re-read every time an image is registered; a launcher whose metadata stops naming
+  a trusted source leaves the family and the cover stops at once.
+- Every file is still hashed and evaluated; hard rules, HA-001 and SG-001 still win, as for any
+  user decision (HA-002).
+- `decision.submit` refuses `package_source` for an executable with no family (`INVALID_PARAMS`).
+  Exported decisions carry the family; an import of a `package_source` entry without one is skipped.
+
 ## 6. Build order and acceptance
 
 1. Profile data + `vigil_core::profile` (done).

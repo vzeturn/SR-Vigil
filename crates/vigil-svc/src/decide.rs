@@ -59,7 +59,7 @@ fn decision_json(d: &Decision) -> Value {
     json!({
         "id": d.id.to_string(), "identity_id": d.executable_id.to_string(),
         "action": d.action.as_str(), "scope": d.scope.as_str(), "apply_to": d.apply_to.as_str(),
-        "expires_at": d.expires_at, "by": d.by.as_str(), "note": d.note,
+        "package_family": d.package_family, "expires_at": d.expires_at, "by": d.by.as_str(), "note": d.note,
         "created_at": d.created_at, "revoked_at": d.revoked_at,
     })
 }
@@ -82,11 +82,12 @@ impl Shared {
     }
 
     pub(crate) fn pending_item(&self, p: &Pending) -> Option<Value> {
-        let (exe, ev) = self
+        let (exe, ev, family) = self
             .with_store(|c| {
                 Ok::<_, vigil_store::StoreError>((
                     vigil_store::repo::executable_by_id(c, p.executable_id)?,
                     vigil_store::repo::latest_evaluation(c, p.executable_id)?,
+                    vigil_store::repo::package_family(c, p.executable_id)?,
                 ))
             })?
             .ok()?;
@@ -99,7 +100,7 @@ impl Shared {
                 "signer_thumbprint": exe.signer_thumbprint, "publisher": exe.publisher,
                 "company": exe.company, "product": exe.product,
                 "original_filename": exe.original_filename,
-                "signature_status": exe.signature_status,
+                "signature_status": exe.signature_status, "package_family": family,
             },
             "evaluation": {
                 "score": ev.score, "verdict": ev.verdict, "signals": signals,
@@ -250,6 +251,13 @@ impl Shared {
                             "publisher scope needs a signed executable",
                         )));
                     }
+                    let family = vigil_store::repo::package_family(c, exe_id)?;
+                    if apply_to == ApplyTo::PackageSource && family.is_none() {
+                        return Ok(Err(RpcError::new(
+                            INVALID_PARAMS,
+                            "package scope needs a launcher from a trusted package source",
+                        )));
+                    }
                     let id = decisions::insert_decision(
                         c,
                         &NewDecision {
@@ -267,6 +275,7 @@ impl Shared {
                             } else {
                                 None
                             },
+                            package_family: family.filter(|_| apply_to == ApplyTo::PackageSource),
                             by: DecidedBy::User,
                             actor: "user".into(),
                             note: note.clone(),
@@ -311,11 +320,7 @@ impl Shared {
     /// Queue every path `d` covers for re-evaluation, so live verdicts follow the decision.
     fn mark_decided(&self, d: &Decision) {
         let paths = self
-            .with_store(|c| match (&d.publisher_thumbprint, d.apply_to) {
-                (Some(t), ApplyTo::Publisher) => vigil_store::repo::paths_by_thumbprint(c, t),
-                _ => vigil_store::repo::executable_by_id(c, d.executable_id)
-                    .map(|e| e.map(|e| vec![e.path]).unwrap_or_default()),
-            })
+            .with_store(|c| crate::enforce::decision_paths(c, d))
             .and_then(Result::ok)
             .unwrap_or_default();
         self.rejudge_paths

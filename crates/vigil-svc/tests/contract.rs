@@ -293,6 +293,52 @@ async fn decision_flow_matches_the_schema_and_is_audited() {
     );
 }
 
+#[tokio::test]
+async fn package_decisions_need_a_family_and_carry_it() {
+    use vigil_store::decisions::{DestClass, NewPending, create_pending};
+    let schema = schema();
+    let shared = shared();
+    let (client_end, server_end) = tokio::io::duplex(1 << 16);
+    tokio::spawn(handle_connection(server_end, Role::Admin, shared.clone()));
+    let mut c = Client::new(client_end);
+    let params = json!({"identity_id": "1", "action": "allow", "scope": "forever", "apply_to": "package_source"});
+    assert!(
+        c.call("decision.submit", params.clone()).await.is_err(),
+        "a program outside any package family cannot take a package decision"
+    );
+
+    let fam = r"https://github.com/awslabs/|c:\users\a\appdata\roaming\uv\tools";
+    shared
+        .with_store(|conn| {
+            vigil_store::repo::set_package_family(conn, 1, Some(fam)).unwrap();
+            let p = NewPending {
+                executable_id: 1,
+                dest_class: DestClass::Public,
+                dest_addr: "8.8.8.8".into(),
+                dest_port: 443,
+                dns_name: None,
+            };
+            create_pending(conn, &p, time::OffsetDateTime::now_utc()).unwrap();
+        })
+        .unwrap();
+    let list = c.call("pending.list", json!({})).await.unwrap();
+    validate(
+        &schema["x-methods"]["pending.list"]["result"],
+        "pending.list",
+        &list,
+    );
+    assert_eq!(list["items"][0]["identity"]["package_family"], fam);
+
+    let res = c.call("decision.submit", params).await.unwrap();
+    validate(
+        &schema["x-methods"]["decision.submit"]["result"],
+        "decision.submit",
+        &res,
+    );
+    assert_eq!(res["decision"]["apply_to"], "package_source");
+    assert_eq!(res["decision"]["package_family"], fam);
+}
+
 #[test]
 fn freshness_vendor_link_matches_the_schema() {
     let s = schema();

@@ -14,3 +14,6 @@ export const destinationText = (p: PendingItem): string =>
 /** Publisher-wide decisions need a validly signed publisher. */
 export const hasPublisher = (p: PendingItem): boolean =>
   Boolean(p.identity.publisher) && p.identity.signature_status.startsWith('valid');
+
+/** Package-family decisions need a launcher the service placed in a trusted package family. */
+export const hasPackageFamily = (p: PendingItem): boolean => Boolean(p.identity.package_family);

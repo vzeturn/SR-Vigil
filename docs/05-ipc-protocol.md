@@ -119,7 +119,7 @@ Notifications for the `processes` and `connections` topics are **batched** into 
 - `Evaluation`: `score`, `verdict`, `signals: Signal[]`, `hard_rule?`, `rule_pack_version`, `source` (`rules|ai|user|cache`), `evaluated_at`.
 - `Signal`: `id`, `name`, `delta`, `detail?`.
 - `PendingItem`: `id`, `identity`, `evaluation`, `process?`, `destination`, `ai_opinion?`, `created_at`.
-- `Decision`: `id`, `identity_id`, `action`, `scope`, `apply_to`, `expires_at?`, `by` (`user|ai|rule`), `note?`.
+- `Decision`: `id`, `identity_id`, `action`, `scope`, `apply_to` (`file|publisher|package_source`), `package_family?`, `expires_at?`, `by` (`user|ai|rule`), `note?`.
 
 ## 6. Tauri bridge contract
 

@@ -179,8 +179,13 @@ fn register(shared: &Shared, hashes: &HashCache, path: &str) -> Option<i64> {
         original_filename: Some(ver.original_filename).filter(|s| !s.is_empty()),
         signature_status: sig_status(signer.state).into(),
     };
+    let family = vigil_win::observe::package_family(path);
     shared
-        .with_store(|c| upsert_executable(c, &exe, &now()))
+        .with_store(|c| {
+            let id = upsert_executable(c, &exe, &now())?;
+            vigil_store::repo::set_package_family(c, id, family.as_deref())?;
+            Ok::<_, vigil_store::StoreError>(id)
+        })
         .and_then(Result::ok)
 }
 

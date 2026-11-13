@@ -1170,6 +1170,7 @@ impl Shared {
                     apply_to: ApplyTo::File,
                     publisher_thumbprint: None,
                     publisher_product: None,
+                    package_family: None,
                     by: DecidedBy::Ai,
                     actor: "ai".into(),
                     note: Some(format!(

@@ -10,7 +10,7 @@ pub mod decisions;
 pub mod persistence;
 pub mod repo;
 
-use rusqlite::Connection;
+use rusqlite::{Connection, OptionalExtension};
 
 /// Migration 0001 (`schemas/db.sql`), embedded.
 pub const SCHEMA_0001: &str = include_str!("../../../schemas/db.sql");
@@ -18,8 +18,11 @@ pub const SCHEMA_0001: &str = include_str!("../../../schemas/db.sql");
 /// Migration 0002 (`schemas/db-0002.sql`): local baselines.
 pub const SCHEMA_0002: &str = include_str!("../../../schemas/db-0002.sql");
 
+/// Migration 0003 (`schemas/db-0003.sql`): package-family decisions.
+pub const SCHEMA_0003: &str = include_str!("../../../schemas/db-0003.sql");
+
 /// Schema version this build expects (`PRAGMA user_version`).
-pub const SCHEMA_VERSION: i64 = 2;
+pub const SCHEMA_VERSION: i64 = 3;
 
 /// Store failures.
 #[derive(Debug, thiserror::Error)]
@@ -75,6 +78,21 @@ pub fn migrate(conn: &mut Connection) -> Result<(), StoreError> {
         tx.execute_batch(SCHEMA_0002)?;
         tx.commit()?;
     }
+    if found < 3 {
+        // Rebuilding `decisions` drops a table other rows reference: foreign keys must be off,
+        // which SQLite only honours outside a transaction. The check afterwards proves nothing broke.
+        conn.pragma_update(None, "foreign_keys", "OFF")?;
+        let tx = conn.transaction()?;
+        tx.execute_batch(SCHEMA_0003)?;
+        let broken: Option<String> = tx
+            .query_row("PRAGMA foreign_key_check", [], |r| r.get(0))
+            .optional()?;
+        if let Some(table) = broken {
+            return Err(StoreError::Corrupt(format!("foreign key in {table}")));
+        }
+        tx.commit()?;
+        conn.pragma_update(None, "foreign_keys", "ON")?;
+    }
     Ok(())
 }
 
@@ -90,6 +108,32 @@ mod tests {
             .unwrap()
             .map(Result::unwrap)
             .collect()
+    }
+
+    #[test]
+    fn migration_3_keeps_decisions_and_turns_foreign_keys_back_on() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(SCHEMA_0001).unwrap();
+        conn.execute_batch(SCHEMA_0002).unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        conn.execute_batch(
+            "INSERT INTO executables (sha256, path, signature_status, first_seen, last_seen)
+               VALUES ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'C:\\a.exe', 'unsigned', 't', 't');
+             INSERT INTO decisions (executable_id, action, scope, apply_to, by, actor, created_at)
+               VALUES (1, 'allow', 'forever', 'file', 'user', 'user', 't');",
+        )
+        .unwrap();
+        migrate(&mut conn).unwrap();
+        let kept: (i64, Option<String>) = conn
+            .query_row("SELECT id, package_family FROM decisions", [], |r| {
+                Ok((r.get(0)?, r.get(1)?))
+            })
+            .unwrap();
+        assert_eq!(kept, (1, None));
+        let fk: i64 = conn
+            .pragma_query_value(None, "foreign_keys", |r| r.get(0))
+            .unwrap();
+        assert_eq!(fk, 1);
     }
 
     #[test]

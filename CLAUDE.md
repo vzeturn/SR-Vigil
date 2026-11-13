@@ -26,7 +26,7 @@ You are implementing **Vigil**, a Windows endpoint tool that classifies every pr
 | Verdicts | `safe`, `unknown`, `malicious` |
 | Decision actions | `allow`, `block`, `kill` |
 | Decision scopes | `once`, `1h`, `24h`, `forever` |
-| Decision apply_to | `file` (sha256 + path), `publisher` |
+| Decision apply_to | `file` (sha256 + path), `publisher`, `package_source` (same trusted source + tools folder) |
 | Pipe | `\\.\pipe\vigil-control` |
 | Protocol version | `1` |
 | Service name | `VigilSvc` |

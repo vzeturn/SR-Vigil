@@ -13,6 +13,7 @@ function pendingItem(i: number): PendingItem {
       path: `C:\\Users\\Mock\\Downloads\\tool-${i}.exe`,
       publisher: signed ? 'Mock Software Ltd' : null,
       signature_status: signed ? 'valid_embedded' : 'unsigned',
+      package_family: i === 1 ? 'https://github.com/awslabs/|c:\\users\\mock\\appdata\\roaming\\uv\\tools' : null,
     },
     evaluation: {
       score: 42 - i,

@@ -14,7 +14,7 @@
 | FR-006 | Safe identities connect without prompt. | M | M3 |
 | FR-007 | Malicious identities: block network, kill process, block relaunch (in `enforce`). | M | M4 |
 | FR-008 | Unknown identities: block outbound until a decision; create a Pending item and show popup with Allow / Block / Kill. | M | M3 |
-| FR-009 | Decisions have scope (`once`, `1h`, `24h`, `forever`) and `apply_to` (`file` or `publisher`); expiry enforced by the service. | M | M3 |
+| FR-009 | Decisions have scope (`once`, `1h`, `24h`, `forever`) and `apply_to` (`file`, `publisher` or `package_source`); expiry enforced by the service. | M | M3 |
 | FR-010 | Kill process (optionally tree); prevent re-launch via ETW watch + persistent WFP deny + SCM stop/disable (services, with approval). | M | M4 |
 | FR-011 | Persistence audit (Run keys, services, scheduled tasks, startup folders, WMI subscriptions, IFEO, AppInit_DLLs, Winlogon) with reversible disable. | S | M4 |
 | FR-012 | AI advisor: user supplies Anthropic API key; **Advisor** (suggest) and **Auto** (decide above confidence threshold) modes. | S | M5 |

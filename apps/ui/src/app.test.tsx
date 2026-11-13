@@ -64,6 +64,27 @@ describe('M3 screens', () => {
     rpc.mockRestore();
   });
 
+  it('offers a package-family decision only for a launcher in a trusted package family', async () => {
+    const bridge = await getBridge();
+    const rpc = vitest.spyOn(bridge, 'rpc');
+    render(<App />);
+    await userEvent.click(screen.getByRole('button', { name: /Pending/ }));
+    await screen.findByText('tool-1.exe');
+    const selects = screen.getAllByLabelText('Apply to') as HTMLSelectElement[];
+    const enabled = selects.map((sel) => !sel.querySelector<HTMLOptionElement>('option[value="package_source"]')?.disabled);
+    expect(enabled.filter(Boolean)).toHaveLength(1);
+    const i = enabled.indexOf(true);
+    await userEvent.selectOptions(selects[i] as HTMLElement, 'package_source');
+    await userEvent.click(screen.getAllByRole('button', { name: 'Allow' })[i] as HTMLElement);
+    expect(rpc).toHaveBeenCalledWith('decision.submit', {
+      pending_id: 'pending-1',
+      action: 'allow',
+      scope: 'once',
+      apply_to: 'package_source',
+    });
+    rpc.mockRestore();
+  });
+
   it('shows the broken audit chain with text, not colour alone', async () => {
     const bridge = await getBridge();
     const rpc = vitest.spyOn(bridge, 'rpc').mockResolvedValue({ items: [], next_cursor: null, chain_ok: false });

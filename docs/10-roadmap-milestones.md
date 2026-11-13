@@ -180,7 +180,7 @@ root-cause popup. Build order is in `docs/18 §7`.
 - [ ] Destination-based per-browser-tab block (needs a browser-side channel; the OS cannot attribute connections to tabs).
 - [x] Runaway-CPU renderer handling (alert at 5 min, stop at 15 min in `enforce`, `docs/19 §3.1`).
 - [x] User-visible alert event when a tab was stopped (`event.tab_alert`).
-- [ ] One-time "trust this package family" answer for dev tools.
+- [x] One-time "trust this package family" answer for dev tools (`apply_to = package_source`, `docs/19 §5.1`).
 
 ## M15 — Signing depth, MOTW and ASR posture (design in `docs/20`)
 

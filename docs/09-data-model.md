@@ -26,9 +26,9 @@ erDiagram
 
 | Table | Purpose | Key columns |
 |---|---|---|
-| `executables` | One row per identity | `id`, `sha256`, `path`, `signer_thumbprint`, `publisher`, `company`, `product`, `original_filename`, `signature_status`, `first_seen`, `last_seen` — unique `(sha256, path, signer_thumbprint)` |
+| `executables` | One row per identity | `id`, `sha256`, `path`, `signer_thumbprint`, `publisher`, `company`, `product`, `original_filename`, `signature_status`, `first_seen`, `last_seen`, `package_family?` (migration 0003) — unique `(sha256, path, signer_thumbprint)` |
 | `evaluations` | Verdict history | `executable_id`, `score`, `verdict`, `hard_rule`, `signals_json`, `rule_pack_version`, `source`, `evaluated_at` |
-| `decisions` | User/AI/rule decisions | `executable_id`, `action`, `scope`, `apply_to`, `publisher_thumbprint?`, `publisher_product?`, `expires_at`, `by`, `actor`, `note`, `created_at`, `revoked_at` |
+| `decisions` | User/AI/rule decisions | `executable_id`, `action`, `scope`, `apply_to`, `publisher_thumbprint?`, `publisher_product?`, `package_family?` (required for `package_source`), `expires_at`, `by`, `actor`, `note`, `created_at`, `revoked_at` |
 | `pending` | Awaiting decisions | `executable_id`, `dest_class`, `dest_addr`, `dest_port`, `created_at`, `resolved_at`, `resolution_decision_id` |
 | `connections` | Connection history (retention 30 d) | `executable_id`, `pid`, `proto`, `direction`, `local_addr`, `remote_addr`, `remote_port`, `dns_name`, `state`, `first_seen`, `last_seen`, `blocked` |
 | `block_records` | Anti-respawn records | `executable_id`, `sha256`, `path`, `reason`, `respawn_kills`, `created_at` |

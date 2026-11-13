@@ -115,6 +115,19 @@ fn norm(s: &str) -> String {
 }
 
 impl DevPackage {
+    /// Package family key (`docs/19 §5.1`): the trusted source prefix its metadata names plus the
+    /// folder holding its environment (the uv/pipx tools folder), case-folded. Launchers share a
+    /// family only when both match, so one trust decision cannot spread to another tools folder.
+    #[must_use]
+    pub fn family(&self, source: &str) -> Option<String> {
+        let (tools, _) = self
+            .env
+            .trim_end_matches(['\\', '/'])
+            .rsplit_once(['\\', '/'])?;
+        (!tools.is_empty() && !source.is_empty())
+            .then(|| format!("{source}|{}", tools.to_lowercase().replace('/', "\\")))
+    }
+
     /// Whether a `.dist-info` folder name (`awslabs_aws_api_mcp_server-1.2.3.dist-info`) is this package's.
     #[must_use]
     pub fn owns_dist_info(&self, folder: &str) -> bool {
@@ -221,6 +234,23 @@ impl HotTab {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_package_family_joins_the_source_and_the_tools_folder() {
+        let pkg = |p: &str| dev_package(p).unwrap();
+        let a = pkg(r"C:\Users\a\AppData\Roaming\uv\tools\aws-mcp\Scripts\aws-mcp.exe");
+        let b = pkg(r"C:\Users\a\AppData\Roaming\UV\Tools\other\Scripts\other.exe");
+        let elsewhere = pkg(r"D:\work\venv\Scripts\aws-mcp.exe");
+        let src = "https://github.com/awslabs/";
+        assert_eq!(
+            a.family(src).as_deref(),
+            Some(r"https://github.com/awslabs/|c:\users\a\appdata\roaming\uv\tools")
+        );
+        assert_eq!(a.family(src), b.family(src));
+        assert_ne!(a.family(src), elsewhere.family(src));
+        assert_ne!(a.family(src), a.family("https://github.com/other/"));
+        assert_eq!(a.family(""), None);
+    }
 
     /// Samples every 10 s at `share` percent of one core, starting from `tab`.
     fn run(mut tab: HotTab, secs: u64, share: u64, enforce: bool) -> (HotTab, Vec<HotStep>) {

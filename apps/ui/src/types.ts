@@ -91,7 +91,7 @@ export interface TrustedPublisher {
 
 export type Action = 'allow' | 'block' | 'kill';
 export type Scope = 'once' | '1h' | '24h' | 'forever';
-export type ApplyTo = 'file' | 'publisher';
+export type ApplyTo = 'file' | 'publisher' | 'package_source';
 export type SignatureStatus =
   | 'valid_embedded'
   | 'valid_catalog'
@@ -110,6 +110,8 @@ export interface Identity {
   product?: string | null;
   original_filename?: string | null;
   signature_status: SignatureStatus;
+  /** Set for a uv/pip launcher whose metadata names a trusted source (docs/19 §5.1). */
+  package_family?: string | null;
 }
 
 export interface Signal {

@@ -88,7 +88,8 @@
       "type": "string",
       "enum": [
         "file",
-        "publisher"
+        "publisher",
+        "package_source"
       ]
     },
     "EvalSource": {
@@ -300,6 +301,17 @@
         },
         "signature_status": {
           "$ref": "#/$defs/SignatureStatus"
+        },
+        "package_family": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 600
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
@@ -831,6 +843,17 @@
         },
         "apply_to": {
           "$ref": "#/$defs/ApplyTo"
+        },
+        "package_family": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 600
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "expires_at": {
           "anyOf": [

@@ -20,7 +20,7 @@ pub const DECISION_ACTIONS: [&str; 3] = ["allow", "block", "kill"];
 /// Decision scopes.
 pub const DECISION_SCOPES: [&str; 4] = ["once", "1h", "24h", "forever"];
 /// What a decision applies to.
-pub const DECISION_APPLY_TO: [&str; 2] = ["file", "publisher"];
+pub const DECISION_APPLY_TO: [&str; 3] = ["file", "publisher", "package_source"];
 
 /// Named pipe of the control channel.
 pub const PIPE_NAME: &str = r"\.\pipe\vigil-control";

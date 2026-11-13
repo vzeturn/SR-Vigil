@@ -470,6 +470,7 @@ impl Shared {
                     apply_to: decisions::ApplyTo::File,
                     publisher_thumbprint: None,
                     publisher_product: None,
+                    package_family: None,
                     by: decisions::DecidedBy::Rule,
                     actor: "rule".into(),
                     note: Some(format!("auto-contained: {}", hard.unwrap_or("malicious"))),
@@ -543,17 +544,23 @@ impl Shared {
     }
 }
 
-fn decision_paths(
+/// Paths of every known executable a decision covers.
+pub(crate) fn decision_paths(
     c: &rusqlite::Connection,
     d: &Decision,
 ) -> Result<Vec<String>, vigil_store::StoreError> {
     use decisions::ApplyTo;
-    Ok(match (d.apply_to, &d.publisher_thumbprint) {
-        (ApplyTo::Publisher, Some(t)) => vigil_store::repo::paths_by_thumbprint(c, t)?,
-        _ => vigil_store::repo::executable_by_id(c, d.executable_id)?
-            .map(|e| vec![e.path])
-            .unwrap_or_default(),
-    })
+    Ok(
+        match (d.apply_to, &d.publisher_thumbprint, &d.package_family) {
+            (ApplyTo::Publisher, Some(t), _) => vigil_store::repo::paths_by_thumbprint(c, t)?,
+            (ApplyTo::PackageSource, _, Some(f)) => {
+                vigil_store::repo::paths_by_package_family(c, f)?
+            }
+            _ => vigil_store::repo::executable_by_id(c, d.executable_id)?
+                .map(|e| vec![e.path])
+                .unwrap_or_default(),
+        },
+    )
 }
 
 /// Whether `path` names an existing regular file (used by engines to skip stale entries).
