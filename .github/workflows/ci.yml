@@ -62,6 +62,17 @@ jobs:
       - run: cargo build --workspace
       - run: cargo test --workspace
 
+  windows-arm64-build:
+    # Cross-compiled on the x64 image (MSVC ARM64 tools and clang for ring are preinstalled).
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-pc-windows-msvc
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --workspace --all-targets --target aarch64-pc-windows-msvc
+
   windows-integration:
     runs-on: windows-latest
     steps:

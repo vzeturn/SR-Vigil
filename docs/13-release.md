@@ -9,9 +9,10 @@ Prerequisites on the **build** machine only (end users need nothing): Rust (stab
 ```powershell
 .\installer\build.ps1 -Version 1.0.0            # unsigned
 .\installer\build.ps1 -Version 1.0.0 -SignCert <sha1-thumbprint>   # signed
+.\installer\build.ps1 -Version 1.0.0 -Arch arm64   # Windows on ARM (cross-compiled)
 ```
 
-Output: `dist\Vigil-<version>.msi` and `dist\Vigil-<version>.msi.sha256`. The binaries link the C runtime statically (`.cargo/config.toml`), so no Visual C++ redistributable is needed. The UI uses the system WebView2 runtime, which ships with Windows 11 and current Windows 10; on an older Windows 10 without it, install the Evergreen runtime once (tracked in `docs/10`).
+Output: `dist\Vigil-<version>.msi` and `dist\Vigil-<version>.msi.sha256` (x64), or `dist\Vigil-<version>-arm64.msi` and its `.sha256` for `-Arch arm64`; binaries are staged in `dist\bin\<arch>`. The ARM64 build cross-compiles on an x64 host and needs the MSVC ARM64 build tools and clang (for `ring`); the GitHub `windows-latest` image has both. The binaries link the C runtime statically (`.cargo/config.toml`), so no Visual C++ redistributable is needed. The UI uses the system WebView2 runtime, which ships with Windows 11 and current Windows 10; on an older Windows 10 without it, install the Evergreen runtime once (tracked in `docs/10`).
 
 What the MSI does (`installer/Vigil.wxs`):
 

@@ -76,9 +76,10 @@ Non-loopback endpoint for network tests: the runner's own LAN/IP address with a 
 | `lint` | ubuntu | fmt, clippy (`-D warnings`), `cargo deny`, `cargo audit` |
 | `core-tests` | ubuntu | `cargo test -p vigil-core -p vigil-store -p vigil-ipc -p vigil-ai` |
 | `windows-build` | windows-latest | `cargo build --workspace`, `cargo test --workspace` |
+| `windows-arm64-build` | windows-latest | `cargo build --workspace --all-targets --target aarch64-pc-windows-msvc` (cross-compile) |
 | `windows-integration` | windows-latest (elevated) | `cargo test -p vigil-win --features integration -- --test-threads=1` |
 | `ui` | windows-latest | `pnpm install`, lint, typecheck, vitest, Playwright |
-| `release` | windows-latest | build MSI, SBOM, sign (manual approval) |
+| `release` | windows-latest | build x64 and ARM64 binaries, sign, one MSI per architecture, SBOM |
 
 ## 8. Definition of done (per PR)
 
@@ -190,3 +191,8 @@ Disposable Windows 10 and Windows 11 VM snapshots, standard user plus an admin a
 
 - Automated: `cargo test -p vigil-win --features integration --test mitigations` (elevated: every policy is in effect and WFP, DPAPI, WinVerifyTrust, hashing and process snapshots still work), `cargo test -p vigil-win --features integration deleted_filters` (a deletion from another session is reported by key), `cargo test -p vigil-svc --test tamper` (a deleted filter forces a resync, an audit row and the event).
 - Manual (Windows, elevated, service running in `enforce`): Process Explorer, `vigil-svc.exe` properties, shows the mitigation policies (strict handle checks, extension points disabled, dynamic code prohibited, image-load restrictions). Block a test program, then delete its filter from another elevated shell with `netsh wfp show filters` to find the key and a short PowerShell `FwpmFilterDeleteByKey0` call. A "Vigil protection changed" toast appears, the filter is back in the next `netsh wfp show filters`, and the audit log has a `filter_remove` row by `unknown`.
+
+## Windows on ARM checks (ARM64 MSI)
+
+- Automated: the `windows-arm64-build` CI job cross-compiles the whole workspace for `aarch64-pc-windows-msvc`; the release builds `Vigil-<version>-arm64.msi`. No hosted runner executes the ARM64 binaries, so the run is checked by hand.
+- Manual (Windows 11 ARM64 VM, e.g. Hyper-V on an ARM64 host or a cloud ARM64 VM, snapshot first): install `Vigil-<version>-arm64.msi`. Task Manager, Details, column "Architecture" shows `ARM64` for `vigil-svc.exe` and `vigil-ui.exe` (not emulated x64), and `vigilctl status` is healthy. Repeat section 10 steps 1 to 5. In `enforce`, block a test program and confirm it cannot connect (`netsh wfp show filters` lists the deny). New programs appear on the Processes page within a second (ETW feed), and the AI test call works when a key is set. Uninstall leaves no Vigil filter.

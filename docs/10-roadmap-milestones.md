@@ -217,7 +217,7 @@ root-cause popup. Build order is in `docs/18 §7`.
 - Bundle the WebView2 Evergreen bootstrapper in the MSI (Windows 11 and current Windows 10 already ship the runtime; older Windows 10 needs it installed once).
 
 - Per-service WFP filtering via service SID for `svchost` (done: `service.block_network`, `docs/04 §3`).
-- ARM64 build.
+- ARM64 build (done: CI cross-build, separate `Vigil-<version>-arm64.msi`; native run is a manual VM check, `docs/11`).
 - Signed remote rule-pack updates (Ed25519).
 - Fleet management console and SIEM export (syslog/Windows Event Forwarding).
 - Local small-model verdict option (no cloud).

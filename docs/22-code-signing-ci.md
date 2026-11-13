@@ -4,7 +4,7 @@ Vigil judges others by signature, so its own `vigil-svc.exe`, `vigilctl.exe`, `v
 
 ## 1. Pipeline (`.github/workflows/release.yml`)
 
-`build` compiles and stages `dist/bin` (`build.ps1 -Stage build`), `sign` submits the three executables to SignPath, `msi` downloads the signed set, packages it (`-Stage package`) and verifies every executable with `Get-AuthenticodeSignature` (fails unless `Valid`). The MSI itself is signed by the same policy in a follow-up request once the project is approved. The `sign` job is skipped while the repository variable `SIGNPATH_ORGANIZATION_ID` is unset, so releases remain possible but unsigned and are labelled as such.
+`build` compiles and stages `dist/bin/x64` and `dist/bin/arm64` (`build.ps1 -Stage build -Arch <arch>`), `sign` submits the three executables of each architecture to SignPath (one request per architecture), `msi` downloads the signed set of its architecture, packages it (`-Stage package`) and verifies every executable with `Get-AuthenticodeSignature` (fails unless `Valid`). The MSI itself is signed by the same policy in a follow-up request once the project is approved. The `sign` job is skipped while the repository variable `SIGNPATH_ORGANIZATION_ID` is unset, so releases remain possible but unsigned and are labelled as such.
 
 Local or alternative-CA signing is unchanged: `build.ps1 -SignCert <thumbprint>` (`docs/13`).
 

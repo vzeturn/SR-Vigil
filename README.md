@@ -8,7 +8,7 @@ Vigil is an open-source, user-mode endpoint tool for Windows 10 1809+ / 11. It w
 
 ## Download
 
-Get `Vigil-1.0.0.msi` and its `.sha256` from the [latest release](https://github.com/vzeturn/SR-Vigil/releases/latest), check the hash (`Get-FileHash .\Vigil-1.0.0.msi`), and run the installer as administrator. Windows SmartScreen will warn until the build is signed. Vigil starts in `learning` mode and blocks nothing until you choose `enforce`.
+Get `Vigil-1.0.0.msi` and its `.sha256` from the [latest release](https://github.com/vzeturn/SR-Vigil/releases/latest), check the hash (`Get-FileHash .\Vigil-1.0.0.msi`), and run the installer as administrator. On a Windows on ARM device, take the `-arm64.msi` file instead (releases after 1.0.1). Windows SmartScreen will warn until the build is signed. Vigil starts in `learning` mode and blocks nothing until you choose `enforce`.
 
 **Platforms:** Windows 10/11 today. macOS is planned in stages (portability refactor, observe-only, then enforcement); see [docs/17-cross-platform-macos.md](docs/17-cross-platform-macos.md).
 

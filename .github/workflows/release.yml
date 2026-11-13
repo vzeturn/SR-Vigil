@@ -14,8 +14,11 @@ env:
 jobs:
   build:
     runs-on: windows-latest
+    # Both architectures in one job so `sign` can address each artifact by its id. ARM64 is
+    # cross-compiled; the hosted image carries the MSVC ARM64 tools and clang that ring needs.
     outputs:
-      artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+      artifact-x64: ${{ steps.unsigned-x64.outputs.artifact-id }}
+      artifact-arm64: ${{ steps.unsigned-arm64.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -32,13 +35,20 @@ jobs:
           VIGIL_PROXY_URL: ${{ vars.VIGIL_PROXY_URL }}
           # Optional override of the signed version catalogue endpoint (defaults to the project Worker).
           VIGIL_CATALOGUE_URL: ${{ vars.VIGIL_CATALOGUE_URL }}
-        run: ./installer/build.ps1 -Version $env:VERSION -Stage build
+        run: |
+          ./installer/build.ps1 -Version $env:VERSION -Stage build -Arch x64
+          ./installer/build.ps1 -Version $env:VERSION -Stage build -Arch arm64
         shell: pwsh
       - uses: actions/upload-artifact@v4
-        id: unsigned
+        id: unsigned-x64
         with:
-          name: vigil-bin-unsigned
-          path: dist/bin/*.exe
+          name: vigil-bin-unsigned-x64
+          path: dist/bin/x64/*.exe
+      - uses: actions/upload-artifact@v4
+        id: unsigned-arm64
+        with:
+          name: vigil-bin-unsigned-arm64
+          path: dist/bin/arm64/*.exe
 
   # Signing through SignPath (free for open-source projects, see docs/22). Skipped until the repository
   # variable SIGNPATH_ORGANIZATION_ID exists; the MSI is then packaged from the unsigned binaries.
@@ -46,6 +56,9 @@ jobs:
     needs: build
     if: ${{ vars.SIGNPATH_ORGANIZATION_ID != '' }}
     runs-on: windows-latest
+    strategy:
+      matrix:
+        arch: [x64, arm64]
     steps:
       - uses: signpath/github-action-submit-signing-request@v1
         with:
@@ -53,42 +66,48 @@ jobs:
           organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
           project-slug: vigil
           signing-policy-slug: release-signing
-          github-artifact-id: ${{ needs.build.outputs.artifact-id }}
+          github-artifact-id: ${{ needs.build.outputs[format('artifact-{0}', matrix.arch)] }}
           wait-for-completion: true
           output-artifact-directory: signed-bin
       - uses: actions/upload-artifact@v4
         with:
-          name: vigil-bin-signed
+          name: vigil-bin-signed-${{ matrix.arch }}
           path: signed-bin/*.exe
 
   msi:
     needs: [build, sign]
     if: ${{ !cancelled() && needs.build.result == 'success' && (needs.sign.result == 'success' || needs.sign.result == 'skipped') }}
     runs-on: windows-latest
+    strategy:
+      matrix:
+        arch: [x64, arm64]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: ${{ needs.sign.result == 'success' && 'vigil-bin-signed' || 'vigil-bin-unsigned' }}
-          path: dist/bin
+          name: ${{ needs.sign.result == 'success' && 'vigil-bin-signed' || 'vigil-bin-unsigned' }}-${{ matrix.arch }}
+          path: dist/bin/${{ matrix.arch }}
       - run: dotnet tool install --global wix --version 5.0.2
       - run: cargo install cargo-cyclonedx --locked
+        if: ${{ matrix.arch == 'x64' }}
       - name: Package MSI
-        run: ./installer/build.ps1 -Version $env:VERSION -Stage package
+        run: ./installer/build.ps1 -Version $env:VERSION -Stage package -Arch ${{ matrix.arch }}
         shell: pwsh
       - name: Verify signatures (signed builds only)
         if: ${{ needs.sign.result == 'success' }}
         shell: pwsh
         run: |
-          Get-ChildItem dist/bin -Filter *.exe | ForEach-Object {
+          Get-ChildItem dist/bin/${{ matrix.arch }} -Filter *.exe | ForEach-Object {
             $s = Get-AuthenticodeSignature $_.FullName
             if ($s.Status -ne 'Valid') { throw "$($_.Name): $($s.Status)" }
           }
       - name: SBOM
+        # The SBOM describes the source dependency set, identical for both architectures.
+        if: ${{ matrix.arch == 'x64' }}
         run: cargo cyclonedx --format json --all
       - uses: actions/upload-artifact@v4
         with:
-          name: vigil-release
+          name: vigil-release-${{ matrix.arch }}
           path: |
             dist/*.msi
             dist/*.sha256
@@ -105,7 +124,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: vigil-release
+          pattern: vigil-release-*
+          merge-multiple: true
           path: release
       - name: Publish GitHub Release
         env:
