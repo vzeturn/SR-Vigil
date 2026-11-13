@@ -60,6 +60,7 @@ mod win {
             );
         }
         tokio::spawn(Arc::clone(&shared).pump_drops());
+        tokio::spawn(Arc::clone(&shared).pump_tamper());
         tokio::spawn(Arc::clone(&shared).maintain());
         tokio::spawn(vigil_svc::ai_usage::digest_loop(Arc::clone(&shared)));
         if let Ok(dir) = host::data_dir() {
@@ -114,11 +115,15 @@ mod win {
         }
     }
 
-    /// Self-protection at service start (docs/08 §5): lock the DLL search path and make sure the
+    /// Self-protection at service start (docs/08 §5): lock the DLL search path, apply the process
+    /// mitigation safe set (failures logged, never fatal) and make sure the
     /// data directory is SYSTEM/Administrators only, auditing any drift that had to be repaired.
     fn harden() -> bool {
         if let Err(e) = vigil_win::harden::restrict_dll_search() {
             tracing::warn!(error = %e, "could not restrict DLL search path");
+        }
+        for (policy, e) in vigil_win::harden::apply_mitigations() {
+            tracing::warn!(policy, error = %e, "process mitigation not applied");
         }
         let Some(dir) =
             std::env::var_os("PROGRAMDATA").map(|p| std::path::PathBuf::from(p).join("Vigil"))

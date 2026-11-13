@@ -31,6 +31,15 @@ pub struct DropInfo {
     pub remote_port: u16,
 }
 
+/// A Vigil filter that another program deleted (docs/08 §5).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Tampered {
+    /// Filter kind tag: `deny`, `inbound-deny`, `service-deny`, `permit`, `catch-all`, `loopback`.
+    pub filter: &'static str,
+    /// Program path or service name; empty for the machine-wide filters.
+    pub target: String,
+}
+
 /// Platform filter engine. Implementations must be idempotent: applying the same set twice is a no-op.
 pub trait FilterEngine: Send + Sync {
     /// Make the persistent explicit denies exactly `denies`; with `inbound` each deny also refuses
@@ -50,6 +59,11 @@ pub trait FilterEngine: Send + Sync {
     fn panic(&self) -> usize;
     /// Start forwarding blocked connections to `tx`.
     fn watch_drops(&self, tx: UnboundedSender<DropInfo>) -> Result<(), String>;
+    /// Start reporting Vigil filters deleted by another program; the engine forgets each one so
+    /// the next resync puts it back. Engines without change notifications ignore it.
+    fn watch_tamper(&self, _tx: UnboundedSender<Tampered>) -> Result<(), String> {
+        Ok(())
+    }
 }
 
 /// What the filter engine should hold for the current decisions.
@@ -387,6 +401,44 @@ impl Shared {
                 tokio::spawn(Arc::clone(&self).ai_assess_open_pending());
             }
         }
+    }
+
+    /// Put back Vigil filters another program deleted, audit it and tell the user.
+    pub async fn pump_tamper(self: Arc<Self>) {
+        let Some(engine) = self.engine() else { return };
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        if let Err(e) = engine.watch_tamper(tx) {
+            tracing::warn!(error = %e, "filter change subscription failed");
+            return;
+        }
+        while let Some(t) = rx.recv().await {
+            self.on_tamper(&t);
+        }
+    }
+
+    /// One foreign deletion: restore by forcing a full resync, then audit and alert.
+    pub fn on_tamper(&self, t: &Tampered) {
+        tracing::warn!(filter = t.filter, target = %t.target, "a Vigil filter was deleted by another program");
+        *self.last_applied_slot() = None;
+        let restored = match self.resync_enforcement() {
+            Ok(()) => true,
+            Err(e) => {
+                tracing::error!(error = %e, "could not restore a deleted filter");
+                false
+            }
+        };
+        let details = json!({ "filter": t.filter, "target": t.target, "by": "another program", "restored": restored });
+        self.audit(
+            "unknown",
+            AuditKind::FilterRemove,
+            (!t.target.is_empty()).then_some(t.target.as_str()),
+            &details,
+        );
+        self.emit(
+            "enforcement",
+            "event.filter_tampered",
+            json!({ "filter": t.filter, "target": t.target, "restored": restored }),
+        );
     }
 
     /// Create a pending item for a blocked connection; true when a new item was created.

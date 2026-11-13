@@ -3415,6 +3415,35 @@
         "dll",
         "reason"
       ]
+    },
+    "event.filter_tampered": {
+      "type": "object",
+      "properties": {
+        "filter": {
+          "type": "string",
+          "enum": [
+            "deny",
+            "inbound-deny",
+            "service-deny",
+            "permit",
+            "catch-all",
+            "loopback"
+          ]
+        },
+        "target": {
+          "type": "string",
+          "maxLength": 32767
+        },
+        "restored": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "filter",
+        "target",
+        "restored"
+      ]
     }
   },
   "oneOf": [

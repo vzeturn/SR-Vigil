@@ -34,19 +34,22 @@ use windows::Win32::NetworkManagement::WindowsFilteringPlatform::{
     FWP_ACTION_BLOCK, FWP_ACTION_PERMIT, FWP_ACTION_TYPE, FWP_BYTE_BLOB, FWP_BYTE_BLOB_TYPE,
     FWP_CONDITION_FLAG_IS_LOOPBACK, FWP_CONDITION_VALUE0, FWP_CONDITION_VALUE0_0,
     FWP_IP_VERSION_V6, FWP_MATCH_EQUAL, FWP_MATCH_FLAGS_ALL_SET, FWP_SECURITY_DESCRIPTOR_TYPE,
-    FWP_UINT8, FWP_UINT32, FWP_VALUE0, FWPM_CONDITION_ALE_APP_ID, FWPM_CONDITION_ALE_USER_ID,
-    FWPM_CONDITION_FLAGS, FWPM_ENGINE_COLLECT_NET_EVENTS, FWPM_FILTER_CONDITION0,
-    FWPM_FILTER_FLAG_PERSISTENT, FWPM_FILTER_FLAGS, FWPM_FILTER0, FWPM_LAYER_ALE_AUTH_CONNECT_V4,
+    FWP_UINT8, FWP_UINT32, FWP_VALUE0, FWPM_CHANGE_DELETE, FWPM_CONDITION_ALE_APP_ID,
+    FWPM_CONDITION_ALE_USER_ID, FWPM_CONDITION_FLAGS, FWPM_ENGINE_COLLECT_NET_EVENTS,
+    FWPM_FILTER_CHANGE0, FWPM_FILTER_CONDITION0, FWPM_FILTER_FLAG_PERSISTENT, FWPM_FILTER_FLAGS,
+    FWPM_FILTER_SUBSCRIPTION0, FWPM_FILTER0, FWPM_LAYER_ALE_AUTH_CONNECT_V4,
     FWPM_LAYER_ALE_AUTH_CONNECT_V6, FWPM_LAYER_ALE_AUTH_RECV_ACCEPT_V4,
     FWPM_LAYER_ALE_AUTH_RECV_ACCEPT_V6, FWPM_NET_EVENT_FLAG_REMOTE_ADDR_SET,
     FWPM_NET_EVENT_FLAG_REMOTE_PORT_SET, FWPM_NET_EVENT_SUBSCRIPTION0,
     FWPM_NET_EVENT_TYPE_CLASSIFY_DROP, FWPM_NET_EVENT1, FWPM_PROVIDER_FLAG_PERSISTENT,
     FWPM_PROVIDER0, FWPM_SESSION_FLAG_DYNAMIC, FWPM_SESSION0, FWPM_SUBLAYER_FLAG_PERSISTENT,
-    FWPM_SUBLAYER0, FwpmEngineClose0, FwpmEngineOpen0, FwpmEngineSetOption0, FwpmFilterAdd0,
-    FwpmFilterCreateEnumHandle0, FwpmFilterDeleteByKey0, FwpmFilterDestroyEnumHandle0,
-    FwpmFilterEnum0, FwpmFreeMemory0, FwpmGetAppIdFromFileName0, FwpmNetEventSubscribe0,
-    FwpmNetEventUnsubscribe0, FwpmProviderAdd0, FwpmProviderDeleteByKey0, FwpmSubLayerAdd0,
-    FwpmSubLayerDeleteByKey0, FwpmTransactionAbort0, FwpmTransactionBegin0, FwpmTransactionCommit0,
+    FWPM_SUBLAYER0, FWPM_SUBSCRIPTION_FLAG_NOTIFY_ON_DELETE, FwpmEngineClose0, FwpmEngineOpen0,
+    FwpmEngineSetOption0, FwpmFilterAdd0, FwpmFilterCreateEnumHandle0, FwpmFilterDeleteByKey0,
+    FwpmFilterDestroyEnumHandle0, FwpmFilterEnum0, FwpmFilterSubscribeChanges0,
+    FwpmFilterUnsubscribeChanges0, FwpmFreeMemory0, FwpmGetAppIdFromFileName0,
+    FwpmNetEventSubscribe0, FwpmNetEventUnsubscribe0, FwpmProviderAdd0, FwpmProviderDeleteByKey0,
+    FwpmSubLayerAdd0, FwpmSubLayerDeleteByKey0, FwpmTransactionAbort0, FwpmTransactionBegin0,
+    FwpmTransactionCommit0,
 };
 use windows::Win32::Security::Authorization::ConvertStringSecurityDescriptorToSecurityDescriptorW;
 use windows::Win32::Security::PSECURITY_DESCRIPTOR;
@@ -665,6 +668,95 @@ impl Engine {
     }
 }
 
+impl Engine {
+    /// Subscribes to filter deletions anywhere in the engine (no template: the callback only
+    /// carries the key, so the caller matches keys it owns). Dropping the subscription
+    /// unsubscribes. Used to notice another program removing Vigil's filters (docs/08 §5).
+    /// WFP does not report a session's own changes, only those made through other sessions.
+    pub fn subscribe_filter_deletes(
+        &self,
+    ) -> Result<(FilterChangeSubscription<'_>, UnboundedReceiver<[u8; 16]>)> {
+        let (tx, rx) = unbounded_channel();
+        let ctx = Box::into_raw(Box::new(ChangeContext {
+            tx,
+            closed: AtomicBool::new(false),
+        }));
+        let mut subscription = FWPM_FILTER_SUBSCRIPTION0::default();
+        subscription.flags = FWPM_SUBSCRIPTION_FLAG_NOTIFY_ON_DELETE.0;
+        let mut handle = HANDLE::default();
+        // SAFETY: valid engine handle; `subscription` outlives the call; `ctx` is a leaked Box that
+        // stays valid forever (see `FilterChangeSubscription::drop`); the callback never unwinds.
+        let rc = unsafe {
+            FwpmFilterSubscribeChanges0(
+                self.handle,
+                &raw const subscription,
+                Some(on_filter_change),
+                Some(ctx.cast_const().cast::<c_void>()),
+                &raw mut handle,
+            )
+        };
+        if let Err(e) = check(rc) {
+            // SAFETY: the subscription failed, so WFP holds no copy of `ctx`.
+            drop(unsafe { Box::from_raw(ctx) });
+            return Err(e);
+        }
+        Ok((
+            FilterChangeSubscription {
+                engine: self,
+                handle,
+                ctx,
+            },
+            rx,
+        ))
+    }
+}
+
+struct ChangeContext {
+    tx: UnboundedSender<[u8; 16]>,
+    closed: AtomicBool,
+}
+
+/// Active filter-deletion subscription; unsubscribes on drop.
+pub struct FilterChangeSubscription<'e> {
+    engine: &'e Engine,
+    handle: HANDLE,
+    ctx: *mut ChangeContext,
+}
+
+// SAFETY: `ctx` points to a leaked, `Sync` ChangeContext; `handle` is a thread-safe WFP handle.
+unsafe impl Send for FilterChangeSubscription<'_> {}
+
+impl Drop for FilterChangeSubscription<'_> {
+    fn drop(&mut self) {
+        // SAFETY: valid engine and subscription handles; unsubscribed once.
+        let rc = unsafe { FwpmFilterUnsubscribeChanges0(self.engine.handle, self.handle) };
+        if rc != 0 {
+            tracing::warn!(rc, "FwpmFilterUnsubscribeChanges0 failed");
+        }
+        // SAFETY: the context is intentionally never freed (a callback may still be running when
+        // unsubscribe returns), so the pointer is always valid; we only flag it closed.
+        unsafe { (*self.ctx).closed.store(true, Ordering::Release) };
+    }
+}
+
+unsafe extern "system" fn on_filter_change(
+    context: *mut c_void,
+    change: *const FWPM_FILTER_CHANGE0,
+) {
+    // Never unwind across the FFI boundary.
+    let _ = catch_unwind(AssertUnwindSafe(|| {
+        if context.is_null() || change.is_null() {
+            return;
+        }
+        // SAFETY: `context` is the leaked ChangeContext passed at subscribe time; `change` is
+        // valid for the duration of this callback.
+        let (ctx, change) = unsafe { (&*context.cast::<ChangeContext>(), &*change) };
+        if !ctx.closed.load(Ordering::Acquire) && change.changeType == FWPM_CHANGE_DELETE {
+            let _ = ctx.tx.send(change.filterKey.to_u128().to_be_bytes());
+        }
+    }));
+}
+
 fn open_handle(dynamic: bool) -> Result<HANDLE> {
     let name = crate::to_wide("Vigil");
     let mut session = FWPM_SESSION0::default();
@@ -1281,6 +1373,31 @@ mod live {
         for k in filter_keys_of(&id, FilterKind::Deny) {
             assert!(!after.contains(&k), "deny filter still present");
         }
+    }
+
+    #[test]
+    fn deleted_filters_are_reported_by_key() {
+        let engine = Engine::open_dynamic().expect("open");
+        // A session is not told of its own changes, so watch from a second one.
+        let watcher = Engine::open_dynamic().expect("open watcher");
+        let (_sub, mut rx) = watcher.subscribe_filter_deletes().expect("subscribe");
+        let file = Throwaway::new("watch");
+        let id = ids::path_identity_key(&file.0);
+        engine
+            .transaction(|tx| tx.put_app(FilterKind::Deny, &file.0, Scope::Dynamic))
+            .expect("add");
+        engine
+            .remove_identity(&id, FilterKind::Deny)
+            .expect("remove");
+        let mut want = filter_keys_of(&id, FilterKind::Deny).to_vec();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        while !want.is_empty() && std::time::Instant::now() < deadline {
+            match rx.try_recv() {
+                Ok(k) => want.retain(|w| *w != k),
+                Err(_) => std::thread::sleep(std::time::Duration::from_millis(20)),
+            }
+        }
+        assert!(want.is_empty(), "no delete notification for {want:?}");
     }
 
     #[test]

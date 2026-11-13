@@ -184,6 +184,11 @@ async fn emitted_events_match_the_schema() {
         "event.service_alert",
         &json!({"service": "Evil", "display_name": "Evil Helper", "dll": "C:/Users/a/x.dll", "reason": "writable_location"}),
     );
+    validate(
+        &s["x-events"]["event.filter_tampered"],
+        "event.filter_tampered",
+        &json!({"filter": "deny", "target": "C:/Users/a/x.exe", "restored": true}),
+    );
     sh.remove_process(1, "2026-01-01T00:00:00Z");
     sh.sync_connections(vec![]);
     sh.set_mode("learning", false).unwrap();

@@ -1,4 +1,5 @@
-//! Self-protection primitives (docs/08 §5): DLL search-path lock-down and the data-directory ACL.
+//! Self-protection primitives (docs/08 §5): DLL search-path lock-down, process mitigation
+//! policies and the data-directory ACL.
 
 use std::path::Path;
 
@@ -16,7 +17,10 @@ use windows::Win32::System::LibraryLoader::{
     LOAD_LIBRARY_SEARCH_SYSTEM32, SetDefaultDllDirectories,
 };
 use windows::Win32::System::Threading::{
-    BELOW_NORMAL_PRIORITY_CLASS, GetCurrentProcess, SetPriorityClass,
+    BELOW_NORMAL_PRIORITY_CLASS, GetCurrentProcess, GetProcessMitigationPolicy,
+    PROCESS_MITIGATION_POLICY, ProcessDynamicCodePolicy, ProcessExtensionPointDisablePolicy,
+    ProcessImageLoadPolicy, ProcessStrictHandleCheckPolicy, SetPriorityClass,
+    SetProcessMitigationPolicy,
 };
 use windows::core::{PCWSTR, PWSTR};
 
@@ -35,6 +39,57 @@ pub fn lower_priority() -> Result<(), windows::core::Error> {
 pub fn restrict_dll_search() -> Result<(), windows::core::Error> {
     // SAFETY: plain call with a documented flag; no pointers involved.
     unsafe { SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_SYSTEM32) }
+}
+
+/// The mitigation "safe set" (docs/08 §5). Each policy structure is a single `DWORD` of flag bits:
+/// strict handle checks (raise on an invalid handle, permanently), legacy extension points off
+/// (`AppInit` DLLs, IMEs, shims), no images from remote shares or low-integrity files plus System32
+/// preferred, and no dynamic code. The Microsoft-signed-only image policy is deliberately left out
+/// (it would refuse third-party drivers' user-mode helpers and security-product hooks).
+pub const MITIGATIONS: [(&str, PROCESS_MITIGATION_POLICY, u32); 4] = [
+    ("strict_handle_check", ProcessStrictHandleCheckPolicy, 0b11),
+    (
+        "extension_point_disable",
+        ProcessExtensionPointDisablePolicy,
+        0b1,
+    ),
+    ("image_load", ProcessImageLoadPolicy, 0b111),
+    ("dynamic_code", ProcessDynamicCodePolicy, 0b1),
+];
+
+/// Apply [`MITIGATIONS`] to the current process. Returns the ones Windows refused, by name; the
+/// caller logs them and carries on (a missing mitigation is never fatal).
+#[must_use]
+pub fn apply_mitigations() -> Vec<(&'static str, windows::core::Error)> {
+    MITIGATIONS
+        .iter()
+        .filter_map(|&(name, policy, flags)| {
+            // SAFETY: `flags` is a live `u32`, the exact size and layout of every policy structure
+            // above (a one-DWORD union of flag bits); Windows only reads it during the call.
+            unsafe {
+                SetProcessMitigationPolicy(policy, (&raw const flags).cast(), size_of::<u32>())
+            }
+            .err()
+            .map(|e| (name, e))
+        })
+        .collect()
+}
+
+/// The flag bits of `policy` currently in force for this process (`None` if unreadable).
+#[must_use]
+pub fn mitigation_flags(policy: PROCESS_MITIGATION_POLICY) -> Option<u32> {
+    let mut flags = 0u32;
+    // SAFETY: the pseudo-handle is valid; `flags` is a writable `u32`, the size of the structure.
+    unsafe {
+        GetProcessMitigationPolicy(
+            GetCurrentProcess(),
+            policy,
+            (&raw mut flags).cast(),
+            size_of::<u32>(),
+        )
+    }
+    .ok()
+    .map(|()| flags)
 }
 
 fn free(ptr: *mut core::ffi::c_void) {

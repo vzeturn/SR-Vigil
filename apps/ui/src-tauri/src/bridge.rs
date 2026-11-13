@@ -182,6 +182,21 @@ fn forward_pending(app: &AppHandle, client: &mut Client<NamedPipeClient>) {
                 );
                 crate::popup::toast(app, "Vigil service warning", &body);
             }
+            "event.filter_tampered" => {
+                let target = params["target"].as_str().unwrap_or("");
+                let what = match params["filter"].as_str().unwrap_or("") {
+                    "catch-all" | "loopback" => "its network lock".to_owned(),
+                    "permit" => format!("the allow rule for {target}"),
+                    _ => format!("the block on {target}"),
+                };
+                let outcome = if params["restored"] == true {
+                    "Vigil put it back."
+                } else {
+                    "Vigil could not put it back; check the service log."
+                };
+                let body = format!("Another program removed {what}. {outcome}");
+                crate::popup::toast(app, "Vigil protection changed", &body);
+            }
             "event.ai_digest" => {
                 let g = |k: &str| params[k].as_u64().unwrap_or(0);
                 let body = format!(

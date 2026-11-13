@@ -59,8 +59,8 @@ Status: **done** = implemented and compile/unit verified; **VM** = implemented, 
 - Service DACL restricts control to SYSTEM and Administrators (query-only for users); restart-on-failure recovery configured in `installer/Vigil.wxs`. Status: VM.
 - Data dir ACL verified at start (re-applied if drifted, audited as `config_change`). Status: done (`vigil_win::harden::ensure_data_dir_acl`), elevated check VM.
 - Load-library search path hardened (`SetDefaultDllDirectories`, System32 only). Status: done.
-- Process mitigation policies (dynamic-code prohibit, image-load restrictions): tracked, because they conflict with the WebView2/ETW components until measured.
-- Detect and alert on service stop attempts, filter deletions not initiated by Vigil (WFP change events) and data-dir ACL changes: ACL drift at start is audited; live WFP-event subscription is tracked.
+- Process mitigation policies on the service at start: strict handle checks, extension-point disable (no AppInit or legacy hook DLLs), image-load restrictions (no remote images, no low-label images, System32 first) and dynamic-code prohibit. The service hosts no WebView2, and ETW, WFP, DPAPI, WinVerifyTrust and process snapshots are verified to work under them. Microsoft-signed-only image loading is not applied (it would refuse vendor-signed system DLLs). A policy that fails is logged and never stops the service.
+- Detect and alert on service stop attempts, filter deletions not initiated by Vigil (WFP change events) and data-dir ACL changes: ACL drift at start is audited. The service subscribes to WFP filter deletions; a deleted key that Vigil still holds (a deny, inbound deny, service deny, permit, or the armed catch-all/loopback pair) was removed by another session, because Vigil updates its own state before it deletes and WFP does not report a session its own changes. The filter is put back by a forced resync, audited as `filter_remove` with actor `unknown`, and reported as `event.filter_tampered`.
 
 ## 6. Compliance mapping (ISO/IEC 27001:2022 Annex A, ISO/IEC 27701:2025)
 
