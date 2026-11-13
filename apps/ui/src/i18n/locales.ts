@@ -597,6 +597,13 @@ export const en = {
     enable: 'Download new detection rules daily',
     failed: 'Failed: {{code}}',
   },
+  event_log: {
+    title: 'Copy the audit log to Windows',
+    intro:
+      'Optional. Every entry in the audit log is also written to the Windows Application log under the source "Vigil", so Event Viewer, Windows Event Forwarding or your company log collector can keep a copy. It stays on this computer unless you forward it yourself.',
+    enable: 'Write the audit log to the Windows event log',
+    failed: 'Failed: {{code}}',
+  },
   inbound: {
     title: 'Block incoming connections too',
     intro:

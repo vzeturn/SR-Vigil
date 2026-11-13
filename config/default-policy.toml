@@ -106,3 +106,6 @@ export_anonymize_paths_default = false
 [never_kill_extra]
 # Additional image basenames that must never be killed or denied (admin additions, merged with system_processes.toml).
 names = []
+
+[event_log]
+enabled            = false   # opt-in: copy every audit row to the Windows Application log, source Vigil, for event forwarding or a SIEM (docs/09 s4.1); local only

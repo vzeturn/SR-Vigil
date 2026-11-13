@@ -1,6 +1,7 @@
 //! Pending/decision/audit RPCs: the user-facing side of the Unknown flow (docs/04 §2).
 
 use std::fmt::Write as _;
+use std::sync::Arc;
 
 use serde_json::{Value, json};
 use time::OffsetDateTime;
@@ -71,13 +72,45 @@ fn audit_json(e: &AuditEntry) -> Value {
     })
 }
 
+/// Copies audit rows to an external log (the Windows Event Log, `docs/09 §4.1`).
+pub trait AuditSink: Send + Sync {
+    fn write(&self, event: &vigil_core::audit_export::Event) -> Result<(), String>;
+}
+
 impl Shared {
+    pub fn attach_audit_sink(&self, sink: Arc<dyn AuditSink>) {
+        *self
+            .audit_sink
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(sink);
+    }
+
     /// Append a hash-chained audit row; failures are logged, never fatal to the caller.
     pub fn audit(&self, actor: &str, kind: AuditKind, target: Option<&str>, details: &Value) {
         let r = self
             .with_store(|c| vigil_store::audit::append(c, &now(), actor, kind, target, details));
-        if let Some(Err(e)) = r {
-            tracing::error!(error = %e, kind = kind.as_str(), "audit append failed");
+        match r {
+            Some(Ok(entry)) => self.mirror(&entry),
+            Some(Err(e)) => {
+                tracing::error!(error = %e, kind = kind.as_str(), "audit append failed");
+            }
+            None => {}
+        }
+    }
+
+    fn mirror(&self, entry: &AuditEntry) {
+        if !self.event_log.load(std::sync::atomic::Ordering::Relaxed) {
+            return;
+        }
+        let sink = self
+            .audit_sink
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
+        if let Some(sink) = sink
+            && let Err(e) = sink.write(&vigil_core::audit_export::event(entry))
+        {
+            tracing::warn!(error = %e, seq = entry.seq, "event log write failed");
         }
     }
 

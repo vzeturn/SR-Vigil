@@ -8,6 +8,7 @@ pub mod asr;
 pub mod dnsconf;
 pub mod dpapi;
 pub mod etw;
+pub mod eventlog;
 pub mod harden;
 pub mod hash;
 pub mod input;

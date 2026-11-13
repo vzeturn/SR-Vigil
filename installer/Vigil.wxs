@@ -44,6 +44,11 @@
                             ThirdFailureActionType="restart" RestartServiceDelayInSeconds="5"
                             ResetPeriodInDays="1" />
         <ServiceControl Id="VigilSvcCtl" Name="VigilSvc" Start="install" Stop="both" Remove="uninstall" Wait="yes" />
+        <!-- Event Log source for the optional audit mirror (docs/09 s4.1); EventCreate.exe maps ids 1..1000 to "%1". -->
+        <RegistryKey Root="HKLM" Key="SYSTEM\CurrentControlSet\Services\EventLog\Application\Vigil">
+          <RegistryValue Name="EventMessageFile" Type="expandable" Value="%SystemRoot%\System32\EventCreate.exe" />
+          <RegistryValue Name="TypesSupported" Type="integer" Value="7" />
+        </RegistryKey>
       </Component>
       <Component Id="Cli" Guid="*">
         <File Id="CtlExe" Source="$(var.BinDir)\vigilctl.exe" KeyPath="yes" />

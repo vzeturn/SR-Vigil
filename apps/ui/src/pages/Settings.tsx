@@ -345,7 +345,7 @@ function JunkCard() {
 }
 
 /** One opt-in policy switch stored under `settings.<section>.<key>` (Settings page cards). */
-function SettingToggle({ section, settingKey, label }: { section: 'catalogue' | 'rulepack' | 'enforcement'; settingKey: string; label: 'catalogue' | 'rulepack' | 'inbound' }) {
+function SettingToggle({ section, settingKey, label }: { section: 'catalogue' | 'rulepack' | 'event_log' | 'enforcement'; settingKey: string; label: 'catalogue' | 'rulepack' | 'event_log' | 'inbound' }) {
   const { t } = useTranslation();
   const [on, setOn] = useState(false);
   const [msg, setMsg] = useState('');
@@ -412,6 +412,7 @@ export function Settings() {
       <ReputationCard service="malwarebazaar" />
       <SettingToggle section="catalogue" settingKey="enabled" label="catalogue" />
       <SettingToggle section="rulepack" settingKey="enabled" label="rulepack" />
+      <SettingToggle section="event_log" settingKey="enabled" label="event_log" />
       <SettingToggle section="enforcement" settingKey="block_inbound" label="inbound" />
       <JunkCard />
       <DataCard />

@@ -74,7 +74,7 @@ Standing rule for every milestone: `cargo fmt --check`, `cargo clippy -D warning
 - Popup window, Pending screen, review wizard, tray menu, Audit screen with hash chain and `chain_ok`.
 - `enforcement.panic`, `vigilctl panic`, `vigilctl mode`.
 
-**Status:** implemented and covered by automated tests with a fake filter engine (`crates/vigil-svc/tests/enforce.rs`); the real WFP path (`vigil-win::wfp`, `vigil-svc::winfilter`) compiles and is lint-clean but needs the elevated VM checks in `docs/11 §WFP` before the first four acceptance boxes below can be ticked. Deferred and tracked here: ETW collection, WFP failure retry backoff (docs/04 §7), daily audit anchor and Windows Event Log anchor.
+**Status:** implemented and covered by automated tests with a fake filter engine (`crates/vigil-svc/tests/enforce.rs`); the real WFP path (`vigil-win::wfp`, `vigil-svc::winfilter`) compiles and is lint-clean but needs the elevated VM checks in `docs/11 §WFP` before the first four acceptance boxes below can be ticked. Deferred and tracked here: ETW collection, WFP failure retry backoff (docs/04 §7), daily audit anchor row (the opt-in Windows Event Log copy of every audit row is done, `docs/09 §4.1`).
 
 **Acceptance**
 - [ ] Unsigned test binary in `%TEMP%` is blocked from a non-loopback destination, popup appears, `Allow 1h` permits the next attempt, expiry re-blocks.
@@ -220,7 +220,8 @@ root-cause popup. Build order is in `docs/18 §7`.
 - Per-service WFP filtering via service SID for `svchost` (done: `service.block_network`, `docs/04 §3`).
 - ARM64 build (done: CI cross-build, separate `Vigil-<version>-arm64.msi`; native run is a manual VM check, `docs/11`).
 - Signed remote rule-pack updates (done: opt-in `rulepack.enabled`, Ed25519 + `kid`, signals-only, `docs/03 §8.1`).
-- Fleet management console and SIEM export (syslog/Windows Event Forwarding).
+- SIEM export via Windows Event Forwarding (done: opt-in `event_log.enabled` copies every audit row to the Application log, `docs/09 §4.1`).
+- Fleet management console and direct syslog export.
 - Local small-model verdict option (no cloud).
 
 - macOS support: see [docs/17-cross-platform-macos.md](17-cross-platform-macos.md) (milestones M7–M10).

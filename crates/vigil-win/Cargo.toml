@@ -53,4 +53,5 @@ features = [
   "Win32_NetworkManagement_WindowsFilteringPlatform",
   "Win32_System_Rpc",
   "Win32_System_Services",
+  "Win32_System_EventLog",
 ]

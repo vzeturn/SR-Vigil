@@ -49,8 +49,16 @@ hash_n = SHA-256( prev_hash || seq || ts || actor || kind || target || canonical
 - Encoding: `seq` is 8 bytes big-endian; `ts`, `actor`, `kind` and `canonical_json(details)` are each prefixed with their UTF-8 byte length (u32 big-endian); `target` is a presence byte (0/1) followed by the length-prefixed text, so field boundaries and `NULL` vs empty are unambiguous.
 - `prev_hash` of `seq = 1` is 32 zero bytes. `canonical_json` = RFC 8785 JCS.
 - `audit.query` verifies the chain over the requested range and returns `chain_ok`. A break is reported as an alert `audit_chain_broken` with the first bad `seq`.
-- Daily anchor row stores the latest hash in `meta`; the service also writes it to the Windows Event Log (source `Vigil`) so tampering with the DB alone is detectable.
+- Daily anchor row stores the latest hash in `meta`. With `event_log.enabled` every row, hash included, is also copied to the Windows Event Log (§4.1), so tampering with the DB alone is detectable against that copy.
 - Audit `kind` values: `service_start`, `service_stop`, `mode_change`, `verdict`, `decision`, `decision_revoked`, `kill`, `respawn_kill`, `filter_add`, `filter_remove`, `panic`, `ai_decision`, `ai_config`, `rule_change`, `trust_change`, `persistence_action`, `client_connect`, `config_change`, `health`, `audit_checkpoint` (written by retention purge).
+
+### 4.1 Windows Event Log copy (opt-in `event_log.enabled`, default off)
+
+- After a row is appended, the service writes it to the **Application** log, source `Vigil`, so Windows Event Forwarding or a SIEM agent can collect it. Nothing leaves the machine unless the owner forwards the log.
+- Source registration: `HKLM\SYSTEM\CurrentControlSet\Services\EventLog\Application\Vigil`, `EventMessageFile` = `%SystemRoot%\System32\EventCreate.exe` (its message table maps ids 1–1000 to `%1`), `TypesSupported` = 7. Written by the MSI and again, idempotently, by the service at start.
+- Event id = 100 + position of `kind` in the list above (`service_start` = 100 … `audit_checkpoint` = 119). Level: Warning for `kill`, `respawn_kill`, `panic`, `health`; Information otherwise.
+- Message: one JSON object `{seq, ts, actor, kind, target, details, hash}` (hash in hex), passed as the only insertion string. Every `%` is written as `\u0025`, so host strings such as `%1` in a path are never expanded by Event Viewer. If the text would exceed 16 KiB, `details` becomes `{"truncated": true}`; `seq` and `hash` stay so the row can be matched with the DB.
+- A failed write is logged (`event log write failed`) and never blocks the audit append. Code: `vigil_core::audit_export`, `vigil_win::eventlog`, `Shared::audit`.
 
 ## 5. Retention (configurable in `config/default-policy.toml`)
 

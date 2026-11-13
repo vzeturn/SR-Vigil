@@ -43,6 +43,12 @@ mod win {
         shared.attach_ai(Arc::new(vigil_svc::ai::LiveBackend::new(Arc::new(
             vigil_svc::winctl::DpapiVault,
         ))));
+        match vigil_svc::winctl::EventLogSink::open() {
+            Ok(s) => shared.attach_audit_sink(Arc::new(s)),
+            Err(e) => {
+                tracing::warn!(error = %e, "event log unavailable; audit stays in the DB only");
+            }
+        }
         shared.lift_score_only_containment();
         match vigil_svc::winfilter::WfpEngine::open() {
             Ok(e) => shared.attach_engine(Some(Arc::new(e))),

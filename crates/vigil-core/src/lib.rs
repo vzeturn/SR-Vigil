@@ -8,6 +8,7 @@
 
 pub mod analysis;
 pub mod audit;
+pub mod audit_export;
 pub mod auto;
 pub mod consts;
 pub mod eval;

@@ -158,10 +158,17 @@ pub struct Shared {
     /// Services already reported by `service_alert_scan` this run (FR-021).
     pub(crate) service_alerted: Mutex<std::collections::HashSet<String>>,
     pub(crate) ai_slots: tokio::sync::Semaphore,
+    /// Where audit rows are mirrored (Windows Event Log), and whether `event_log.enabled` is on.
+    pub(crate) audit_sink: Mutex<Option<Arc<dyn crate::decide::AuditSink>>>,
+    pub(crate) event_log: AtomicBool,
 }
 
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
     m.lock().unwrap_or_else(PoisonError::into_inner)
+}
+
+fn event_log_on(settings: &Value) -> bool {
+    settings["event_log"]["enabled"].as_bool() == Some(true)
 }
 
 fn default_settings() -> Value {
@@ -253,6 +260,7 @@ impl Shared {
             paused = get("protection_paused").as_deref() == Some("1");
         }
         let (bus, _) = broadcast::channel(4096);
+        let event_log = event_log_on(&settings);
         Self {
             inner: Mutex::new(Inner {
                 mode,
@@ -277,6 +285,8 @@ impl Shared {
             paused: AtomicBool::new(paused),
             once: Mutex::new(Vec::new()),
             ai: Mutex::new(None),
+            audit_sink: Mutex::new(None),
+            event_log: AtomicBool::new(event_log),
             ai_inflight: Mutex::new(std::collections::HashSet::new()),
             storm_reviewed: Mutex::new(std::collections::HashSet::new()),
             respawn_seen: Mutex::new(Default::default()),
@@ -540,6 +550,8 @@ impl Shared {
         let mut next = self.settings();
         merge_settings(&mut next, patch).map_err(|m| RpcError::new(INVALID_PARAMS, m))?;
         lock(&self.inner).settings.clone_from(&next);
+        self.event_log
+            .store(event_log_on(&next), std::sync::atomic::Ordering::Relaxed);
         self.persist("policy", &next.to_string());
         if let Err(e) = self.resync_enforcement() {
             tracing::error!(error = %e, "filters not updated after a settings change");
@@ -993,5 +1005,36 @@ mod tests {
         assert_eq!(code(&s), INVALID_STATE, "still present, just not evaluated");
         s.remove_process(9, "2026-01-01T00:00:00Z");
         assert_eq!(code(&s), NOT_FOUND);
+    }
+
+    use vigil_core::audit::AuditKind;
+
+    #[derive(Default)]
+    struct Sink(Mutex<Vec<vigil_core::audit_export::Event>>);
+
+    impl crate::decide::AuditSink for Sink {
+        fn write(&self, event: &vigil_core::audit_export::Event) -> Result<(), String> {
+            self.0.lock().unwrap().push(event.clone());
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn audit_rows_reach_the_event_log_only_when_enabled() {
+        let s = shared();
+        let sink = Arc::new(Sink::default());
+        s.attach_audit_sink(sink.clone());
+        s.audit("t", AuditKind::ModeChange, None, &json!({}));
+        assert!(sink.0.lock().unwrap().is_empty(), "off by default");
+        s.update_settings(&json!({"event_log": {"enabled": true}}))
+            .unwrap();
+        s.audit("t", AuditKind::Kill, Some(r"C:\x\%1.exe"), &json!({}));
+        let got = sink.0.lock().unwrap().clone();
+        assert_eq!(got.len(), 1);
+        assert_eq!(
+            got[0].id,
+            vigil_core::audit_export::event_id(AuditKind::Kill)
+        );
+        assert!(!got[0].text.contains('%'));
     }
 }

@@ -24,6 +24,25 @@ impl crate::ai::KeyVault for DpapiVault {
     }
 }
 
+/// Windows Application log under source `Vigil` (`docs/09 §4.1`).
+pub struct EventLogSink(vigil_win::eventlog::EventLog);
+
+impl EventLogSink {
+    /// Registers the source if needed (the installer normally has) and opens it.
+    pub fn open() -> Result<Self, vigil_win::Error> {
+        if let Err(e) = vigil_win::eventlog::ensure_source() {
+            tracing::warn!(error = %e, "event log source not registered");
+        }
+        vigil_win::eventlog::EventLog::open().map(Self)
+    }
+}
+
+impl crate::decide::AuditSink for EventLogSink {
+    fn write(&self, event: &vigil_core::audit_export::Event) -> Result<(), String> {
+        self.0.report(event).map_err(|e| e.to_string())
+    }
+}
+
 #[derive(Default)]
 pub struct WinControl {
     hashes: HashCache,
