@@ -53,6 +53,8 @@ const ALLOWED: &[&str] = &[
     "ai.preview",
     "ai.test",
     "ai.explain",
+    "reputation.config.get",
+    "reputation.config.set",
     "audit.export",
     "decision.export",
     "decision.import",

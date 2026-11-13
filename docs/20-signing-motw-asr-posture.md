@@ -22,7 +22,14 @@ An anti-respawn block lives only as long as the kill decision that created it. `
 
 User decision: network attestation sources are allowed (`CLAUDE.md` rule 10 amended). The service asks CIRCL hashlookup (NIST NSRL and vendor package hashes) about the SHA-256 of each unknown **unsigned** file: one GET per hash, nothing else sent (no path, name or machine data), the answer asked once and cached in `%ProgramData%\Vigil\hashrep.json`. Setting `hash_reputation.enabled` (default on) turns it off. A `hashlookup:trust` of 50 or more marks the hash known-good; the answer is untrusted JSON of which only that number is read. HASH-001 adds +15 to an unsigned file and never makes it Safe on its own (baseline 50 + 15 stays Unknown). Signed files are judged by their signature and never sent.
 
-Not added: MalwareBazaar (needs an API key, which would have to be stored), VirusTotal (planned, separate budget setting).
+### 5.1 Keyed services: VirusTotal and MalwareBazaar (REP-001/010/011, HR-005, HR-008)
+
+User decision (2026-11-13): both are opt-in, use the user's own key, and receive **only the SHA-256** of an unknown unsigned file, never the file, path, name or machine data.
+
+- **Keys.** Set in Settings or with `reputation.config.set` (admin). The key is sealed with DPAPI (machine scope, the `ai.entropy` value) under `rep.virustotal.key` / `rep.malwarebazaar.key`. It is write-only: `reputation.config.get` returns only `has_key`, the audit row (`config_change`) names the service and what changed, never the key. Turning a service on without a key is refused; an empty key removes it and turns the service off.
+- **VirusTotal.** `GET https://www.virustotal.com/api/v3/files/<sha256>` with `x-apikey`. Only `last_analysis_stats.malicious` and `first_submission_date` are read; 404 means unknown to VirusTotal. At most 3 questions a minute, 16 s apart (free key: 4/min), and no more than `virustotal.daily_lookup_budget` (default 500) a UTC day.
+- **MalwareBazaar.** `POST https://mb-api.abuse.ch/api/v1/` with `Auth-Key` and the body `query=get_info&hash=<sha256>`. The hash counts as listed only when `query_status` is `ok` and `data` is non-empty; a listed sample fires HR-008 (malicious, terminal).
+- **Cache and re-asking.** Answers are cached in `hashrep-virustotal.json` / `hashrep-malwarebazaar.json` in the data directory and asked again after 7 days, so later detections reach files already seen. A hit queues every recorded path of that file for re-scoring at once; otherwise the hourly recheck picks it up. Any error, including HTTP 429, ends the round and the next minute tries again. Answers are untrusted JSON capped at 2 MiB (VirusTotal) and 64 KiB (MalwareBazaar).
 
 ## 6. Trust by verified hash
 

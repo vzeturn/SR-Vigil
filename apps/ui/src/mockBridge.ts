@@ -1,5 +1,17 @@
 import type { Bridge } from './bridge';
-import type { AiConfig, AuditEntry, DecisionParams, PendingItem, PersistenceItem, ProcessInfo, ServiceItem, Snapshot, Verdict } from './types';
+import type {
+  AiConfig,
+  AuditEntry,
+  DecisionParams,
+  KeyedService,
+  PendingItem,
+  PersistenceItem,
+  ProcessInfo,
+  ReputationConfig,
+  ServiceItem,
+  Snapshot,
+  Verdict,
+} from './types';
 
 const HASH = 'a'.repeat(64);
 
@@ -137,6 +149,10 @@ export function createMockBridge(rows = 200): Bridge {
     calls_today: 0,
   };
 
+  let reputation: ReputationConfig = {
+    virustotal: { enabled: false, has_key: false },
+    malwarebazaar: { enabled: false, has_key: false },
+  };
   let enforcement = { block_inbound: false };
   let urlfilter = { enabled: false, malware: true, phishing: true, adult: false, ads: false, allow: [] as string[] };
   const handlers: Record<string, (params: unknown) => unknown> = {
@@ -158,6 +174,17 @@ export function createMockBridge(rows = 200): Bridge {
       }
       ai = { ...ai, ...rest, has_key, source };
       return ai;
+    },
+    'reputation.config.get': () => reputation,
+    'reputation.config.set': (params) => {
+      const { service, enabled, api_key } = params as { service: KeyedService; enabled?: boolean; api_key?: string };
+      const cur = reputation[service];
+      if (!cur) throw new Error('invalid_params');
+      const has_key = api_key === undefined ? cur.has_key : api_key !== '';
+      const on = api_key === '' ? false : (enabled ?? cur.enabled);
+      if (on && !has_key) throw new Error('invalid_state');
+      reputation = { ...reputation, [service]: { enabled: on, has_key } };
+      return reputation;
     },
     'ai.explain': () => {
       if (!ai.enabled) throw new Error('off');

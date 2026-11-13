@@ -3,6 +3,7 @@
 
 use std::collections::{HashMap, HashSet};
 
+use vigil_core::analysis::hashrep;
 use vigil_core::analysis::path::{PathEnv, expand, normalize};
 use vigil_core::eval::{Evaluation, evaluate};
 use vigil_core::observe::{Behaviour, Context, Observation, SignerInfo, VersionInfo, build_facts};
@@ -136,6 +137,7 @@ fn evaluate_with(
     let signer = trust::verify(path);
     let version = version::read(path).unwrap_or_default();
     let scan_memory = crate::memory::enabled() && !signer.valid();
+    let rep = hash_facts(path, signer.valid());
     let obs = Observation {
         path: path.to_string(),
         parent_path: parent.map(str::to_string),
@@ -147,7 +149,8 @@ fn evaluate_with(
                 && pid.is_some_and(crate::memory::has_unbacked_exec_memory),
             package_source_trusted: package_family(path).is_some(),
             from_internet: from_internet(path),
-            hash_known_good: hash_known_good(path, signer.valid()),
+            hash_known_good: rep.known_good,
+            hash_known_malware: rep.malware,
             beaconing: live.beaconing,
             has_outbound: live.net.public_outbound,
             dest_public: live.net.public_outbound,
@@ -160,8 +163,8 @@ fn evaluate_with(
             files: live.files,
         },
         signer: signer.clone(),
-        vt_detections: None,
-        vt_first_seen_days: None,
+        vt_detections: rep.vt.map(|r| r.detections),
+        vt_first_seen_days: rep.vt.map(|r| r.first_seen_days(unix_now())),
         user_denylisted: false,
         user_allowed: live.user_allowed,
         vigil_self: crate::selfpin::is_vigil_self(path),
@@ -205,14 +208,35 @@ fn from_internet(path: &str) -> bool {
         && vigil_core::analysis::motw::from_internet(&text)
 }
 
-/// Whether the unsigned file at `path` has a hash the reputation service reported as known-good.
-/// Signed files are judged by their signature, and nothing is hashed until a hash is known.
-fn hash_known_good(path: &str, signed: bool) -> bool {
+/// What the hash reputation services said about the unsigned file at `path` (`docs/20 §5`).
+#[derive(Default)]
+struct HashFacts {
+    known_good: bool,
+    malware: bool,
+    vt: Option<hashrep::VtReport>,
+}
+
+/// Reputation answers for the unsigned file at `path`. Signed files are judged by their
+/// signature (the services are only asked about unsigned ones), and nothing is hashed until
+/// some answer is held.
+fn hash_facts(path: &str, signed: bool) -> HashFacts {
     static HASHES: std::sync::OnceLock<crate::hash::HashCache> = std::sync::OnceLock::new();
-    !signed
-        && vigil_core::analysis::hashrep::any()
-        && HASHES
-            .get_or_init(crate::hash::HashCache::new)
-            .sha256(std::path::Path::new(path))
-            .is_ok_and(|h| vigil_core::analysis::hashrep::is_known(&h))
+    if signed || !(hashrep::any() || hashrep::any_keyed()) {
+        return HashFacts::default();
+    }
+    HASHES
+        .get_or_init(crate::hash::HashCache::new)
+        .sha256(std::path::Path::new(path))
+        .map(|h| HashFacts {
+            known_good: hashrep::is_known(&h),
+            malware: hashrep::is_malware(&h),
+            vt: hashrep::vt_of(&h),
+        })
+        .unwrap_or_default()
+}
+
+fn unix_now() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| i64::try_from(d.as_secs()).unwrap_or(i64::MAX))
 }

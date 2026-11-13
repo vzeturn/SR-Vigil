@@ -43,7 +43,7 @@ pub const ERROR_CODES: [(i32, &str); 13] = [
 ];
 
 /// Minimum role per method; the contract test pins this to `x-methods` in the schema.
-pub const METHODS: [(&str, Role); 48] = [
+pub const METHODS: [(&str, Role); 50] = [
     ("hello", Role::Viewer),
     ("status.get", Role::Viewer),
     ("mode.set", Role::Admin),
@@ -78,6 +78,8 @@ pub const METHODS: [(&str, Role); 48] = [
     ("ai.preview", Role::Admin),
     ("ai.test", Role::Admin),
     ("ai.explain", Role::Admin),
+    ("reputation.config.get", Role::Viewer),
+    ("reputation.config.set", Role::Admin),
     ("audit.query", Role::Viewer),
     ("audit.export", Role::Admin),
     ("decision.export", Role::Admin),

@@ -167,6 +167,11 @@ export interface AiConfig {
   calls_today: number;
 }
 
+export type KeyedService = 'virustotal' | 'malwarebazaar';
+
+/** `reputation.config.get` result. Keys are write-only: only `has_key` is ever returned. */
+export type ReputationConfig = Record<KeyedService, { enabled: boolean; has_key: boolean }>;
+
 export interface AiUsage {
   assessed: number;
   calls: number;

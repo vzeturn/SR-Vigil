@@ -119,7 +119,8 @@ Standing rule for every milestone: `cargo fmt --check`, `cargo clippy -D warning
 **Status (M5)**
 - Verified by tests: stub-server fallbacks with audit rows (`crates/vigil-svc/tests/ai.rs`, `crates/vigil-ai/tests/stub.rs`); preview hash equals payload sent; redaction property tests (`vigil-core`); Auto gates (hard rule, no-kill default, threshold); key never returned or audited.
 - Not verified: live harness (needs `ANTHROPIC_API_KEY`, run manually); live model IDs/parameters (`docs/06 §9`).
-- Deferred: VirusTotal client (REP-001/010/011, HR-005); command-line capture for the payload (not available from the current process sensor); `vigilctl ai` subcommands.
+- VirusTotal client (REP-001/010/011, HR-005) added later with MalwareBazaar (`docs/20 §5.1`).
+- Deferred: command-line capture for the payload (not available from the current process sensor); `vigilctl ai` subcommands.
 
 ## M6 — Hardening, installer, polish
 
@@ -189,7 +190,7 @@ root-cause popup. Build order is in `docs/18 §7`.
 - [x] Orphan anti-respawn blocks are lifted.
 - [x] CIRCL hashlookup known-good hashes (HASH-001), `CLAUDE.md` rule 10 amended by the user.
 - [x] ASR rules enabled (9 block, 2 audit) and `vigilctl allow` for hash-verified tools.
-- [ ] MalwareBazaar and VirusTotal lookups (need an API key kept in the DPAPI store).
+- [x] MalwareBazaar (HR-008) and VirusTotal lookups, SHA-256 only, keys sealed with DPAPI (`docs/20 §5.1`), `CLAUDE.md` rule 10 amended by the user.
 - [ ] ASR audit-to-block review after two weeks of audit events.
 
 ## M16 — Lockdown (design in `docs/21`)

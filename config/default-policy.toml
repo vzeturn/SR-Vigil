@@ -68,8 +68,11 @@ cache_ttl_hours_unknown = 24
 auto_not_before_learning_hours = 24
 
 [virustotal]
-enabled            = false
+enabled            = false   # opt-in, needs the user's API key: GET of one SHA-256 per unknown unsigned file (docs/20 s5)
 daily_lookup_budget = 500
+
+[malwarebazaar]
+enabled            = false   # opt-in, needs the user's Auth-Key: POST of one SHA-256 per unknown unsigned file (docs/20 s5)
 
 [catalogue]
 enabled            = false   # opt-in: once a day GET of the signed version catalogue (docs/16)

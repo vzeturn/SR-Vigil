@@ -328,6 +328,17 @@ fn virustotal_bands() {
 }
 
 #[test]
+fn a_listed_malware_sample_is_malicious_even_with_a_known_good_hash() {
+    let f = Facts {
+        hash_known_malware: true,
+        hash_known_good: true,
+        path_class: PathClass::ProgramFiles,
+        ..Facts::default()
+    };
+    check(&f, &["HR-008"], 0, Verdict::Malicious);
+}
+
+#[test]
 fn unpinned_signed_app_uploading_far_more_than_it_receives() {
     let f = Facts {
         company_matches_signer: true,

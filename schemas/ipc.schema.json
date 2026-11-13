@@ -1364,6 +1364,38 @@
         "hash"
       ]
     },
+    "KeyedService": {
+      "type": "object",
+      "required": [
+        "enabled",
+        "has_key"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "has_key": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ReputationConfig": {
+      "type": "object",
+      "required": [
+        "virustotal",
+        "malwarebazaar"
+      ],
+      "properties": {
+        "virustotal": {
+          "$ref": "#/$defs/KeyedService"
+        },
+        "malwarebazaar": {
+          "$ref": "#/$defs/KeyedService"
+        }
+      },
+      "additionalProperties": false
+    },
     "AiConfig": {
       "type": "object",
       "properties": {
@@ -2528,6 +2560,47 @@
       },
       "result": {
         "$ref": "#/$defs/AiConfig"
+      }
+    },
+    "reputation.config.get": {
+      "role": "viewer",
+      "params": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "result": {
+        "$ref": "#/$defs/ReputationConfig"
+      }
+    },
+    "reputation.config.set": {
+      "role": "admin",
+      "params": {
+        "type": "object",
+        "required": [
+          "service"
+        ],
+        "properties": {
+          "service": {
+            "type": "string",
+            "enum": [
+              "virustotal",
+              "malwarebazaar"
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "api_key": {
+            "type": "string",
+            "maxLength": 200,
+            "writeOnly": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "result": {
+        "$ref": "#/$defs/ReputationConfig"
       }
     },
     "ai.preview": {

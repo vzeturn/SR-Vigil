@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getBridge, junkClean, junkScan, type JunkCategory } from '../bridge';
-import type { AiConfig, AiMode, AiSource } from '../types';
+import type { AiConfig, AiMode, AiSource, KeyedService, ReputationConfig } from '../types';
 import { useVigil } from '../store';
 import { RichTip, tipOf } from '../components/RichTip';
 
@@ -136,6 +136,74 @@ function AiCard() {
       </div>
       <p className="muted" role="status">
         {msg || t('ai.calls', { n: cfg.calls_today })}
+      </p>
+    </section>
+  );
+}
+
+/** One keyed hash-reputation service: enable switch plus a write-only API key (`docs/20 §5.1`). */
+function ReputationCard({ service }: { service: KeyedService }) {
+  const { t } = useTranslation();
+  const [cfg, setCfg] = useState<ReputationConfig[KeyedService] | null>(null);
+  const [key, setKey] = useState('');
+  const [msg, setMsg] = useState('');
+
+  useEffect(() => {
+    void getBridge()
+      .then((b) => b.rpc<ReputationConfig>('reputation.config.get', {}))
+      .then((r) => setCfg(r[service]))
+      .catch(() => undefined);
+  }, [service]);
+
+  if (!cfg) return null;
+
+  const save = async (patch: { enabled?: boolean; api_key?: string }) => {
+    try {
+      const next = await (await getBridge()).rpc<ReputationConfig>('reputation.config.set', { service, ...patch });
+      setCfg(next[service]);
+      setKey('');
+      setMsg(t('hashLookup.saved'));
+    } catch (e) {
+      setMsg(t('hashLookup.failed', { code: e instanceof Error ? e.message : String(e) }));
+    }
+  };
+
+  return (
+    <section className="card">
+      <h2>{t(`hashLookup.${service}.title`)}</h2>
+      <p className="muted">{t(`hashLookup.${service}.intro`)}</p>
+      <label>
+        {t('hashLookup.key')}
+        <input
+          type="password"
+          autoComplete="off"
+          value={key}
+          placeholder={t('hashLookup.keyPlaceholder')}
+          onChange={(e) => setKey(e.target.value)}
+        />
+      </label>
+      {cfg.has_key && <p className="muted">{t('hashLookup.keySaved')}</p>}
+      <label>
+        <input
+          type="checkbox"
+          checked={cfg.enabled}
+          disabled={!cfg.has_key && !key}
+          onChange={(e) => void save({ enabled: e.target.checked, ...(key ? { api_key: key } : {}) })}
+        />{' '}
+        {t('hashLookup.enable')}
+      </label>
+      <div className="row">
+        <button type="button" disabled={!key} onClick={() => void save({ api_key: key })}>
+          {t('hashLookup.save')}
+        </button>
+        {cfg.has_key && (
+          <button type="button" onClick={() => void save({ api_key: '' })}>
+            {t('hashLookup.keyRemove')}
+          </button>
+        )}
+      </div>
+      <p className="muted" role="status">
+        {msg}
       </p>
     </section>
   );
@@ -340,6 +408,8 @@ export function Settings() {
         </select>
       </section>
       <AiCard />
+      <ReputationCard service="virustotal" />
+      <ReputationCard service="malwarebazaar" />
       <SettingToggle section="catalogue" settingKey="enabled" label="catalogue" />
       <SettingToggle section="enforcement" settingKey="block_inbound" label="inbound" />
       <JunkCard />

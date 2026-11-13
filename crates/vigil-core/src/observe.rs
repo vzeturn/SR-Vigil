@@ -89,6 +89,8 @@ pub struct Behaviour {
     pub from_internet: bool,
     /// The file hash is listed as known-good by the hash reputation service (`docs/20 s5`).
     pub hash_known_good: bool,
+    /// The file hash is a malware sample listed by `MalwareBazaar` (`docs/20 §5`).
+    pub hash_known_malware: bool,
 }
 
 /// File findings accumulated for a program while it runs (`docs/15 §2`).
@@ -318,6 +320,7 @@ pub fn build_facts(ctx: &Context, obs: &Observation) -> Facts {
         package_source_trusted: obs.behaviour.package_source_trusted,
         from_internet: obs.behaviour.from_internet,
         hash_known_good: obs.behaviour.hash_known_good,
+        hash_known_malware: obs.behaviour.hash_known_malware,
         vt_detections: obs.vt_detections,
         vt_first_seen_days: obs.vt_first_seen_days,
         user_denylisted: obs.user_denylisted,

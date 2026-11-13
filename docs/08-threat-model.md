@@ -8,7 +8,7 @@
 |---|---|
 | Verdict/decision integrity | A wrongly Safe malware or wrongly blocked system component causes harm. |
 | Enforcement state (WFP filters, block records) | Tampering silently disables protection. |
-| Anthropic/VirusTotal API keys | Financial and abuse risk. |
+| Anthropic/VirusTotal/MalwareBazaar API keys | Financial and abuse risk. |
 | Audit log | Evidence; must be tamper-evident. |
 | Host telemetry | May contain sensitive paths/destinations. |
 

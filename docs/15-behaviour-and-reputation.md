@@ -44,7 +44,7 @@ All strings from these events are untrusted data (CLAUDE.md rule 6): never inter
 ## 4. Destination reputation
 
 1. **Offline layer (always on, built):** bundled bad hosts, risky ports/TLDs and the DGA thresholds in `rules/reputation.toml`, embedded like the IP-to-country table, plus the malware and phishing lists of the URL filter when the user has downloaded them (`docs/23`). No network. Each public outbound connect (ETW, or the table poll without ETW) is assessed once per program and finding: a new finding re-evaluates the program and writes an audit row naming the signals.
-2. **Online layer:** not built. Google Safe Browsing and SmartScreen were not chosen (user decision, 2026-11-11): Safe Browsing's licence is non-commercial and SmartScreen has no public API. File-hash lookups (VirusTotal, MalwareBazaar) are tracked separately under rule 10.
+2. **Online layer:** not built. Google Safe Browsing and SmartScreen were not chosen (user decision, 2026-11-11): Safe Browsing's licence is non-commercial and SmartScreen has no public API. File-hash lookups (VirusTotal, MalwareBazaar) are opt-in with the user's key and send only a SHA-256 (`docs/20 §5.1`).
 3. **Privacy:** destinations never leave the machine. No telemetry.
 
 ## 5. Scoring and display

@@ -76,6 +76,8 @@ JSON-RPC 2.0 subset: `{"jsonrpc":"2.0","id":<int|string>,"method":"...","params"
 | `ai.activity` | R | `{}` → `{today, week, month}`, each an `AiUsage` counter set (tokens are as reported by the API; the dollar figure is an estimate; the shared endpoint reports calls only) |
 | `ai.config.get` | R | `{}` → `{enabled, mode, model, escalation_model, thresholds, has_key, source, shared_available, budget}` (never the key or the install token) |
 | `ai.config.set` | A | `{enabled?, mode?, model?, escalation_model?, api_key?, thresholds?, budget?}` → `AiConfig` |
+| `reputation.config.get` | V | `{}` → `ReputationConfig` (`{virustotal, malwarebazaar}`, each `{enabled, has_key}`) |
+| `reputation.config.set` | A | `{service, enabled?, api_key?}` → `ReputationConfig`; `api_key` is write-only, `""` removes it (`docs/20 §5.1`) |
 | `ai.preview` | A | `{identity_id}` → `{payload, payload_sha256}` (exactly the redacted bytes that would be sent) |
 | `ai.test` | A | `{}` → `{ok, latency_ms, model}` |
 | `ai.explain` | A | `{identity_id}` → `AiOpinion` (forces a fresh opinion, shows in UI) |

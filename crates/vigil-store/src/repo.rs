@@ -261,6 +261,15 @@ pub fn unsigned_shas_with_verdict(
     )
 }
 
+/// Every recorded path of the file with this SHA-256.
+pub fn paths_with_sha(conn: &Connection, sha256: &str) -> Result<Vec<String>, StoreError> {
+    paths(
+        conn,
+        "SELECT DISTINCT path FROM executables WHERE lower(sha256) = lower(?1)",
+        params![sha256],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

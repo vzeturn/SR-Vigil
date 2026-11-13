@@ -597,6 +597,26 @@ export const en = {
     enable: 'Block incoming connections to blocked programs',
     failed: 'Failed: {{code}}',
   },
+  hashLookup: {
+    virustotal: {
+      title: 'VirusTotal lookups',
+      intro:
+        'Optional, needs your own free VirusTotal API key. For unknown unsigned programs Vigil sends only the file fingerprint (SHA-256), never the file. Programs many engines flag lose trust; long-known clean ones gain a little.',
+    },
+    malwarebazaar: {
+      title: 'MalwareBazaar lookups',
+      intro:
+        'Optional, needs your own free abuse.ch Auth-Key. For unknown unsigned programs Vigil sends only the file fingerprint (SHA-256). A program listed as a malware sample is marked Malicious.',
+    },
+    enable: 'Look up unknown unsigned programs',
+    key: 'API key',
+    keyPlaceholder: 'Paste the key, then Save',
+    keySaved: 'A key is saved. It is stored encrypted and never shown again.',
+    save: 'Save key',
+    keyRemove: 'Remove key',
+    saved: 'Saved.',
+    failed: 'Failed: {{code}}',
+  },
   ai: {
     title: 'AI second opinion',
     intro:

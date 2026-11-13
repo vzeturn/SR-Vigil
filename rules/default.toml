@@ -376,6 +376,15 @@ verdict = "malicious"
 terminal = true
 
 [[rule]]
+id = "HR-008"
+name = "known_malware_hash"
+kind = "hard_rule"
+description = "File hash is a malware sample listed by MalwareBazaar"
+when = { hash_known_malware = true }
+verdict = "malicious"
+terminal = true
+
+[[rule]]
 id = "HR-006"
 name = "user_denylist"
 kind = "hard_rule"

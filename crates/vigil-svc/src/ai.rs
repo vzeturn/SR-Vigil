@@ -561,9 +561,36 @@ impl Shared {
         self.store_secret(b, KEY, key)
     }
 
+    /// Seal a key for another service under `name` (`ai.entropy`, the same DPAPI scope).
+    pub(crate) fn seal_named_secret(&self, name: &str, key: &str) -> Result<(), RpcError> {
+        let b = self
+            .ai_backend()
+            .ok_or_else(|| RpcError::new(INVALID_STATE, "secret storage is not available"))?;
+        self.store_secret(b.as_ref(), name, key)
+    }
+
+    /// The sealed key stored under `name`, if one is stored and still opens.
+    pub(crate) fn open_named_secret(&self, name: &str) -> Option<SecretString> {
+        let b = self.ai_backend()?;
+        self.unseal_secret(b.as_ref(), name).ok()
+    }
+
+    /// Whether a sealed key is stored under `name` (it is never opened for this).
+    pub(crate) fn has_named_secret(&self, name: &str) -> bool {
+        self.with_store(|c| store::setting_get(c, name))
+            .and_then(Result::ok)
+            .flatten()
+            .is_some()
+    }
+
+    /// Forget the sealed key stored under `name`.
+    pub(crate) fn delete_named_secret(&self, name: &str) {
+        self.with_store(|c| store::setting_delete(c, name));
+    }
+
     fn store_secret(&self, b: &dyn AiBackend, name: &str, key: &str) -> Result<(), RpcError> {
         let fail = |e: String| {
-            tracing::error!(error = %e, "could not seal the AI key");
+            tracing::error!(error = %e, secret = name, "could not seal a key");
             RpcError::new(vigil_ipc::proto::INTERNAL_ERROR, "could not store the key")
         };
         let existing = self

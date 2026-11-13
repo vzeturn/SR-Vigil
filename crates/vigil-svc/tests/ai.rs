@@ -292,6 +292,32 @@ fn enabling_needs_a_key_and_the_key_is_never_returned() {
     assert!(!audit_text(&s).contains("k-test"));
 }
 
+#[test]
+fn reputation_keys_are_write_only_and_needed_to_turn_a_service_on() {
+    let (s, _) = setup(None, 60, "unknown");
+    s.attach_ai(Fake::new(Ok(opinion("safe", 0.9, "allow"))));
+    let set = |p: Value| s.reputation_config_set(&p, "user");
+    let e = set(json!({"service": "virustotal", "enabled": true})).unwrap_err();
+    assert_eq!(e.code, INVALID_STATE);
+    assert!(set(json!({"service": "malwarebazaar", "api_key": "bad key"})).is_err());
+    assert!(set(json!({"service": "other", "enabled": false})).is_err());
+
+    let cfg =
+        set(json!({"service": "virustotal", "api_key": "vt-secret-1", "enabled": true})).unwrap();
+    assert_eq!(cfg["virustotal"], json!({"enabled": true, "has_key": true}));
+    assert_eq!(cfg["malwarebazaar"]["has_key"], false);
+    assert_eq!(s.settings()["virustotal"]["enabled"], true);
+    assert!(!cfg.to_string().contains("vt-secret-1"));
+    assert!(!audit_text(&s).contains("vt-secret-1"));
+    assert!(audit_text(&s).contains("virustotal"));
+
+    let cfg = set(json!({"service": "virustotal", "api_key": ""})).unwrap();
+    assert_eq!(
+        cfg["virustotal"],
+        json!({"enabled": false, "has_key": false})
+    );
+}
+
 #[tokio::test]
 async fn malicious_program_is_raised_once_without_a_connection() {
     let (s, _) = setup(Some("HR-001"), 10, "malicious");

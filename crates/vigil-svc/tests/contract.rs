@@ -97,7 +97,7 @@ async fn implemented_method_results_match_the_schema() {
     let (a, b) = tokio::io::duplex(1 << 16);
     tokio::spawn(handle_connection(b, Role::Admin, shared()));
     let mut c = Client::new(a);
-    let calls: [(&str, Value); 18] = [
+    let calls: [(&str, Value); 20] = [
         (
             "hello",
             json!({"client": "t", "client_version": "1", "protocol": 1}),
@@ -125,6 +125,11 @@ async fn implemented_method_results_match_the_schema() {
         ),
         ("audit.query", json!({})),
         ("settings.get", json!({})),
+        ("reputation.config.get", json!({})),
+        (
+            "reputation.config.set",
+            json!({"service": "virustotal", "enabled": false}),
+        ),
         ("mode.set", json!({"mode": "learning"})),
         ("subscribe", json!({"topics": ["processes", "health"]})),
         ("unsubscribe", json!({"topics": ["health"]})),

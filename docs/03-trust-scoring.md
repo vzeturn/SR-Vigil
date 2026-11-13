@@ -82,6 +82,7 @@ SIG-001, SIG-002 and SIG-003 are mutually exclusive (`exclusive_group = "signer_
 | HR-003 | `masquerade_parent` | Protected system process name with parent ≠ expected (parent check enabled for that entry) | malicious |
 | HR-004 | `cert_revoked` | Signer or chain certificate revoked | malicious |
 | HR-005 | `vt_consensus_malicious` | VirusTotal enabled and ≥ 10 detections | malicious |
+| HR-008 | `known_malware_hash` | MalwareBazaar enabled and the file's SHA-256 is a listed sample | malicious |
 | HR-006 | `user_denylist` | Hash in user deny list | malicious |
 | HR-007 | `publisher_impersonation` | VersionInfo/Product claims a pinned publisher (e.g. "Microsoft Corporation") but signature is missing or signed by a different organisation | malicious |
 

@@ -121,6 +121,8 @@ impl ConnHandler {
             "ai.activity" => Ok(s.ai_activity()),
             "ai.config.set" => s.ai_config_set(params, "user"),
             "ai.preview" => s.ai_preview(params),
+            "reputation.config.get" => Ok(s.reputation_config_get()),
+            "reputation.config.set" => s.reputation_config_set(params, "user"),
             "subscribe" => {
                 let add = topic_list(params)?;
                 let mut t = self.topics.lock().unwrap_or_else(PoisonError::into_inner);
