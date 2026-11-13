@@ -222,7 +222,7 @@ root-cause popup. Build order is in `docs/18 §7`.
 - Signed remote rule-pack updates (done: opt-in `rulepack.enabled`, Ed25519 + `kid`, signals-only, `docs/03 §8.1`).
 - SIEM export via Windows Event Forwarding (done: opt-in `event_log.enabled` copies every audit row to the Application log, `docs/09 §4.1`).
 - Fleet management console and direct syslog export.
-- Local small-model verdict option (no cloud).
+- Local small-model verdict option: dropped (owner decision 2026-11-13). A local model would add install size, RAM and CPU load for little gain over the existing advisor (own Anthropic key or the shared endpoint), and Vigil must stay light and fast.
 
 - macOS support: see [docs/17-cross-platform-macos.md](17-cross-platform-macos.md) (milestones M7–M10).
 
