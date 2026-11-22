@@ -33,6 +33,10 @@ wrangler secret put TOKEN_SECRET        # long random string
 wrangler deploy
 ```
 
+### Error reporting (optional, Worker only)
+
+The Worker reports its own errors and 5% of request traces to Sentry (free plan) when the `SENTRY_DSN` secret is set; without it the SDK stays off. `sendDefaultPii` is false and `src/sentry.js` strips every event down to method + URL path: no bodies (host telemetry), headers (install token), query strings, IPs or user fields. Override with `SENTRY_ENVIRONMENT` (default `production`) and `SENTRY_TRACES_SAMPLE_RATE`. To check delivery, set `SENTRY_TEST_KEY` (24+ chars) and `curl -X POST -H "x-sentry-test: $KEY" https://<worker>/v1/_sentry-test`; without the key that path is an ordinary 404. The Vigil endpoint app itself sends no telemetry (CLAUDE.md rule 10); the self-hosted Node server has no Sentry.
+
 Build releases with `VIGIL_PROXY_URL=https://<your-worker>` to enable the "shared" option in the app.
 
 - Put the key in its own Console **workspace** with a monthly spend limit equal to the free credit you are willing to spend, so a leak cannot touch other balances. Check that your key's terms allow this use.

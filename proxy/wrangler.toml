@@ -3,8 +3,11 @@ name = "vigil-ai"
 main = "src/index.js"
 compatibility_date = "2026-01-01"
 preview_urls = false
+# @sentry/cloudflare needs AsyncLocalStorage.
+compatibility_flags = ["nodejs_compat"]
 
 # Secrets (never in this file): wrangler secret put ANTHROPIC_API_KEY ; wrangler secret put TOKEN_SECRET
+# Optional: wrangler secret put SENTRY_DSN (errors + 5% traces, no PII) ; SENTRY_TEST_KEY (24+ chars, enables POST /v1/_sentry-test)
 [vars]
 # Emergency stop: set to "1" and redeploy (or change in the dashboard) to refuse every call.
 DISABLED = "0"
